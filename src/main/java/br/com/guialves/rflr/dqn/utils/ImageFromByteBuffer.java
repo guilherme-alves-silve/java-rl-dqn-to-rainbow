@@ -1,0 +1,36 @@
+package br.com.guialves.rflr.dqn.utils;
+
+import lombok.NoArgsConstructor;
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.io.File;
+import java.nio.ByteBuffer;
+
+@NoArgsConstructor
+public class ImageFromByteBuffer {
+
+    public static BufferedImage byteBufferToImage(ByteBuffer buffer, int width, int height, boolean hasAlpha) {
+        int imageType = hasAlpha ? BufferedImage.TYPE_4BYTE_ABGR : BufferedImage.TYPE_3BYTE_BGR;
+        var image = new BufferedImage(width, height, imageType);
+        byte[] imageData = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+        buffer.get(imageData);
+        buffer.flip();
+        return image;
+    }
+
+    public static BufferedImage byteBufferToGrayscaleImage(ByteBuffer buffer, int width, int height) {
+        var image = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+        byte[] imageData = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+        buffer.get(imageData);
+        buffer.flip();
+        return image;
+    }
+
+    public static void saveImage(BufferedImage image, String filepath) throws Exception {
+        File output = new File(filepath);
+        ImageIO.write(image, "png", output);
+    }
+}
