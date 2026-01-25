@@ -2,7 +2,7 @@ package br.com.guialves.rflr.dqn.dto;
 
 import java.util.Arrays;
 
-public record EnvRenderMetadata(int[] shape, String dtype, String order) {
+public record EnvRenderMetadata(int[] shape, String dtype) {
 
     public int height() {
         return shape[0];

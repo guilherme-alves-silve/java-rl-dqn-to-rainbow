@@ -1,32 +1,36 @@
 package br.com.guialves.rflr.dqn;
 
-import ai.djl.modality.cv.ImageFactory;
 import ai.djl.ndarray.NDManager;
+import br.com.guialves.rflr.dqn.dto.EnvStatus;
 import br.com.guialves.rflr.dqn.transform.GymReader;
 import br.com.guialves.rflr.dqn.utils.EnvRenderWindow;
-import org.zeromq.SocketType;
+import br.com.guialves.rflr.dqn.utils.SocketManager;
+import lombok.SneakyThrows;
 import org.zeromq.ZContext;
 
 public class App {
+    @SneakyThrows
     static void main() {
 
         var gymReader = new GymReader();
         // TODO: Use VideoRecorder
         try (var context = new ZContext();
              var render = new EnvRenderWindow()) {
-            var socket = context.createSocket(SocketType.REP);
-            socket.bind("tcp://*:5555");
+            var socket = new SocketManager(context);
 
             while (!Thread.currentThread().isInterrupted()) {
 
                 var image = gymReader.getImage(socket);
                 render.displayImage(image);
-                socket.send("ACK");
+                Thread.sleep(1000/60);
+                EnvStatus.sampleAction(socket);
             }
         }
 
-        //try (var manager = NDManager.newBaseManager()) {
-        //    manager.create()
-        //}
+        try (var manager = NDManager.newBaseManager()) {
+            var data = manager.create(new float[][] {{1, 2}, {3, 4}, {5, 6}});
+            var indices = manager.create(new long[] {0, 2});
+            var result = data.gather(indices, 0); // Returns [[1, 2], [5, 6]]
+        }
     }
 }

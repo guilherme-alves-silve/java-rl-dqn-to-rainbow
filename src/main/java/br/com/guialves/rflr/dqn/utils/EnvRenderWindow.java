@@ -10,6 +10,7 @@ public class EnvRenderWindow implements AutoCloseable {
 
     private JFrame frame;
     private JLabel label;
+    private boolean initialized = false;
 
     public EnvRenderWindow() {
         this("Gymnasium Render");
@@ -18,18 +19,25 @@ public class EnvRenderWindow implements AutoCloseable {
     public EnvRenderWindow(String windowName) {
         this.frame = new JFrame(windowName);
         this.label = new JLabel();
+        this.frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
 
+    static int a = 1;
     public void displayImage(BufferedImage image) {
         SwingUtilities.invokeLater(() -> {
-            frame.add(label);
-            frame.setLocationRelativeTo(null);
-
-            label.setIcon(new ImageIcon(image));
-            frame.pack();
-
-            if (!frame.isVisible()) {
+            var imgIcon = new ImageIcon(image);
+            if (!initialized) {
+                frame.add(label);
+                label.setIcon(imgIcon);
+                frame.pack();
+                frame.setLocationRelativeTo(null);
                 frame.setVisible(true);
+                initialized = true;
+            } else {
+                //ImageFromByteBuffer.saveImage(image, "folder/img_" + a++ + ".jpg");
+                label.setIcon(imgIcon);
+                label.revalidate();
+                label.repaint();
             }
         });
     }
@@ -40,6 +48,7 @@ public class EnvRenderWindow implements AutoCloseable {
                 frame.dispose();
                 frame = null;
                 label = null;
+                initialized = false;
             }
         });
     }

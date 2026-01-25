@@ -1,6 +1,7 @@
 package br.com.guialves.rflr.dqn.utils;
 
 import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -17,7 +18,6 @@ public class ImageFromByteBuffer {
         var image = new BufferedImage(width, height, imageType);
         byte[] imageData = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         buffer.get(imageData);
-        buffer.flip();
         return image;
     }
 
@@ -25,11 +25,11 @@ public class ImageFromByteBuffer {
         var image = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
         byte[] imageData = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         buffer.get(imageData);
-        buffer.flip();
         return image;
     }
 
-    public static void saveImage(BufferedImage image, String filepath) throws Exception {
+    @SneakyThrows
+    public static void saveImage(BufferedImage image, String filepath) {
         File output = new File(filepath);
         ImageIO.write(image, "png", output);
     }
