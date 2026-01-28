@@ -1,9 +1,9 @@
-package br.com.guialves.rflr.dqn.transform;
+package br.com.guialves.rflr.gymnasium4j.transform;
 
 import ai.djl.util.JsonUtils;
-import br.com.guialves.rflr.dqn.dto.EnvRenderMetadata;
-import br.com.guialves.rflr.dqn.utils.ImageFromByteBuffer;
-import br.com.guialves.rflr.dqn.utils.SocketManager;
+import br.com.guialves.rflr.gymnasium4j.dto.EnvRenderMetadata;
+import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
+import br.com.guialves.rflr.gymnasium4j.utils.SocketManager;
 import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.experimental.Accessors;

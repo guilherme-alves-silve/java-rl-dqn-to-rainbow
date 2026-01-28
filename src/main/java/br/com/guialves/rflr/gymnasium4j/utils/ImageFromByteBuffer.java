@@ -1,10 +1,9 @@
-package br.com.guialves.rflr.dqn.utils;
+package br.com.guialves.rflr.gymnasium4j.utils;
 
 import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
 
 import javax.imageio.ImageIO;
-import javax.swing.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.File;

@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.dqn.utils;
+package br.com.guialves.rflr.gymnasium4j.utils;
 
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;

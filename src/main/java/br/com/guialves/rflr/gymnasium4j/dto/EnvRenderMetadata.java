@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.dqn.dto;
+package br.com.guialves.rflr.gymnasium4j.dto;
 
 import java.util.Arrays;
 

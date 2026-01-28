@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.dqn.utils;
+package br.com.guialves.rflr.gymnasium4j.utils;
 
 import lombok.SneakyThrows;
 import org.bytedeco.ffmpeg.global.avcodec;

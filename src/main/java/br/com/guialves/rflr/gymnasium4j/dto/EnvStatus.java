@@ -1,8 +1,7 @@
-package br.com.guialves.rflr.dqn.dto;
+package br.com.guialves.rflr.gymnasium4j.dto;
 
-import br.com.guialves.rflr.dqn.utils.SocketManager;
+import br.com.guialves.rflr.gymnasium4j.utils.SocketManager;
 import lombok.NoArgsConstructor;
-import org.zeromq.ZMQ;
 
 @NoArgsConstructor
 public class EnvStatus {

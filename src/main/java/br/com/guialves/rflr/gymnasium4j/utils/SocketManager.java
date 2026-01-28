@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.dqn.utils;
+package br.com.guialves.rflr.gymnasium4j.utils;
 
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
@@ -26,7 +26,7 @@ public class SocketManager {
         socket.setSendTimeOut(5000);
         socket.setReceiveTimeOut(5000);
         socket.setLinger(0);
-        socket.bind("tcp://*:5555");
+        socket.bind("tcp://127.0.0.1:5555");
         return socket;
     }
 
