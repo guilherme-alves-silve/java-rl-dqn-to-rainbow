@@ -1,6 +1,3 @@
-import zmq
-import pytest
-
 from env_proxy import EnvOperations
 
 

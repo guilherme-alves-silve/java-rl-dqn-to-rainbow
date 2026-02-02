@@ -13,20 +13,4 @@ public class EnvStatus {
     public static final String DISCRETE_ACTION = "5";
     public static final String CONTINUOUS_ACTION = "6";
     public static final String DONE = "7";
-
-    public static boolean mustReport(String result) {
-        return REPORT.equals(result);
-    }
-
-    public static void sendImgToRender(SocketManager socket) {
-        socket.send(EnvStatus.RENDER);
-    }
-
-    public static void sendMetadataOfRender(SocketManager socket) {
-        socket.send(EnvStatus.METADATA_RENDER);
-    }
-
-    public static void sampleAction(SocketManager socket) {
-        socket.send(SAMPLE_ACTION);
-    }
 }

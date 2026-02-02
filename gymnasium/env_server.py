@@ -34,7 +34,6 @@ if __name__ == "__main__":
             cmd = socket.recv_string()
             op = EnvOperations(cmd)
 
-            # ---- Space ops ----
             if op == EnvOperations.ACTION_SPACE_SAMPLE:
                 env_proxy.action_space_sample()
 
@@ -44,7 +43,6 @@ if __name__ == "__main__":
             elif op == EnvOperations.OBSERVATION_SPACE_STR:
                 env_proxy.observation_space_str()
 
-            # ---- Env lifecycle ----
             elif op == EnvOperations.RESET:
                 env_proxy.reset()
 

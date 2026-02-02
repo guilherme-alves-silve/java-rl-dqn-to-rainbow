@@ -1,5 +1,6 @@
 import zmq
 import gymnasium as gym
+
 from enum import Enum
 from utils import create_socket
 
@@ -27,30 +28,23 @@ class EnvironmentProxy:
         self.socket = socket
         self.env = gym.make(args.env_name, render_mode="rgb_array", **args.env_params)
 
-    def action_space_sample(self):
-        action = self.env.action_space.sample()
-        self.socket.send_json({ "action": action })
-
     def action_space_str(self):
         action_space_str = str(self.env.action_space)
-        self.socket.send_json({ "action_space_str": action_space_str })
+        self.socket.send_json({ "actionSpaceStr": action_space_str })
 
     def observation_space_str(self):
         observation_space_str = str(self.env.observation_space)
-        self.socket.send_json({ "observation_space": observation_space_str })
+        self.socket.send_json({ "observationSpaceStr": observation_space_str })
 
     def render(self):
         render = self.env.render()
-        if not self.sent_render_metadata:
-            metadata = {
-                'shape': render.shape,
-                'dtype': str(render.dtype)
-            }
-            print("SENDING RENDER METADATA")
-            self.socket.send_json(metadata, zmq.SNDMORE)
-            self.sent_render_metadata = True
+        self._sent_once_render_metadata(render)
         tracker = self.socket.send(render, copy=False, track=True)
         tracker.wait()
+
+    def action_space_sample(self):
+        action = self.env.action_space.sample()
+        self.socket.send_json({ "action": action })
 
     def reset(self):
         args = self.args
@@ -59,14 +53,7 @@ class EnvironmentProxy:
         self.context = zmq.Context()
         self.socket = create_socket(self.context, args.port, args.timeout)
         state, info = self.env.reset()
-        if not self.sent_state_metadata:
-            metadata = {
-                'shape': state.shape,
-                'dtype': str(state.dtype)
-            }
-            print("SENDING STATE METADATA")
-            self.socket.send_json(metadata, zmq.SNDMORE)
-            self.sent_state_metadata = True
+        self._sent_once_state_metadata(state)
         self.socket.send_json(info, zmq.SNDMORE)
         tracker = self.socket.send(state, copy=False, track=True)
         tracker.wait()
@@ -85,3 +72,23 @@ class EnvironmentProxy:
     def close(self):
         self.env.close()
         self.socket.send_json({ "close": True })
+
+    def _sent_once_render_metadata(self, render):
+        if not self.sent_render_metadata:
+            metadata = {
+                'shape': render.shape,
+                'dtype': str(render.dtype)
+            }
+            print("SENDING RENDER METADATA")
+            self.socket.send_json(metadata, zmq.SNDMORE)
+            self.sent_render_metadata = True
+
+    def _sent_once_state_metadata(self, state):
+        if not self.sent_state_metadata:
+            metadata = {
+                'shape': state.shape,
+                'dtype': str(state.dtype)
+            }
+            print("SENDING STATE METADATA")
+            self.socket.send_json(metadata, zmq.SNDMORE)
+            self.sent_state_metadata = True

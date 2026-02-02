@@ -1,5 +1,7 @@
 package br.com.guialves.rflr.gymnasium4j.utils;
 
+import ai.djl.util.JsonUtils;
+import com.google.gson.Gson;
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
@@ -8,8 +10,14 @@ import java.nio.ByteBuffer;
 
 public class SocketManager {
 
+    private static final Gson GSON = JsonUtils.GSON_COMPACT;
     private final ZContext context;
     private ZMQ.Socket serverSocket;
+
+    protected SocketManager(ZContext context, ZMQ.Socket serverSocket) {
+        this.context = context;
+        this.serverSocket = serverSocket;
+    }
 
     public SocketManager(ZContext context) {
         this.context = context;
@@ -34,11 +42,15 @@ public class SocketManager {
         return serverSocket.recvStr();
     }
 
-    public void send(String data) {
+    public void sendStr(String data) {
         serverSocket.send(data);
     }
 
     public void recvByteBuffer(ByteBuffer buffer, int flags) {
         serverSocket.recvByteBuffer(buffer, flags);
+    }
+
+    public void sendJson(Object json) {
+        serverSocket.send(GSON.toJson(json));
     }
 }

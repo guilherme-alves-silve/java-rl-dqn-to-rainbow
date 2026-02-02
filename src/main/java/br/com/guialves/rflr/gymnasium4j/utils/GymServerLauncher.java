@@ -1,7 +1,6 @@
 package br.com.guialves.rflr.gymnasium4j.utils;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class GymServerLauncher implements AutoCloseable {
@@ -48,8 +47,8 @@ public class GymServerLauncher implements AutoCloseable {
     }
 
     static void main(String[] args) {
-        try (GymServerLauncher launcher = new GymServerLauncher()) {
-            launcher.start("python/gym_server.py", 5555);
+        try (var launcher = new GymServerLauncher()) {
+            launcher.start("python/env_server.py", 5555);
 
             // Your DQN training code here
             Thread.sleep(10000);

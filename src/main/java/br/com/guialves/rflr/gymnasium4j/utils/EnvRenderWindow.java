@@ -22,7 +22,6 @@ public class EnvRenderWindow implements AutoCloseable {
         this.frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
 
-    static int a = 1;
     public void displayImage(BufferedImage image) {
         SwingUtilities.invokeLater(() -> {
             var imgIcon = new ImageIcon(image);
@@ -34,7 +33,6 @@ public class EnvRenderWindow implements AutoCloseable {
                 frame.setVisible(true);
                 initialized = true;
             } else {
-                //ImageFromByteBuffer.saveImage(image, "folder/img_" + a++ + ".jpg");
                 label.setIcon(imgIcon);
                 label.revalidate();
                 label.repaint();
