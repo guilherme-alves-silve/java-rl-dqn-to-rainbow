@@ -19,9 +19,15 @@ public enum EnvOperations {
     RESET("4"),
     STEP("5"),
     RENDER("6"),
-    CLOSE("7");
+    CLOSE("7") {
+        @Override
+        public void exec(SocketManager socket) {
+            socket.sendStr(value);
+            socket.close();
+        }
+    };
 
-    private final String value;
+    protected final String value;
 
     EnvOperations(String value) {
         this.value = value;

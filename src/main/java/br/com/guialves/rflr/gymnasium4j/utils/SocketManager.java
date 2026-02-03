@@ -8,7 +8,7 @@ import org.zeromq.ZMQ;
 
 import java.nio.ByteBuffer;
 
-public class SocketManager {
+public class SocketManager implements AutoCloseable {
 
     private static final Gson GSON = JsonUtils.GSON_COMPACT;
     private final ZContext context;
@@ -52,5 +52,10 @@ public class SocketManager {
 
     public void sendJson(Object json) {
         serverSocket.send(GSON.toJson(json));
+    }
+
+    @Override
+    public void close() {
+        serverSocket.close();
     }
 }

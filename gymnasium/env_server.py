@@ -18,16 +18,15 @@ if __name__ == "__main__":
                         help="Environment for the agent to train-on")
     parser.add_argument("--env_params", type=json.loads, default="{}",
                         help="Environment custom parameters (JSON)")
-    parser.add_argument("--env_episodes", type=int, default=1,
-                        help="Environment episodes to run")
 
     args = parser.parse_args()
+    print(f"[Python] - args: {args}")
 
     context = zmq.Context()
     socket = create_socket(context, args.port, args.timeout)
     env_proxy = EnvironmentProxy(args, context, socket)
 
-    print(f"[+] Server listening on port {args.port}")
+    print(f"[Python|+] Server listening on port {args.port}")
 
     try:
         while True:
@@ -60,9 +59,10 @@ if __name__ == "__main__":
             else:
                 socket.send_json({"error": "Unknown operation"})
 
+    except zmq.Again:
+        print(f"[Python|!] Error: Server at port {args.port} is not responding (Timeout).")
     except Exception as ex:
-        print(f"[!] Error: {ex}")
-
+        print(f"[Python|!] Error: {ex}")
     finally:
         try:
             env_proxy.close()
@@ -71,4 +71,4 @@ if __name__ == "__main__":
 
         socket.close()
         context.term()
-        print("[+] Server terminated")
+        print("[Python|+] Server terminated")

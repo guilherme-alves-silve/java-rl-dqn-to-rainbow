@@ -1,5 +1,7 @@
 package br.com.guialves.rflr.gymnasium4j.utils;
 
+import lombok.SneakyThrows;
+
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -22,7 +24,7 @@ public class EnvRenderWindow implements AutoCloseable {
         this.frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
 
-    public void displayImage(BufferedImage image) {
+    public void display(BufferedImage image) {
         SwingUtilities.invokeLater(() -> {
             var imgIcon = new ImageIcon(image);
             if (!initialized) {
@@ -54,5 +56,10 @@ public class EnvRenderWindow implements AutoCloseable {
     @Override
     public void close() {
         closeDisplay();
+    }
+
+    @SneakyThrows
+    public void waitRender() {
+        Thread.sleep(1000/60);
     }
 }

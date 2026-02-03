@@ -1,28 +1,27 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import br.com.guialves.rflr.gymnasium4j.dto.EnvStatus;
-import br.com.guialves.rflr.gymnasium4j.transform.GymReader;
+import ai.djl.Device;
+import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
-import br.com.guialves.rflr.gymnasium4j.utils.SocketManager;
-import lombok.SneakyThrows;
-import org.zeromq.ZContext;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class App {
-    @SneakyThrows
-    static void main() {
 
-        var gymReader = new GymReader();
+    static void main() {
         // TODO: Use VideoRecorder
-        try (var context = new ZContext();
-             var render = new EnvRenderWindow()) {
-            var socket = new SocketManager(context);
+        var envName = "CartPole-v1";
+        var device = Device.gpu();
+        try (var render = new EnvRenderWindow();
+             var ndManager = NDManager.newBaseManager(device);
+             var env = Gym.make(envName, ndManager)) {
+
+            log.info("action space: {}, state space: {}", env.actionSpaceSample(), env.observationSpaceStr());
 
             while (!Thread.currentThread().isInterrupted()) {
+                render.display(env.render());
 
-                var image = gymReader.getImage(socket);
-                render.displayImage(image);
-                Thread.sleep(1000/60);
-                //EnvStatus.sampleAction(socket);
+                render.waitRender();
             }
         }
     }

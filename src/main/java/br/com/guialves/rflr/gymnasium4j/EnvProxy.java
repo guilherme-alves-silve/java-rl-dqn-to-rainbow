@@ -1,16 +1,22 @@
-package br.com.guialves.rflr.gymnasium4j.utils;
+package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.util.JsonUtils;
+import ai.djl.util.Pair;
+import br.com.guialves.rflr.gymnasium4j.utils.GymPythonLauncher;
+import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
+import br.com.guialves.rflr.gymnasium4j.utils.SocketManager;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
-import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
+import org.zeromq.ZContext;
 
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
@@ -20,17 +26,19 @@ import java.util.Map;
 
 import static br.com.guialves.rflr.gymnasium4j.transform.EnvOperations.*;
 
-@Log4j2
+@Slf4j
 @Accessors(fluent = true)
 public class EnvProxy implements AutoCloseable {
 
     private static final Gson GSON = JsonUtils.GSON_COMPACT;
-    private static final Cache<String, String> CACHE_STR = Caffeine.newBuilder()
-            .maximumSize(1)
+    private final Cache<String, String> cache = Caffeine.newBuilder()
+            .maximumSize(2)
             .build();
-
+    private ZContext context;
     private SocketManager socket;
+    private GymPythonLauncher gymPythonLauncher;
     private NDManager ndManager;
+    private GymPythonLauncher launcher;
     private int flags;
 
     @Getter
@@ -40,21 +48,28 @@ public class EnvProxy implements AutoCloseable {
     private ByteBuffer imageBuffer;
     private ByteBuffer stateBuffer;
 
-
     // Used by Mock
     EnvProxy() {
 
     }
 
-    EnvProxy(SocketManager socket, NDManager ndManager) {
-        this(socket, ndManager, 0);
+    EnvProxy(ZContext context, SocketManager socket, GymPythonLauncher launcher, NDManager ndManager) {
+        this(context, socket, launcher, ndManager, 0);
     }
 
-    EnvProxy(SocketManager socket, NDManager ndManager, int flags) {
+    @SneakyThrows
+    EnvProxy(ZContext context,
+             SocketManager socket,
+             GymPythonLauncher launcher,
+             NDManager ndManager,
+             int flags) {
         if (!ndManager.isOpen()) throw new IllegalStateException("NDManager must be opened!");
+        this.context = context;
         this.socket = socket;
+        this.launcher = launcher;
         this.ndManager = ndManager.newSubManager();
         this.flags = flags;
+        launcher.start();
     }
 
     public BufferedImage render() {
@@ -97,7 +112,8 @@ public class EnvProxy implements AutoCloseable {
     }
 
     public String actionSpaceStr() {
-        return CACHE_STR.get("actionSpaceStr", _ -> {
+        return cache.get("actionSpaceStr", _ -> {
+            log.info("Getting actionSpaceStr from env...");
             ACTION_SPACE_STR.exec(socket);
             var json = socket.recvStr();
             var result = GSON.fromJson(json, ActionSpaceStr.class);
@@ -106,7 +122,8 @@ public class EnvProxy implements AutoCloseable {
     }
 
     public String observationSpaceStr() {
-        return CACHE_STR.get("observationSpaceStr", _ -> {
+        return cache.get("observationSpaceStr", _ -> {
+            log.info("Getting observationSpaceStr from env...");
             OBSERVATION_SPACE_STR.exec(socket);
             var json = socket.recvStr();
             var result = GSON.fromJson(json, ObservationSpaceStr.class);
@@ -133,23 +150,27 @@ public class EnvProxy implements AutoCloseable {
         return result;
     }
 
-    public void reset() {
+    @SuppressWarnings("unchecked")
+    public Pair<Map<String, Object>, NDArray> reset() {
         RESET.exec(socket);
+        if (stateMetadata == null) {
+            var json = socket.recvStr();
+            stateMetadata = GSON.fromJson(json, EnvStateMetadata.class);
+            stateBuffer = ByteBuffer.allocateDirect(stateMetadata.size());
+            stateBuffer.order(ByteOrder.nativeOrder());
+        }
+        Map<String, Object> info = GSON.fromJson(socket.recvStr(), Map.class);
+        fillByteBuffer(stateBuffer);
 
-        var metaJson = socket.recvStr();
-        var stateMeta = GSON.fromJson(metaJson, EnvStateMetadata.class);
-
-        // info
-        socket.recvStr();
-
-        // state buffer
-        //socket.recvByteBuffer();
-        // TODO Implementar
+        return new Pair<>(info, ndManager.create(stateBuffer, stateMetadata.djlShape()));
     }
 
     @Override
     public void close() {
         CLOSE.exec(socket);
+        ndManager.close();
+        context.close();
+        launcher.close();
     }
 
     private record Action(int action) {}
@@ -184,17 +205,20 @@ public class EnvProxy implements AutoCloseable {
         }
 
         public int channels() {
-            return shape[2];
+            return shape.length > 2 ? shape[2] : 1;
         }
 
         public int size() {
-            return Arrays.stream(shape).reduce(1, ((left, right) -> left * right));
+            return Arrays.stream(shape).reduce(1, (a, b) -> a * b) * getBytesPerElement();
+        }
+
+        private int getBytesPerElement() {
+            return dtype.contains("float") || dtype.contains("int32") ? 4 : 1;
         }
     }
 
     @Accessors(fluent = true)
     public static class EnvStateMetadata {
-
         @Getter
         private int[] shape;
         @Getter
@@ -202,11 +226,17 @@ public class EnvProxy implements AutoCloseable {
         private Shape djlShape;
 
         public Shape djlShape() {
-            if (null == djlShape) {
-                djlShape = new Shape(shape[0], shape[1]);
+            if (djlShape == null) {
+                // Converte int[] para long[] para o construtor do DJL Shape
+                long[] longShape = Arrays.stream(shape).mapToLong(i -> i).toArray();
+                djlShape = new Shape(longShape);
             }
-
             return djlShape;
+        }
+
+        public int size() {
+            int elements = Arrays.stream(shape).reduce(1, (a, b) -> a * b);
+            return elements * (dtype.contains("float") || dtype.contains("int32") ? 4 : 1);
         }
     }
 }
