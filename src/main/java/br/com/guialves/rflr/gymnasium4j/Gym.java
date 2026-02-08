@@ -11,13 +11,13 @@ import java.util.Map;
 public class Gym {
 
     public static EnvProxy make(String name, NDManager ndManager) {
-        return make(name, "env_server.py", 5555, 5000, Map.of(), ndManager);
+        return make(name, "env_server.py", 5555, 30_000, Map.of(), ndManager);
     }
 
     public static EnvProxy make(String name,
                                 Map<String, Object> params,
                                 NDManager ndManager) {
-        return make(name, "env_server.py", 5555, 5000, params, ndManager);
+        return make(name, "env_server.py", 5555, 30_000, params, ndManager);
     }
 
     @SneakyThrows

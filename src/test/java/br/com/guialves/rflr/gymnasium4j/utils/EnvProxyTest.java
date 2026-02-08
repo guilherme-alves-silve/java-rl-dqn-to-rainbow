@@ -1,31 +1,55 @@
 package br.com.guialves.rflr.gymnasium4j.utils;
 
+import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.types.DataType;
+import ai.djl.ndarray.types.Shape;
 import br.com.guialves.rflr.gymnasium4j.EnvProxy;
 import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.zeromq.ZContext;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Objects;
 
 import static br.com.guialves.rflr.gymnasium4j.transform.EnvOperations.*;
-import static org.mockito.Mockito.*;
-
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class EnvProxyTest {
 
     @Mock
+    private ZContext context;
+    @Mock
     private SocketManager socket;
+    @Mock
+    private GymPythonLauncher launcher;
+    private NDManager ndManager = Mockito.spy(NDManager.newBaseManager());
     @InjectMocks
     private EnvProxy env;
+
+    @BeforeEach
+    void setUp() {
+        env = new EnvProxyImpl(context, socket, launcher, ndManager);
+        verify(ndManager).newSubManager();
+    }
+
+    @AfterEach
+    void tearDown() {
+        ndManager.close();
+    }
 
     @Test
     public void shouldExecOpActionSpaceStr() {
@@ -69,7 +93,7 @@ class EnvProxyTest {
     public void shouldRender() {
         var metadata = new EnvProxy.EnvRenderMetadata(new int[] {400, 600, 3}, "uint8");
 
-        var uri = Objects.requireNonNull(getClass()
+        var uri = requireNonNull(getClass()
                         .getClassLoader()
                         .getResource("expected_cart_pole_img.bin"),
                             "expected_cart_pole_img.bin is null!")
@@ -152,6 +176,8 @@ class EnvProxyTest {
     void shouldCloseCorrectly() {
         env.close();
         verify(socket).sendStr(CLOSE.value());
+        verify(context).close();
+        verify(launcher).close();
     }
 
     private void assertImgEquals(BufferedImage expected, BufferedImage actual) {
@@ -161,5 +187,12 @@ class EnvProxyTest {
         var expectedByteArray = ((DataBufferByte) expected.getRaster().getDataBuffer()).getData();
         var actualByteArray = ((DataBufferByte) actual.getRaster().getDataBuffer()).getData();
         assertArrayEquals(expectedByteArray, actualByteArray);
+    }
+
+    private static class EnvProxyImpl extends EnvProxy {
+
+        public EnvProxyImpl(ZContext context, SocketManager socket, GymPythonLauncher launcher, NDManager ndManager) {
+            super(context, socket, launcher, ndManager);
+        }
     }
 }

@@ -2,12 +2,14 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.util.JsonUtils;
 import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.utils.GymPythonLauncher;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
 import br.com.guialves.rflr.gymnasium4j.utils.SocketManager;
+import br.com.guialves.rflr.gymnasium4j.utils.Numpy2DJLTypeMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.Gson;
@@ -25,6 +27,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import static br.com.guialves.rflr.gymnasium4j.transform.EnvOperations.*;
+import static br.com.guialves.rflr.gymnasium4j.utils.Numpy2DJLTypeMapper.numpyToDjl;
 
 @Slf4j
 @Accessors(fluent = true)
@@ -36,7 +39,6 @@ public class EnvProxy implements AutoCloseable {
             .build();
     private ZContext context;
     private SocketManager socket;
-    private GymPythonLauncher gymPythonLauncher;
     private NDManager ndManager;
     private GymPythonLauncher launcher;
     private int flags;
@@ -53,7 +55,7 @@ public class EnvProxy implements AutoCloseable {
 
     }
 
-    EnvProxy(ZContext context, SocketManager socket, GymPythonLauncher launcher, NDManager ndManager) {
+    protected EnvProxy(ZContext context, SocketManager socket, GymPythonLauncher launcher, NDManager ndManager) {
         this(context, socket, launcher, ndManager, 0);
     }
 
@@ -78,6 +80,7 @@ public class EnvProxy implements AutoCloseable {
         if (renderMetadata == null) {
             var json = socket.recvStr();
             renderMetadata = GSON.fromJson(json, EnvRenderMetadata.class);
+            renderMetadata.init();
             prepareImageBuffer();
         }
 
@@ -139,6 +142,8 @@ public class EnvProxy implements AutoCloseable {
     }
 
     public EnvStepResult step(int action) {
+        if (null == stateBuffer) throw new IllegalStateException("You should call reset() first!");
+
         STEP.exec(socket);
         socket.sendJson(action);
 
@@ -146,8 +151,8 @@ public class EnvProxy implements AutoCloseable {
         var result = GSON.fromJson(json, EnvStepResult.class);
 
         fillByteBuffer(stateBuffer);
-        result.state = ndManager.create(stateBuffer, stateMetadata.djlShape());
-        return result;
+        var state = ndManager.create(stateBuffer, stateMetadata.djlShape(), stateMetadata.djlType);
+        return result.state(state);
     }
 
     @SuppressWarnings("unchecked")
@@ -156,13 +161,15 @@ public class EnvProxy implements AutoCloseable {
         if (stateMetadata == null) {
             var json = socket.recvStr();
             stateMetadata = GSON.fromJson(json, EnvStateMetadata.class);
-            stateBuffer = ByteBuffer.allocateDirect(stateMetadata.size());
+            stateMetadata.init();
+            stateBuffer = ByteBuffer.allocate(stateMetadata.size());
             stateBuffer.order(ByteOrder.nativeOrder());
         }
         Map<String, Object> info = GSON.fromJson(socket.recvStr(), Map.class);
         fillByteBuffer(stateBuffer);
 
-        return new Pair<>(info, ndManager.create(stateBuffer, stateMetadata.djlShape()));
+        var state = ndManager.create(stateBuffer, stateMetadata.djlShape(), stateMetadata.djlType);
+        return new Pair<>(info, state);
     }
 
     @Override
@@ -179,22 +186,12 @@ public class EnvProxy implements AutoCloseable {
 
     private record ObservationSpaceStr(String observationSpaceStr) {}
 
-    @Getter
     @Accessors(fluent = true)
-    @RequiredArgsConstructor
-    public static class EnvStepResult {
-        private final double reward;
-        private final boolean term;
-        private final boolean trunc;
-        private final Map<String, Object> info;
-        private NDArray state;
+    public static class EnvRenderMetadata extends NumpyAdapter {
 
-        public boolean done() {
-            return term || trunc;
+        public EnvRenderMetadata(int[] shape, String dtype) {
+            super(shape, dtype);
         }
-    }
-
-    public record EnvRenderMetadata(int[] shape, String dtype) {
 
         public int height() {
             return shape[0];
@@ -207,36 +204,55 @@ public class EnvProxy implements AutoCloseable {
         public int channels() {
             return shape.length > 2 ? shape[2] : 1;
         }
-
-        public int size() {
-            return Arrays.stream(shape).reduce(1, (a, b) -> a * b) * getBytesPerElement();
-        }
-
-        private int getBytesPerElement() {
-            return dtype.contains("float") || dtype.contains("int32") ? 4 : 1;
-        }
     }
 
     @Accessors(fluent = true)
-    public static class EnvStateMetadata {
-        @Getter
-        private int[] shape;
-        @Getter
-        private String dtype;
+    public static class EnvStateMetadata extends NumpyAdapter {
+
         private Shape djlShape;
+        private DataType djlType;
 
         public Shape djlShape() {
-            if (djlShape == null) {
-                // Converte int[] para long[] para o construtor do DJL Shape
-                long[] longShape = Arrays.stream(shape).mapToLong(i -> i).toArray();
-                djlShape = new Shape(longShape);
-            }
             return djlShape;
         }
 
         public int size() {
-            int elements = Arrays.stream(shape).reduce(1, (a, b) -> a * b);
-            return elements * (dtype.contains("float") || dtype.contains("int32") ? 4 : 1);
+            return size;
+        }
+
+        @Override
+        void init() {
+            super.init();
+            long[] longShape = Arrays.stream(shape).mapToLong(i -> i).toArray();
+            this.djlShape = new Shape(longShape);
+            this.djlType = numpyToDjl(dtype);
+        }
+    }
+
+    private static class NumpyAdapter {
+
+        // used by the Gson
+        protected int[] shape;
+        @Getter
+        protected String dtype;
+        @Getter
+        protected int bytesPerElement;
+        @Getter
+        protected int size;
+
+        NumpyAdapter() {
+
+        }
+
+        NumpyAdapter(int[] shape, String dtype) {
+            this.shape = shape;
+            this.dtype = dtype;
+        }
+
+        void init() {
+            int elements = Arrays.stream(shape).reduce(1, Math::multiplyExact);
+            this.bytesPerElement = Numpy2DJLTypeMapper.bytesPerElement(dtype);
+            this.size = Math.multiplyExact(elements, bytesPerElement);
         }
     }
 }

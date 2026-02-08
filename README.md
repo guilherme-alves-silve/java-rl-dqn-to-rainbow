@@ -9,6 +9,16 @@
 - [zeromq](https://zeromq.org/)
   - For zero copy between environments
 
+# Build the gymnasium environment adapted to Java
+
+`docker build -t gymnasium4j -f Dockerfile .`
+
+## Optimization
+
+TODO: Use allocateDirect with ByteBuffer to optimize performance, and manage 
+lifecycle together with DJL to reduce as much as possible memory copy, using ObjectPool of DirectByteBuffer.
+
+## Extras
 
 Project generated with maven archtype:
 

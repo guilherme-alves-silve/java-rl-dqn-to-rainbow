@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=5555,
                         help="Port to bind the ZeroMQ REP socket (default: 5555)")
     parser.add_argument("--timeout", type=int, default=5000,
-                        help="Timeout of the server in milliseconds (default: 5000)")
+                        help="Timeout of the server in milliseconds (default: 30000)")
     parser.add_argument("--env_name", type=str, default="CartPole-v1",
                         help="Environment for the agent to train-on")
     parser.add_argument("--env_params", type=json.loads, default="{}",
@@ -29,6 +29,7 @@ if __name__ == "__main__":
     print(f"[Python|+] Server listening on port {args.port}")
 
     try:
+        socket.send_string("START")
         while True:
             cmd = socket.recv_string()
             op = EnvOperations(cmd)

@@ -2,12 +2,14 @@ package br.com.guialves.rflr.gymnasium4j.utils;
 
 import ai.djl.util.JsonUtils;
 import com.google.gson.Gson;
+import lombok.extern.slf4j.Slf4j;
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
 import java.nio.ByteBuffer;
 
+@Slf4j
 public class SocketManager implements AutoCloseable {
 
     private static final Gson GSON = JsonUtils.GSON_COMPACT;
@@ -35,6 +37,7 @@ public class SocketManager implements AutoCloseable {
         socket.setReceiveTimeOut(5000);
         socket.setLinger(0);
         socket.bind("tcp://127.0.0.1:5555");
+        log.info("Result from client: {}", socket.recvStr());
         return socket;
     }
 

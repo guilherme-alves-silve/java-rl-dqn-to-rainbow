@@ -72,14 +72,14 @@ def test_action_space_str(env_proxy, mock_socket):
     env_proxy.action_space_str()
 
     payload = mock_socket.send_json.call_args[0][0]
-    assert payload["action_space_str"] == "Discrete(2)"
+    assert payload["actionSpaceStr"] == "Discrete(2)"
 
 
 def test_observation_space_str(env_proxy, mock_socket):
     env_proxy.observation_space_str()
 
     payload = mock_socket.send_json.call_args[0][0]
-    assert payload["observation_space"] == "Box(4,)"
+    assert payload["observationSpaceStr"] == "Box(4,)"
 
 
 def test_render_sends_metadata_once(env_proxy, mock_socket):

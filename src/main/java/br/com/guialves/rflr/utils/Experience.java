@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.gymnasium4j.dto;
+package br.com.guialves.rflr.utils;
 
 import ai.djl.ndarray.NDArray;
 
