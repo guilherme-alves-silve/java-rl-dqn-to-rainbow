@@ -13,6 +13,7 @@ import br.com.guialves.rflr.gymnasium4j.utils.Numpy2DJLTypeMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.Gson;
+import io.vavr.control.Try;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -71,7 +72,6 @@ public class EnvProxy implements AutoCloseable {
         this.launcher = launcher;
         this.ndManager = ndManager.newSubManager();
         this.flags = flags;
-        launcher.start();
     }
 
     public BufferedImage render() {
@@ -175,9 +175,10 @@ public class EnvProxy implements AutoCloseable {
     @Override
     public void close() {
         CLOSE.exec(socket);
-        ndManager.close();
-        context.close();
-        launcher.close();
+        Try.run(ndManager::close).onFailure(ex -> log.error("Error on ndManager.close(): {0}", ex));
+        Try.run(socket::close).onFailure(ex -> log.error("Error on socket.close(): {0}", ex));
+        Try.run(context::close).onFailure(ex -> log.error("Error on context.close(): {0}", ex));
+        Try.run(launcher::close).onFailure(ex -> log.error("Error on launcher.close(): {0}", ex));
     }
 
     private record Action(int action) {}

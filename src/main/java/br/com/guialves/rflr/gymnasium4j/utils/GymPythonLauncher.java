@@ -25,6 +25,7 @@ public class GymPythonLauncher implements AutoCloseable {
     private final String scriptPath;
     private final int port;
     private final int timeout;
+    private final boolean debug;
     private final String envName;
     private final Map<String, Object> envParams;
     private Process serverProcess;
@@ -32,11 +33,13 @@ public class GymPythonLauncher implements AutoCloseable {
     public GymPythonLauncher(String scriptPath,
                              int port,
                              int timeout,
+                             boolean debug,
                              String envName,
                              Map<String, Object> envParams) {
         this.scriptPath = scriptPath;
         this.port = port;
         this.timeout = timeout;
+        this.debug = debug;
         this.envName = envName;
         this.envParams = envParams;
         boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
@@ -46,7 +49,7 @@ public class GymPythonLauncher implements AutoCloseable {
                 : Paths.get(projectRoot, ".venv", "bin", "python").toString();
     }
 
-    public void setupEnvironment() throws IOException, InterruptedException {
+    public void setupEnvironment() {
         log.info("Checking Python environment setup...");
 
         String versionOutput = runCommand(List.of("python", "--version"));
@@ -115,6 +118,8 @@ public class GymPythonLauncher implements AutoCloseable {
         cmd.add(String.valueOf(port));
         cmd.add("--timeout");
         cmd.add(String.valueOf(timeout));
+        cmd.add("--debug");
+        cmd.add(String.valueOf(debug));
         cmd.add("--env_name");
         cmd.add(envName);
 
@@ -145,6 +150,7 @@ public class GymPythonLauncher implements AutoCloseable {
             if (serverProcess != null && serverProcess.isAlive()) {
                 serverProcess.destroy();
                 serverProcess.waitFor(1, TimeUnit.SECONDS);
+                serverProcess.destroyForcibly();
             }
         } catch (InterruptedException ex) {
             if (serverProcess != null) serverProcess.destroyForcibly();
@@ -156,6 +162,7 @@ public class GymPythonLauncher implements AutoCloseable {
                 "env_server.py",
                 5555,
                 5000,
+                true,
                 "CartPole-v1",
                 Map.of()
         )) {

@@ -2,7 +2,7 @@ import zmq
 
 
 def create_socket(context, port: int, timeout: int):
-    socket = context.socket(zmq.REQ)
+    socket = context.socket(zmq.REP)
     socket.connect(f"tcp://127.0.0.1:{port}")
     socket.setsockopt(zmq.RCVTIMEO, timeout)
     socket.setsockopt(zmq.SNDTIMEO, timeout)

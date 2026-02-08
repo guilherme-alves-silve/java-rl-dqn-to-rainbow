@@ -14,51 +14,45 @@ public class SocketManager implements AutoCloseable {
 
     private static final Gson GSON = JsonUtils.GSON_COMPACT;
     private final ZContext context;
-    private ZMQ.Socket serverSocket;
+    private final ZMQ.Socket socket;
 
-    protected SocketManager(ZContext context, ZMQ.Socket serverSocket) {
+    SocketManager(ZContext context, ZMQ.Socket socket) {
         this.context = context;
-        this.serverSocket = serverSocket;
+        this.socket = socket;
     }
 
     public SocketManager(ZContext context) {
         this.context = context;
-        this.serverSocket = newServerSocket();
-    }
-
-    public void reset() {
-        this.serverSocket.close();
-        this.serverSocket = newServerSocket();
+        this.socket = newServerSocket();
     }
 
     private ZMQ.Socket newServerSocket() {
-        var socket = context.createSocket(SocketType.REP);
-        socket.setSendTimeOut(5000);
-        socket.setReceiveTimeOut(5000);
+        var socket = context.createSocket(SocketType.REQ);
+        socket.setSendTimeOut(Integer.parseInt(System.getProperty("zmq.send.timeout", "5000")));
+        socket.setReceiveTimeOut(Integer.parseInt(System.getProperty("zmq.receive.timeout", "5000")));
         socket.setLinger(0);
         socket.bind("tcp://127.0.0.1:5555");
-        log.info("Result from client: {}", socket.recvStr());
         return socket;
     }
 
     public String recvStr() {
-        return serverSocket.recvStr();
+        return socket.recvStr();
     }
 
     public void sendStr(String data) {
-        serverSocket.send(data);
+        socket.send(data);
     }
 
     public void recvByteBuffer(ByteBuffer buffer, int flags) {
-        serverSocket.recvByteBuffer(buffer, flags);
+        socket.recvByteBuffer(buffer, flags);
     }
 
     public void sendJson(Object json) {
-        serverSocket.send(GSON.toJson(json));
+        socket.send(GSON.toJson(json));
     }
 
     @Override
     public void close() {
-        serverSocket.close();
+        socket.close();
     }
 }
