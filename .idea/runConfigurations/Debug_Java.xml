@@ -1,0 +1,24 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false"
+                   name="[Java] Debug"
+                   type="Application"
+                   factoryName="Application">
+
+        <module name="java-rl-dqn-to-rainbow" />
+
+        <option name="MAIN_CLASS_NAME"
+                value="br.com.guialves.rflr.gymnasium4j.utils.GymPythonLauncher" />
+
+        <option name="WORKING_DIRECTORY"
+                value="$PROJECT_DIR$" />
+
+        <!-- JDWP habilitado, RUNNABLE -->
+        <option name="VM_PARAMETERS"
+                value="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005" />
+
+        <method v="2">
+            <option name="Make" enabled="true" />
+        </method>
+
+    </configuration>
+</component>

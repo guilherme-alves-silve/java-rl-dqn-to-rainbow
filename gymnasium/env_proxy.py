@@ -1,8 +1,8 @@
 import zmq
+import time
 import gymnasium as gym
 
 from enum import Enum
-from utils import create_socket
 
 
 class EnvOperations(Enum):
@@ -39,24 +39,19 @@ class EnvironmentProxy:
     def render(self):
         render = self.env.render()
         self._sent_once_render_metadata(render)
-        tracker = self.socket.send(render, copy=False, track=True)
-        tracker.wait()
+        self._send_and_wait(render)
 
     def action_space_sample(self):
         action = self.env.action_space.sample()
         self.socket.send_json({ "action": action })
 
     def reset(self):
-        args = self.args
         self.sent_render_metadata = False
         self.sent_state_metadata = False
-        self.context = zmq.Context()
-        self.socket = create_socket(self.context, args.port, args.timeout)
         state, info = self.env.reset()
         self._sent_once_state_metadata(state)
         self.socket.send_json(info, zmq.SNDMORE)
-        tracker = self.socket.send(state, copy=False, track=True)
-        tracker.wait()
+        self._send_and_wait(state)
 
     def step(self, action):
         next_state, reward, term, trunc, info = self.env.step(action)
@@ -66,8 +61,7 @@ class EnvironmentProxy:
             "trunc": trunc,
             "info": info
         }, zmq.SNDMORE)
-        tracker = self.socket.send(next_state, copy=False, track=True)
-        tracker.wait()
+        self._send_and_wait(next_state)
 
     def close(self):
         self.env.close()
@@ -92,3 +86,7 @@ class EnvironmentProxy:
             print("SENDING STATE METADATA")
             self.socket.send_json(metadata, zmq.SNDMORE)
             self.sent_state_metadata = True
+
+    def _send_and_wait(self, data):
+        tracker = self.socket.send(data, copy=False, track=True)
+        tracker.wait()

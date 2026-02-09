@@ -5,7 +5,7 @@ import argparse
 import debugpy
 
 from env_proxy import EnvironmentProxy, EnvOperations
-from utils import create_socket
+from utils import create_socket, str2bool
 
 
 if __name__ == "__main__":
@@ -15,8 +15,8 @@ if __name__ == "__main__":
                         help="Port to bind the ZeroMQ REP socket (default: 5555)")
     parser.add_argument("--timeout", type=int, default=5000,
                         help="Timeout of the server in milliseconds (default: 30000)")
-    parser.add_argument("--debug", type=bool, default=False,
-                        help="Debug Python's server (default: False)")
+    parser.add_argument("--debug", type=str2bool, default=False, nargs="?", const=True,
+                        help="Enable debug mode (true/false, default: false)")
     parser.add_argument("--env_name", type=str, default="CartPole-v1",
                         help="Environment for the agent to train-on")
     parser.add_argument("--env_params", type=json.loads, default="{}",
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     print(f"[Python] - args: {args}")
 
     if args.debug:
-        debugpy.listen(("0.0.0.0", 5678))
+        debugpy.listen(("0.0.0.0", 9678))
         print("[Python|+] Waiting for debugger...")
         debugpy.wait_for_client()
 
@@ -65,13 +65,11 @@ if __name__ == "__main__":
                     break
                 else:
                     socket.send_json({"error": "Unknown operation"})
+            except zmq.Again:
+                print(f"[Python|!] Error: Server at port {args.port} is not responding (Timeout).")
+                continue
             except Exception as ex:
-                print(f"[Python|!] Error: {ex}")
-                print(f"Recreating socket on Python's server!")
-                socket.close()
-                socket = create_socket(context, args.port, args.timeout)
-    except zmq.Again:
-        print(f"[Python|!] Error: Server at port {args.port} is not responding (Timeout).")
+                print(f"[Python|!] Error inside loop: {ex}")
     except Exception as ex:
         print(f"[Python|!] Error: {ex}")
     finally:

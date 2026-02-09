@@ -9,7 +9,7 @@ def test_create_socket_sets_options(mocker):
 
     result = create_socket(context, 5555, 1000)
 
-    context.socket.assert_called_once_with(zmq.REQ)
+    context.socket.assert_called_once_with(zmq.REP)
     socket.connect.assert_called_once_with("tcp://127.0.0.1:5555")
 
     socket.setsockopt.assert_any_call(zmq.RCVTIMEO, 1000)

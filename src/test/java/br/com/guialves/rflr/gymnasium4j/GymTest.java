@@ -1,13 +1,14 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import ai.djl.Device;
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@Slf4j
 class GymTest {
 
     @Test
@@ -18,11 +19,19 @@ class GymTest {
              var env = Gym.make(envName, ndManager)) {
 
             //log.info("action space: {}, state space: {}", env.actionSpaceSample(), env.observationSpaceStr());
-
-            while (!Thread.currentThread().isInterrupted()) {
-                render.display(env.render());
-
+            env.reset();
+            for (int frame = 1; frame <= 500; ++frame) {
+                var img = env.render();
+                assertEquals(400, img.getHeight());
+                assertEquals(600, img.getWidth());
+                render.display(img);
                 render.waitRender();
+                int action = env.actionSpaceSample();
+                var result = env.step(action);
+
+                if (result.done()) {
+
+                }
             }
         }
     }

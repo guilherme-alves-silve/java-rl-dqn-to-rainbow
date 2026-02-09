@@ -15,7 +15,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.Gson;
 import io.vavr.control.Try;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +74,7 @@ public class EnvProxy implements AutoCloseable {
     }
 
     public BufferedImage render() {
+        if (null == stateBuffer) throw new IllegalStateException("You should call reset() first!");
         RENDER.exec(socket);
 
         if (renderMetadata == null) {

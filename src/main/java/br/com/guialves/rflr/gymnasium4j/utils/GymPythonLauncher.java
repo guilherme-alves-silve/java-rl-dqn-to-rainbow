@@ -169,6 +169,7 @@ public class GymPythonLauncher implements AutoCloseable {
             launcher.setupEnvironment();
             launcher.start();
             log.info("[+] Python Gymnasium server started via Java...");
+
             // Keep alive for testing
             Thread.sleep(15000);
         } catch (Exception e) {

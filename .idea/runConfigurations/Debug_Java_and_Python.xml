@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false"
+                   name="Debug Java &amp; Python"
+                   type="CompoundRunConfigurationType">
+
+        <toRun name="[Java] Debug" type="Application" />
+        <toRun name="[Python] Debug" type="PythonConfigurationType" />
+
+        <method v="2" />
+    </configuration>
+</component>

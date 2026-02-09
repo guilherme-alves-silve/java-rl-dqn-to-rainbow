@@ -99,13 +99,11 @@ def test_render_sends_metadata_once(env_proxy, mock_socket):
 
 
 def test_reset_recreates_socket_and_sends_state(env_proxy, mocker):
-    mock_create_socket = mocker.patch("env_proxy.create_socket")
 
     env_proxy.reset()
 
-    mock_create_socket.assert_called_once()
+    assert env_proxy.sent_render_metadata is False
     assert env_proxy.sent_state_metadata is True
-
     assert env_proxy.socket.send_json.call_count >= 2
     assert env_proxy.socket.send.called
 
