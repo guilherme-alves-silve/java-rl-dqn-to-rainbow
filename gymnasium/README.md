@@ -9,21 +9,7 @@ uv pip install -r requirements.txt
 
 The used environment is the [CartPole](https://gymnasium.farama.org/environments/classic_control/cart_pole/)
 
-Pseudo code of env_proxy executor
+Configure the environment varibles. Example:
 
-inside env_proxy.render(), env_proxy.sample_action() etc, the python env is
-executed, and inside this method the env_proxy send the result to the Java server.
-
-while True:
-
-    command = receive_command()
-    switch (command):
-        case "1" # RENDER
-            env_proxy.render()
-        case "2" # SAMPLE ACTION
-            env_proxy.sample_action() # inside this you sample the action and return the result,
-            # we can create a sample_action_in_step to sample_action and then invoke the env.step and return the result
-            # to the Java Server
-        case "3" # STEP
-            env_proxy.step()
-        ...
+`export JAVA_RL_SITE_PACKAGES=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/include/site/python3.12`
+`export JAVA_RL_INCLUDE=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/Lib/site-packages`
