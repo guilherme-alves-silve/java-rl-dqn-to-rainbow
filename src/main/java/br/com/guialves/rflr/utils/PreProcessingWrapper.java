@@ -113,7 +113,7 @@ public class PreProcessingWrapper {
         return new Pair<>(state, totalReward);
     }
 
-    public Pair<NDArray, Map<String, Object>> reset() {
+    public Pair<NDArray, Map<Object, Object>> reset() {
         var resetResult = env.reset();
         var state = resetResult.getValue();
         var info = resetResult.getKey();

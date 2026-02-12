@@ -1,21 +1,22 @@
 package br.com.guialves.rflr.python;
 
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
-import org.bytedeco.cpython.Py_buffer;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 
 import static org.bytedeco.cpython.global.python.*;
 
+@Slf4j
 public final class PythonRuntime {
 
     public static final String JAVA_RL_SITE_PACKAGES = "JAVA_RL_SITE_PACKAGES";
     public static final String JAVA_RL_INCLUDE = "JAVA_RL_INCLUDE";
+    private static final boolean DEBUG = true;
     private static boolean initialized = false;
     private static PyObject globals;
 
@@ -42,8 +43,12 @@ public final class PythonRuntime {
     }
 
     @SneakyThrows
-    public static synchronized void init() {
+    public static synchronized void initPython() {
         if (initialized) return;
+        if (Boolean.getBoolean("python.initialized")) {
+            initialized = true;
+            return;
+        };
 
         System.setProperty("org.bytedeco.openblas.load", "mkl");
 
@@ -53,6 +58,8 @@ public final class PythonRuntime {
         if (!initialized) {
             throw new IllegalArgumentException("PythonRuntime is not initialized!");
         }
+
+        System.setProperty("python.initialized", "true");
     }
 
     public static synchronized void finalizePython() {
@@ -64,6 +71,7 @@ public final class PythonRuntime {
     }
 
     public static void exec(String code) {
+        PyErr_Clear();
         try (var _ = PyRun_StringFlags(
                 code,
                 Py_file_input,
@@ -72,6 +80,21 @@ public final class PythonRuntime {
                 null
         )) {
             checkError();
+        }
+    }
+
+    public static void execIsolated(String code) {
+        PyErr_Clear();
+        var locals = PyDict_New();
+        try (var _ = PyRun_StringFlags(code, Py_file_input, globals, locals, null)) {
+            checkError();
+
+            if (DEBUG) {
+                printDict(locals, "local variable dict");
+                printDict(globals, "global variable dict");
+            }
+        } finally {
+            Py_DECREF(locals);
         }
     }
 
@@ -88,30 +111,6 @@ public final class PythonRuntime {
         }
     }
 
-    public static void fillFromNumpy(PyObject ndarray, ByteBuffer buffer) {
-        buffer.clear();
-        var view = new Py_buffer();
-        try {
-            int rc = PyObject_GetBuffer(ndarray, view, PyBUF_SIMPLE);
-            if (rc != 0) {
-                throw new IllegalStateException("PyObject_GetBuffer failed (array not contiguous?)");
-            }
-
-            long size = view.len();
-            if (size > buffer.capacity()) {
-                throw new IllegalArgumentException(
-                        "Buffer too small: capacity=" + buffer.capacity() + ", required=" + size
-                );
-            }
-            var src = view.buf().capacity(size).asByteBuffer();
-            buffer.put(src);
-        } finally {
-            PyBuffer_Release(view);
-        }
-
-        buffer.flip();
-    }
-
     public static int[] pyIntArrayToJava(PyObject obj) {
         try (var pyStr = PyObject_Str(obj)) {
             var repr = PythonRuntime.str(pyStr);
@@ -119,16 +118,16 @@ public final class PythonRuntime {
         }
     }
 
-    public static Map<String, Object> pyDictToJava(PyObject obj) {
+    @SuppressWarnings("unchecked")
+    public static <K, V> Map<K, V> pyDictToJava(PyObject obj) {
         try (var pyStr = PyObject_Str(obj)) {
             var repr = PythonRuntime.str(pyStr);
-            return PythonDictConverter.parsePythonDictRepr(repr);
+            return (Map<K, V>) PythonDictConverter.parsePythonDictRepr(repr);
         }
     }
 
-
     public static String str(PyObject obj) {
-        if (obj == null || Py_IsNone(obj) == 1) {
+        if (null == obj || Py_IsNone(obj) == 1) {
             return null;
         }
 
@@ -185,17 +184,23 @@ public final class PythonRuntime {
         return PyTuple_GetItem(obj, pos);
     }
 
-    public static PyObject callMethod(
-            PyObject obj,
-            String method,
-            PyObject... args
-    ) {
-        try (var fn = PyObject_GetAttrString(obj, method)) {
-            if (fn == null) {
-                throw new IllegalStateException("Method not found: " + method);
-            }
-            return callFunction(fn, args);
+    public static PyObject callMethod(PyObject obj, String method, PyObject... args) {
+        var fn = PyObject_GetAttrString(obj, method);
+        if (fn == null) {
+            PyErr_Print();
+            throw new IllegalStateException("Method not found: " + method);
         }
+
+        var result = callFunction(fn, args);
+        Py_DECREF(fn);
+        return result;
+    }
+
+    public static PyObject callFunction(PyObject fn, PyObject... args) {
+        var tuple = newArgs(args);
+        var result = PyObject_CallObject(fn, tuple);
+        Py_DECREF(tuple);
+        return result;
     }
 
     public static PyObject newArgs(PyObject... args) {
@@ -204,15 +209,6 @@ public final class PythonRuntime {
             PyTuple_SetItem(tuple, i, args[i]);
         }
         return tuple;
-    }
-
-    public static PyObject callFunction(
-            PyObject fn,
-            PyObject... args
-    ) {
-        try (var tuple = newArgs(args)) {
-            return PyObject_CallObject(fn, tuple);
-        }
     }
 
     public static PyObject pyLong(long v) {
@@ -231,11 +227,37 @@ public final class PythonRuntime {
         return PyUnicode_FromString(s);
     }
 
+    public static void refInc(PyObject obj) {
+        Py_INCREF(obj);
+    }
+
+    public static void refDec(PyObject obj) {
+        Py_DECREF(obj);
+    }
+
     private static void checkError() {
         try (var err = PyErr_Occurred()) {
             if (err != null) {
                 PyErr_Print();
                 throw new RuntimeException("Python error occurred");
+            }
+        }
+    }
+
+    private static void printDict(PyObject dict, String msg) {
+        log.info(msg);
+        try (var items = PyDict_Items(dict)) {
+            long size = PyList_Size(items);
+
+            for (int i = 0; i < size; i++) {
+                try (var item = PyList_GetItem(items, i);
+                     var key = PyTuple_GetItem(item, 0);
+                     var value = PyTuple_GetItem(item, 1)) {
+
+                    String keyStr = str(key);
+                    String valueStr = str(value);
+                    System.out.println("  " + keyStr + " = " + valueStr);
+                }
             }
         }
     }

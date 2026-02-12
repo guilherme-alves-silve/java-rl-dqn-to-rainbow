@@ -1,6 +1,6 @@
 package br.com.guialves.rflr.python;
 
-import org.bytedeco.cpython.PyObject;
+import org.jspecify.annotations.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,8 +11,8 @@ class PythonDictConverter {
         throw new IllegalArgumentException("No PythonDictConverter!");
     }
 
-    static Map<String, Object> parsePythonDictRepr(String repr) {
-        var map = new HashMap<String, Object>();
+    static Map<Object, Object> parsePythonDictRepr(String repr) {
+        var map = new HashMap<>();
 
         // remove { }
         String body = repr.trim();
@@ -29,16 +29,35 @@ class PythonDictConverter {
             String[] kv = entry.split(":", 2);
             if (kv.length != 2) continue;
 
-            String key = kv[0].trim();
-            String value = kv[1].trim();
+            String keyStr = kv[0].trim();
+            String valueStr = kv[1].trim();
 
-            // key: 'abc'
-            key = key.replaceAll("^['\"]|['\"]$", "");
+            // Parse key (supports strings, numbers, None, True, False)
+            Object key = parsePythonKey(keyStr);
+            if (key == null) continue; // Skip if key parsing fails
 
-            map.put(key, parsePythonValue(value));
+            map.put(key, parsePythonValue(valueStr));
         }
 
         return map;
+    }
+
+    private static Object parsePythonKey(String key) {
+        // Check for None
+        if ("None".equals(key)) {
+            return null;
+        }
+
+        // Check for booleans
+        if ("True".equals(key)) {
+            return Boolean.TRUE;
+        }
+        if ("False".equals(key)) {
+            return Boolean.FALSE;
+        }
+
+        // Check for string keys (quoted)
+        return getObject(key);
     }
 
     private static Object parsePythonValue(String value) {
@@ -54,6 +73,11 @@ class PythonDictConverter {
             }
         }
 
+        return getObject(value);
+    }
+
+    @NonNull
+    private static Object getObject(String value) {
         if ((value.startsWith("'") && value.endsWith("'")) ||
                 (value.startsWith("\"") && value.endsWith("\""))) {
             return value.substring(1, value.length() - 1);

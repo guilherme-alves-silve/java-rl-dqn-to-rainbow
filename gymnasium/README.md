@@ -2,7 +2,8 @@
 
 ```
 pip install uv
-uv venv --python 3.12
+uv python install cpython-3.12.1-windows-x86_64-none
+uv venv --python 3.12.1
 .venv/Scripts/activate
 uv pip install -r requirements.txt 
 ```

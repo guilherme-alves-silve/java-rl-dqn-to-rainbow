@@ -12,7 +12,6 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
-import org.bytedeco.cpython.Py_buffer;
 
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
@@ -22,6 +21,7 @@ import java.util.Map;
 
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.PythonRuntime.eval;
+import static br.com.guialves.rflr.python.numpy.NumpyByteBuffer.fillFromNumpy;
 import static org.bytedeco.cpython.global.python.*;
 
 @Slf4j
@@ -38,7 +38,7 @@ public final class Env implements AutoCloseable {
     private ByteBuffer imageBuffer;
 
     public Env(String envId, NDManager manager) {
-        init();
+        initPython();
         this.ndManager = manager.newSubManager();
 
         exec("""
@@ -70,7 +70,7 @@ public final class Env implements AutoCloseable {
         }
     }
 
-    public Pair<Map<String, Object>, NDArray> reset() {
+    public Pair<Map<Object, Object>, NDArray> reset() {
         try (var pyReset = callMethod(env, "reset");
              var pyState = getItem(pyReset, 0);
              var pyInfo = getItem(pyReset, 1)) {
@@ -100,29 +100,55 @@ public final class Env implements AutoCloseable {
             throw new IllegalStateException("You should call reset() first!");
         }
 
-        try (var pyAction = pyLong(action);
-             var pyStep = callMethod(env, "step", pyAction);
-             var pyState = getItem(pyStep, 0);
-             var pyReward = getItem(pyStep, 1);
-             var pyTerminated = getItem(pyStep, 2);
-             var pyTruncated = getItem(pyStep, 3);
-             var pyInfoMap = getItem(pyStep, 4)) {
-
-            double reward = toDouble(pyReward);
-            boolean terminated = toBool(pyTerminated);
-            boolean truncated  = toBool(pyTruncated);
-            var infoMap = pyDictToJava(pyInfoMap);
-
-            fillFromNumpy(pyState, stateBuffer);
-
-            var state = ndManager.create(
-                    stateBuffer,
-                    stateMetadata.djlShape,
-                    stateMetadata.djlType
-            );
-
-            return new EnvStepResult(reward, terminated, truncated, infoMap).state(state);
+        System.out.println("EXEC 1");
+        exec("with open('output_py.txt', 'w') as f:\n    f.write('starting...')");
+        execIsolated("with open('output_py2.txt', 'w') as f:\n    f.write('starting...')");
+        for (int i = 0; i < 1000; i++) {
+            PythonRuntime.execIsolated("temp%d = ".formatted(i) + i);
         }
+        //exec("""
+        //with open('.output_py.txt', 'w') as f:
+        //    try:
+        //        f.write('starting...')
+        //        #f.write(str(env))
+        //        #f.write(str(env.step(1)))
+        //    except Exception as ex:
+        //        f.write(str(ex))
+        //        f.write('end...')
+        //""");
+        System.out.println("EXEC 2");
+        System.out.println(str(eval("env.step(1)")));
+        /*
+        try (var pyAction = pyLong(1);
+             var pyStep = callMethod(env, "step", pyAction)) {
+            var pyState = getItem(pyStep, 0);
+            refInc(pyState);
+
+            try (pyState;
+                 var pyReward = getItem(pyStep, 1);
+                 var pyTerminated = getItem(pyStep, 2);
+                 var pyTruncated = getItem(pyStep, 3);
+                 var pyInfoMap = getItem(pyStep, 4)) {
+
+                double reward = toDouble(pyReward);
+                boolean terminated = toBool(pyTerminated);
+                boolean truncated = toBool(pyTruncated);
+                var infoMap = pyDictToJava(pyInfoMap);
+
+                fillFromNumpy(pyState, stateBuffer);
+
+                var state = ndManager.create(
+                        stateBuffer,
+                        stateMetadata.djlShape,
+                        stateMetadata.djlType
+                );
+
+                return new EnvStepResult(reward, terminated, truncated, infoMap)
+                        .state(state);
+            }
+        }
+         */
+        return null;
     }
 
     public BufferedImage render() {
