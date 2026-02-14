@@ -16,7 +16,7 @@ public class EnvStepResult {
     private final double reward;
     private final boolean term;
     private final boolean trunc;
-    private final Map<String, Object> info;
+    private final Map<Object, Object> info;
     // package private so only EnvProxy access this, but, be careful
     private NDArray state;
 

@@ -3,6 +3,7 @@
   <component name="JavaProjectCodeInsightSettings">
     <included-static-names>
       <name>java.util.Objects</name>
+      <name>org.bytedeco.cpython.global.python</name>
     </included-static-names>
   </component>
 </project>

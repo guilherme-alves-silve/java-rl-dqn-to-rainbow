@@ -20,6 +20,8 @@
     <mockito.version>5.21.0</mockito.version>
     <lombok.version>1.18.42</lombok.version>
     <vavr.version>0.11.0</vavr.version>
+    <javacpp.version>1.5.10</javacpp.version>
+    <python.version>3.12.1</python.version>
   </properties>
 
   <dependencyManagement>
@@ -35,6 +37,24 @@
   </dependencyManagement>
 
   <dependencies>
+
+    <dependency>
+      <groupId>org.bytedeco</groupId>
+      <artifactId>javacv-platform</artifactId>
+      <version>${javacpp.version}</version>
+    </dependency>
+    <!-- Source: https://mvnrepository.com/artifact/org.bytedeco/cpython-platform -->
+    <dependency>
+      <groupId>org.bytedeco</groupId>
+      <artifactId>cpython-platform</artifactId>
+      <version>${python.version}-${javacpp.version}</version>
+    </dependency>
+    <!-- Source: https://mvnrepository.com/artifact/org.bytedeco/cpython -->
+    <dependency>
+      <groupId>org.bytedeco</groupId>
+      <artifactId>cpython</artifactId>
+      <version>${python.version}-${javacpp.version}</version>
+    </dependency>
 
     <!-- Source: https://mvnrepository.com/artifact/ai.djl/api -->
     <dependency>
@@ -71,24 +91,6 @@
       <artifactId>lombok</artifactId>
       <version>${lombok.version}</version>
       <scope>provided</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.bytedeco</groupId>
-      <artifactId>javacv-platform</artifactId>
-      <version>1.5.10</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.zeromq</groupId>
-      <artifactId>jeromq</artifactId>
-      <version>0.6.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.github.ben-manes.caffeine</groupId>
-      <artifactId>caffeine</artifactId>
-      <version>3.1.8</version>
     </dependency>
 
     <dependency>

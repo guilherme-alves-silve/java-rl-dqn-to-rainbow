@@ -1,13 +1,13 @@
-
+# [How to Never Forget Deep Q-Networks: Memory Palaces Meet Reinforcement Learning](https://guilhermealvessilveira.substack.com/p/how-to-never-forget-deep-q-networks)
 
 ## Technologies
 
-- [Java 25+]()
-- [Python 3.12+]()
-- [gymnasium]()
+- [Java 25+](https://openjdk.org/)
+- [Python 3.12+](https://www.python.org/)
+- [gymnasium](https://gymnasium.farama.org/index.html)
   - For the game environment used for reinforcement learning
-- [zeromq](https://zeromq.org/)
-  - For zero copy between environments
+- [javacpp](https://github.com/bytedeco/javacpp-presets)
+  - To make the communication between Java and Python
 
 # Build the gymnasium environment adapted to Java
 
@@ -15,7 +15,7 @@
 
 ## Optimization
 
-TODO: Use allocateDirect with ByteBuffer to optimize performance, and manage 
+TODO: Use allocateDirect with ByteBuffer to optimize performance, and manage
 lifecycle together with DJL to reduce as much as possible memory copy, using ObjectPool of DirectByteBuffer.
 
 ## Extras

@@ -7,7 +7,7 @@ import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.util.Pair;
-import br.com.guialves.rflr.gymnasium4j.EnvProxy;
+import br.com.guialves.rflr.gymnasium4j.Env;
 import br.com.guialves.rflr.gymnasium4j.EnvStepResult;
 
 import java.util.ArrayList;
@@ -16,17 +16,17 @@ import java.util.Map;
 
 public class PreProcessingWrapper {
 
-    private final EnvProxy env;
+    private final Env env;
     private final int skip;
     private final int resize;
     private final int concatenate;
     private final Image.Interpolation interpolation;
 
-    public PreProcessingWrapper(EnvProxy env, int skip, int resize, int concatenate) {
+    public PreProcessingWrapper(Env env, int skip, int resize, int concatenate) {
         this(env, skip, resize, concatenate, Image.Interpolation.BILINEAR);
     }
 
-    public PreProcessingWrapper(EnvProxy env, int skip, int resize, int concatenate, Image.Interpolation interpolation) {
+    public PreProcessingWrapper(Env env, int skip, int resize, int concatenate, Image.Interpolation interpolation) {
         this.env = env;
         this.skip = skip;
         this.concatenate = concatenate;
@@ -40,7 +40,7 @@ public class PreProcessingWrapper {
 
         boolean term = false;
         boolean trunc = false;
-        Map<String, Object> info = null;
+        Map<Object, Object> info = null;
 
         for (int i = 0; i < concatenate; i++) {
             var skipResult = skipFrames(action);
@@ -113,7 +113,7 @@ public class PreProcessingWrapper {
         return new Pair<>(state, totalReward);
     }
 
-    public Pair<NDArray, Map<String, Object>> reset() {
+    public Pair<NDArray, Map<Object, Object>> reset() {
         var resetResult = env.reset();
         var state = resetResult.getValue();
         var info = resetResult.getKey();
