@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import static br.com.guialves.rflr.python.PythonRuntime.eval;
-import static br.com.guialves.rflr.python.PythonRuntime.exec;
+import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.numpy.NumpyByteBuffer.fillFromNumpy;
+import static br.com.guialves.rflr.python.numpy.NumpyByteBuffer.newBufferForNumpy;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NumpyByteBufferTest {
@@ -17,13 +17,13 @@ class NumpyByteBufferTest {
     @BeforeAll
     static void setUp() {
         PythonRuntime.initPython();
-        assertDoesNotThrow(() -> exec("x = 1"));
+        insideGil(() -> assertDoesNotThrow(() -> exec("x = 1")));
     }
 
     @Test
     void testByteOrderCaching() {
-        var buf1 = NumpyByteBuffer.newBufferForNumpy(100);
-        var buf2 = NumpyByteBuffer.newBufferForNumpy(100);
+        var buf1 = newBufferForNumpy(100);
+        var buf2 = newBufferForNumpy(100);
         assertEquals(buf1.order(), buf2.order());
     }
 
@@ -45,8 +45,8 @@ class NumpyByteBufferTest {
         try (var arrLittle = eval("arr_little");
              var arrBig = eval("arr_big")) {
 
-            var bufLittle = NumpyByteBuffer.newBufferForNumpy(arrLittle, 12);
-            var bufBig = NumpyByteBuffer.newBufferForNumpy(arrBig, 12);
+            var bufLittle = newBufferForNumpy(arrLittle, 12);
+            var bufBig = newBufferForNumpy(arrBig, 12);
 
             assertEquals(ByteOrder.LITTLE_ENDIAN, bufLittle.order());
             assertEquals(ByteOrder.BIG_ENDIAN, bufBig.order());
@@ -61,10 +61,9 @@ class NumpyByteBufferTest {
         """);
 
         try (var arr = eval("arr")) {
-            var buffer = ByteBuffer.allocate(5 * 4)
-                    .order(ByteOrder.nativeOrder()); // 5 floats * 4 bytes
+            var buffer = newBufferForNumpy(5 * 4); // 5 floats * 4 bytes
             assertDoesNotThrow(() -> fillFromNumpy(arr, buffer));
-            assertEquals(1.0f, buffer.getFloat(), 0.001);  // lê e avança position
+            assertEquals(1.0f, buffer.getFloat(), 0.001);
             assertEquals(2.0f, buffer.getFloat(), 0.001);
             assertEquals(3.0f, buffer.getFloat(), 0.001);
             assertEquals(4.0f, buffer.getFloat(), 0.001);
@@ -80,7 +79,7 @@ class NumpyByteBufferTest {
         """);
 
         try (var arr = eval("arr")) {
-            ByteBuffer buffer = ByteBuffer.allocate(10); // Muito pequeno
+            ByteBuffer buffer = ByteBuffer.allocate(10);
 
             IllegalArgumentException exception = assertThrows(
                     IllegalArgumentException.class,
@@ -100,10 +99,7 @@ class NumpyByteBufferTest {
         """);
 
         try (var arr = eval("slice_arr")) {
-            ByteBuffer buffer = ByteBuffer.allocate(100);
-
-            // Pode ou não falhar dependendo se o slice é contíguo
-            // Em geral, slices de coluna não são contíguos
+            var buffer = newBufferForNumpy(100);
             assertThrows(IllegalStateException.class, () -> fillFromNumpy(arr, buffer));
         }
     }
@@ -118,7 +114,7 @@ class NumpyByteBufferTest {
         """);
 
         try (var c = eval("c")) {
-            ByteBuffer buffer = ByteBuffer.allocate(3 * 8); // 3 ints * 8 bytes (int64)
+            var buffer = newBufferForNumpy(3 * 8); // 3 ints * 8 bytes (int64)
             fillFromNumpy(c, buffer);
 
             // NumPy default dtype é int64 (8 bytes)
@@ -138,7 +134,7 @@ class NumpyByteBufferTest {
         """);
 
         try (var arr = eval("large_arr")) {
-            ByteBuffer buffer = ByteBuffer.allocate(10000 * 4);
+            var buffer = newBufferForNumpy(10000 * 4);
             fillFromNumpy(arr, buffer);
 
             assertEquals(1.0f, buffer.getFloat(0), 0.001);

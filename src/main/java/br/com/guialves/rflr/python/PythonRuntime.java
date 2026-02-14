@@ -1,11 +1,14 @@
 package br.com.guialves.rflr.python;
 
+import io.vavr.CheckedFunction0;
+import io.vavr.CheckedRunnable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -48,7 +51,7 @@ public final class PythonRuntime {
         if (Boolean.getBoolean("python.initialized")) {
             initialized = true;
             return;
-        };
+        }
 
         System.setProperty("org.bytedeco.openblas.load", "mkl");
 
@@ -64,10 +67,40 @@ public final class PythonRuntime {
 
     public static synchronized void finalizePython() {
         if (!initialized) return;
+        if (!Boolean.getBoolean("python.initialized")) {
+            initialized = false;
+            return;
+        }
         Py_Finalize();
         initialized = false;
         globals.close();
         globals = null;
+        System.clearProperty("python.initialized");
+    }
+
+    /**
+     * For performance reasons, not all methods are
+     * check inside the GIL (Global Interpreter Lock)
+     * @param runnable
+     */
+    @SneakyThrows
+    public static void insideGil(CheckedRunnable runnable) {
+        var gstate = PyGILState_Ensure();
+        try {
+            runnable.run();
+        } finally {
+            PyGILState_Release(gstate);
+        }
+    }
+
+    @SneakyThrows
+    public static <R> R insideGil(CheckedFunction0<R> function0) {
+        var gstate = PyGILState_Ensure();
+        try {
+            return function0.apply();
+        } finally {
+            PyGILState_Release(gstate);
+        }
     }
 
     public static void exec(String code) {
@@ -122,6 +155,7 @@ public final class PythonRuntime {
     public static <K, V> Map<K, V> pyDictToJava(PyObject obj) {
         try (var pyStr = PyObject_Str(obj)) {
             var repr = PythonRuntime.str(pyStr);
+            if (null == repr) return null;
             return (Map<K, V>) PythonDictConverter.parsePythonDictRepr(repr);
         }
     }
@@ -151,7 +185,12 @@ public final class PythonRuntime {
     }
 
     public static PyObject attr(PyObject obj, String attr) {
-        return PyObject_GetAttrString(obj, attr);
+        var result = PyObject_GetAttrString(obj, attr);
+        if (result == null || result.isNull()) {
+            PyErr_Print();
+            throw new IllegalArgumentException("Attribute not found: " + attr);
+        }
+        return result.retainReference();
     }
 
     public static String attrStr(PyObject obj, String attr) {
@@ -172,12 +211,17 @@ public final class PythonRuntime {
         return PyObject_IsTrue(obj) == 1;
     }
 
-    public static PyObject callObj(PyObject obj, String method) {
-        return PyObject_CallObject(obj, null);
-    }
+    public static PyObject callObj(PyObject obj) {
+        if (obj == null || obj.isNull()) {
+            throw new IllegalArgumentException("Cannot call null PyObject");
+        }
 
-    public static PyObject callMethod(PyObject obj, String method) {
-        return PyObject_CallMethod(obj, method, null);
+        var result = PyObject_CallObject(obj, null);
+        if (result == null || result.isNull()) {
+            PyErr_Print();
+            throw new RuntimeException("Failed to call PyObject");
+        }
+        return result.retainReference();
     }
 
     public static PyObject getItem(PyObject obj, int pos) {
@@ -185,22 +229,74 @@ public final class PythonRuntime {
     }
 
     public static PyObject callMethod(PyObject obj, String method, PyObject... args) {
-        var fn = PyObject_GetAttrString(obj, method);
-        if (fn == null) {
-            PyErr_Print();
-            throw new IllegalStateException("Method not found: " + method);
+        if (obj == null || obj.isNull()) {
+            throw new IllegalArgumentException("Cannot call method on null PyObject");
         }
 
-        var result = callFunction(fn, args);
-        Py_DECREF(fn);
-        return result;
+        PyObject fn = null;
+        try {
+            fn = PyObject_GetAttrString(obj, method);
+            if (fn == null || fn.isNull()) {
+                PyErr_Print();
+                throw new IllegalArgumentException("Method not found: " + method);
+            }
+
+            return callFunction(fn, args);
+        } finally {
+            if (fn != null && !fn.isNull()) {
+                Py_DECREF(fn);
+            }
+        }
+    }
+
+    public static PyObject callMethodWithKwargs(PyObject obj, String method,
+                                                PyObject[] args, PyObject kwargs) {
+        if (obj == null || obj.isNull()) {
+            throw new IllegalArgumentException("Cannot call method on null PyObject");
+        }
+
+        PyObject fn = null;
+        try {
+            fn = PyObject_GetAttrString(obj, method);
+            if (fn == null || fn.isNull()) {
+                PyErr_Print();
+                throw new IllegalArgumentException("Method not found: " + method);
+            }
+
+            var tuple = args != null ? newArgs(args) : PyTuple_New(0);
+            try {
+                var result = PyObject_Call(fn, tuple, kwargs);
+                if (result == null || result.isNull()) {
+                    PyErr_Print();
+                    throw new RuntimeException("Failed to call method: " + method);
+                }
+                return result.retainReference();
+            } finally {
+                Py_DECREF(tuple);
+            }
+        } finally {
+            if (fn != null && !fn.isNull()) {
+                Py_DECREF(fn);
+            }
+        }
     }
 
     public static PyObject callFunction(PyObject fn, PyObject... args) {
+        if (fn == null || fn.isNull()) {
+            throw new IllegalArgumentException("Cannot call null function");
+        }
+
         var tuple = newArgs(args);
-        var result = PyObject_CallObject(fn, tuple);
-        Py_DECREF(tuple);
-        return result;
+        try {
+            var result = PyObject_CallObject(fn, tuple);
+            if (result == null || result.isNull()) {
+                PyErr_Print();
+                throw new RuntimeException("Failed to call function");
+            }
+            return result.retainReference();
+        } finally {
+            Py_DECREF(tuple);
+        }
     }
 
     public static PyObject newArgs(PyObject... args) {
@@ -211,8 +307,38 @@ public final class PythonRuntime {
         return tuple;
     }
 
+    //public static PyObject pyLong(long v) {
+    //    return PyLong_FromLong(v);
+    //}
+
     public static PyObject pyLong(long v) {
-        return PyLong_FromLong(v);
+        // 1. Cria o objeto - já vem com refcount = 1
+        PyObject result = PyLong_FromLong(v);
+
+        // 2. Verifica se criou corretamente
+        if (result == null || result.isNull()) {
+            PyErr_Print();
+            throw new RuntimeException("Failed to create PyLong: " + v);
+        }
+
+        // 3. VERIFICAÇÃO CRÍTICA - Tenta converter de volta
+        long check = PyLong_AsLong(result);
+        if (PyErr_Occurred() != null) {
+            PyErr_Print();
+            Py_DECREF(result);
+            throw new RuntimeException("PyLong_AsLong failed for value: " + v);
+        }
+
+        if (check != v) {
+            Py_DECREF(result);
+            throw new RuntimeException(String.format(
+                    "PyLong value mismatch: created %d but got %d", v, check));
+        }
+
+        // 4. DEBUG - opcional
+        //log.debug("Created PyLong: {} -> {}, refcount={}", v, check, result);
+
+        return result;  // NUNCA faça .retain()!
     }
 
     public static PyObject pyFloat(double v) {

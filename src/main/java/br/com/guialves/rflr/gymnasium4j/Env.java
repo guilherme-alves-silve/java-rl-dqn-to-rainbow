@@ -30,6 +30,7 @@ public final class Env implements AutoCloseable {
 
     private final NDManager ndManager;
     private final PyObject env;
+    private final PyObject stepMethod;
 
     private EnvStateMetadata stateMetadata;
     private EnvRenderMetadata renderMetadata;
@@ -47,6 +48,7 @@ public final class Env implements AutoCloseable {
         """.formatted(envId));
 
         env = eval("env");
+        stepMethod = attr(env, "step");
     }
 
     public String actionSpaceStr() {
@@ -63,10 +65,17 @@ public final class Env implements AutoCloseable {
         }
     }
 
-    public int actionSpaceSample() {
+    public long actionSpaceSampleLong() {
         try (var sample = PyObject_CallMethod(env,
                 "action_space.sample", null)) {
-            return (int) toLong(sample);
+            return toLong(sample);
+        }
+    }
+
+    public double actionSpaceSampleDouble() {
+        try (var sample = PyObject_CallMethod(env,
+                "action_space.sample", null)) {
+            return toDouble(sample);
         }
     }
 
@@ -95,32 +104,12 @@ public final class Env implements AutoCloseable {
         }
     }
 
-    public EnvStepResult step(int action) {
+    public EnvStepResult step(Object action) {
         if (stateBuffer == null) {
             throw new IllegalStateException("You should call reset() first!");
         }
 
-        System.out.println("EXEC 1");
-        exec("with open('output_py.txt', 'w') as f:\n    f.write('starting...')");
-        execIsolated("with open('output_py2.txt', 'w') as f:\n    f.write('starting...')");
-        for (int i = 0; i < 1000; i++) {
-            PythonRuntime.execIsolated("temp%d = ".formatted(i) + i);
-        }
-        //exec("""
-        //with open('.output_py.txt', 'w') as f:
-        //    try:
-        //        f.write('starting...')
-        //        #f.write(str(env))
-        //        #f.write(str(env.step(1)))
-        //    except Exception as ex:
-        //        f.write(str(ex))
-        //        f.write('end...')
-        //""");
-        System.out.println("EXEC 2");
-        System.out.println(str(eval("env.step(1)")));
-        /*
-        try (var pyAction = pyLong(1);
-             var pyStep = callMethod(env, "step", pyAction)) {
+        try (var pyStep = eval("env.step(%d)".formatted(action))) {
             var pyState = getItem(pyStep, 0);
             refInc(pyState);
 
@@ -147,8 +136,6 @@ public final class Env implements AutoCloseable {
                         .state(state);
             }
         }
-         */
-        return null;
     }
 
     public BufferedImage render() {
@@ -179,8 +166,6 @@ public final class Env implements AutoCloseable {
         } finally {
             ndManager.close();
             env.close();
-            // TODO: Temp
-            PythonRuntime.finalizePython();
         }
     }
 

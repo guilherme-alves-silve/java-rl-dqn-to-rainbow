@@ -2,10 +2,12 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
+import br.com.guialves.rflr.python.PythonRuntime;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import static br.com.guialves.rflr.python.PythonRuntime.insideGil;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
@@ -26,7 +28,8 @@ class GymTest {
                 assertEquals(600, img.getWidth());
                 render.display(img);
                 render.waitRender();
-                int action = env.actionSpaceSample();
+                var action = env.actionSpaceSampleDouble();
+                //var result = env.step(action);
                 var result = env.step(action);
 
                 if (result.done()) {

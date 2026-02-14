@@ -10,7 +10,7 @@ class PythonRuntimeTest {
     @BeforeAll
     static void setUp() {
         PythonRuntime.initPython();
-        assertDoesNotThrow(() -> exec("x = 1"));
+        assertDoesNotThrow(() -> insideGil(() -> exec("x = 1")));
     }
 
     @Test
@@ -141,9 +141,9 @@ class PythonRuntimeTest {
             var result = pyDictToJava(dict);
 
             assertEquals(3, result.size());
-            assertEquals("A", result.get(1));
-            assertEquals("B", result.get(2));
-            assertEquals("C", result.get(3));
+            assertEquals("A", result.get(1L));
+            assertEquals("B", result.get(2L));
+            assertEquals("C", result.get(3L));
         }
     }
 
@@ -246,8 +246,8 @@ class PythonRuntimeTest {
         """);
 
         try (var obj = eval("obj")) {
-            IllegalStateException exception = assertThrows(
-                    IllegalStateException.class,
+            IllegalArgumentException exception = assertThrows(
+                    IllegalArgumentException.class,
                     () -> callMethod(obj, "non_existent_method")
             );
 

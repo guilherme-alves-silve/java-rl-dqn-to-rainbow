@@ -15,19 +15,25 @@ public class NumpyByteBuffer {
 
     static {
         initPython();
-        exec("import numpy as np");
-        exec("_test_arr = np.array([1], dtype=np.float32)");
 
-        try (var testArr = eval("_test_arr")) {
-            String byteOrder = attrStr(attr(testArr, "dtype"), "byteorder");
-            BYTE_ORDER = switch (byteOrder) {
-                case ">" -> ByteOrder.BIG_ENDIAN;
-                case "<" -> ByteOrder.LITTLE_ENDIAN;
-                default -> ByteOrder.nativeOrder();
-            };
+        var gstate = PyGILState_Ensure();
+        try {
+            exec("import numpy as np");
+            exec("_test_arr = np.array([1], dtype=np.float32)");
+
+            try (var testArr = eval("_test_arr")) {
+                String byteOrder = attrStr(attr(testArr, "dtype"), "byteorder");
+                BYTE_ORDER = switch (byteOrder) {
+                    case ">" -> ByteOrder.BIG_ENDIAN;
+                    case "<" -> ByteOrder.LITTLE_ENDIAN;
+                    default -> ByteOrder.nativeOrder();
+                };
+            }
+
+            exec("del _test_arr");
+        } finally {
+            PyGILState_Release(gstate);
         }
-
-        exec("del _test_arr");
     }
 
     private NumpyByteBuffer() {

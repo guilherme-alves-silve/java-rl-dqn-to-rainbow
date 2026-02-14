@@ -40,7 +40,7 @@ public class PreProcessingWrapper {
 
         boolean term = false;
         boolean trunc = false;
-        Map<String, Object> info = null;
+        Map<Object, Object> info = null;
 
         for (int i = 0; i < concatenate; i++) {
             var skipResult = skipFrames(action);
