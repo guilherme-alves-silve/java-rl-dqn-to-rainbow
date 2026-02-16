@@ -35,14 +35,11 @@ class GymActionSpaceTest {
             try (var env = Gym.make("CartPole-v1", ndManager)) {
                 log.info("CartPole action space: {}", env.actionSpaceStr());
 
-                // Verify action space string
                 assertTrue(env.actionSpaceStr().contains("Discrete(2)"));
 
-                // Sample and verify action type
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(DISCRETE, action.spaceType());
 
-                    // Extract and verify value
                     Long value = action.value();
                     assertNotNull(value);
                     assertTrue(value == 0 || value == 1, "CartPole action should be 0 or 1");
@@ -117,11 +114,9 @@ class GymActionSpaceTest {
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(BOX, action.spaceType());
 
-                    // Pendulum has 1D continuous action
                     Object value = action.value();
                     assertNotNull(value);
 
-                    // Could be Double (scalar) or double[] (array)
                     if (value instanceof Double d) {
                         assertTrue(d >= -2.0 && d <= 2.0, "Pendulum action should be in [-2, 2]");
                         log.info("Sampled action (scalar): {}", d);
@@ -339,7 +334,6 @@ class GymActionSpaceTest {
             try (var env = Gym.make("CartPole-v1", ndManager)) {
                 env.reset();
 
-                // Test boundary values
                 try (var action = DISCRETE.get(0)) {
                     assertEquals(0L, action.<Long>value());
                     var result = env.step(action);
@@ -392,7 +386,6 @@ class GymActionSpaceTest {
                 }
             }
 
-            // Continuous zero
             try (var env = Gym.make("Pendulum-v1", ndManager)) {
                 env.reset();
 
@@ -415,14 +408,11 @@ class GymActionSpaceTest {
         void testDiscreteActionTypeSafety() {
             try (var env = Gym.make("CartPole-v1", ndManager)) {
                 try (var action = env.actionSpaceSample()) {
-                    // Should be discrete
                     assertEquals(DISCRETE, action.spaceType());
 
-                    // Should extract as Long
                     Long value = action.valueAs(Long.class);
                     assertNotNull(value);
 
-                    // Should fail to extract as wrong type
                     assertThrows(ClassCastException.class,
                             () -> action.valueAs(Double.class));
                 }
@@ -434,10 +424,8 @@ class GymActionSpaceTest {
         void testContinuousActionTypeSafety() {
             try (var env = Gym.make("Pendulum-v1", ndManager)) {
                 try (var action = env.actionSpaceSample()) {
-                    // Should be box
                     assertEquals(BOX, action.spaceType());
 
-                    // Value should be either Double or double[]
                     Object value = action.value();
                     assertTrue(value instanceof Double || value instanceof double[],
                             "Expected Double or double[] but got " + value.getClass());
@@ -448,15 +436,183 @@ class GymActionSpaceTest {
         @Test
         @DisplayName("Should provide consistent value on multiple calls")
         void testValueConsistency() {
-            try (var env = Gym.make("CartPole-v1", ndManager)) {
-                try (var action = DISCRETE.get(1)) {
-                    Long value1 = action.value();
-                    Long value2 = action.value();
-                    Long value3 = action.value();
+            try (var action = DISCRETE.get(1)) {
+                Long value1 = action.value();
+                Long value2 = action.value();
+                Long value3 = action.value();
 
-                    assertEquals(value1, value2);
-                    assertEquals(value2, value3);
-                    assertEquals(1L, value1);
+                assertEquals(value1, value2);
+                assertEquals(value2, value3);
+                assertEquals(1L, value1);
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("FrozenLake Discrete(4) Action Space Tests")
+    class FrozenLakeActionSpaceTests {
+
+        @Test
+        @DisplayName("FrozenLake-v1 should have Discrete(4) action space")
+        void testFrozenLakeActionSpace() {
+            try (var env = Gym.make("FrozenLake-v1", ndManager)) {
+                log.info("FrozenLake action space: {}", env.actionSpaceStr());
+
+                assertTrue(env.actionSpaceStr().contains("Discrete(4)"));
+
+                try (var action = env.actionSpaceSample()) {
+                    assertEquals(DISCRETE, action.spaceType());
+
+                    Long value = action.value();
+                    assertNotNull(value);
+                    assertTrue(value >= 0 && value <= 3, "FrozenLake action should be 0, 1, 2, or 3");
+
+                    log.info("Sampled action value: {}", value);
+                }
+
+                // LEFT = 0, DOWN = 1, RIGHT = 2, UP = 3
+                try (var actionLeft = DISCRETE.get(0)) {
+                    assertEquals(DISCRETE, actionLeft.spaceType());
+                    assertEquals(0L, actionLeft.<Long>value());
+                    log.info("Created LEFT action (0)");
+                }
+
+                try (var actionDown = DISCRETE.get(1)) {
+                    assertEquals(DISCRETE, actionDown.spaceType());
+                    assertEquals(1L, actionDown.<Long>value());
+                    log.info("Created DOWN action (1)");
+                }
+
+                try (var actionRight = DISCRETE.get(2)) {
+                    assertEquals(DISCRETE, actionRight.spaceType());
+                    assertEquals(2L, actionRight.<Long>value());
+                    log.info("Created RIGHT action (2)");
+                }
+
+                try (var actionUp = DISCRETE.get(3)) {
+                    assertEquals(DISCRETE, actionUp.spaceType());
+                    assertEquals(3L, actionUp.<Long>value());
+                    log.info("Created UP action (3)");
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Should execute all directional actions in FrozenLake")
+        void testFrozenLakeDirectionalActions() {
+            try (var env = Gym.make("FrozenLake-v1", ndManager)) {
+                env.reset();
+
+                // Test LEFT action (0)
+                try (var action = DISCRETE.get(0)) {
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    log.info("LEFT action - reward: {}, done: {}", result.reward(), result.done());
+                }
+
+                env.reset();
+
+                // Test DOWN action (1)
+                try (var action = DISCRETE.get(1)) {
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    log.info("DOWN action - reward: {}, done: {}", result.reward(), result.done());
+                }
+
+                env.reset();
+
+                // Test RIGHT action (2)
+                try (var action = DISCRETE.get(2)) {
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    log.info("RIGHT action - reward: {}, done: {}", result.reward(), result.done());
+                }
+
+                env.reset();
+
+                // Test UP action (3)
+                try (var action = DISCRETE.get(3)) {
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    log.info("UP action - reward: {}, done: {}", result.reward(), result.done());
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Should handle multiple steps in FrozenLake")
+        void testFrozenLakeMultipleSteps() {
+            try (var env = Gym.make("FrozenLake-v1", ndManager)) {
+                env.reset();
+
+                int[] actionSequence = {2, 2, 1, 1, 1, 2}; // RIGHT, RIGHT, DOWN, DOWN, DOWN, RIGHT
+
+                for (int i = 0; i < actionSequence.length; i++) {
+                    try (var action = DISCRETE.get(actionSequence[i])) {
+                        var result = env.step(action);
+                        assertNotNull(result);
+                        assertNotNull(result.state());
+
+                        log.info("Step {}: action={}, reward={}, done={}",
+                                i + 1, actionSequence[i], result.reward(), result.done());
+
+                        if (result.done()) {
+                            log.info("Episode terminated at step {}", i + 1);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Should handle random exploration in FrozenLake")
+        void testFrozenLakeRandomExploration() {
+            try (var env = Gym.make("FrozenLake-v1", ndManager)) {
+                env.reset();
+
+                int maxSteps = 20;
+                for (int i = 0; i < maxSteps; i++) {
+                    try (var action = env.actionSpaceSample()) {
+                        assertEquals(DISCRETE, action.spaceType());
+
+                        Long actionValue = action.value();
+                        assertNotNull(actionValue);
+                        assertTrue(actionValue >= 0 && actionValue <= 3);
+
+                        var result = env.step(action);
+                        assertNotNull(result);
+
+                        log.info("Step {}: action={}, reward={}, done={}",
+                                i, actionValue, result.reward(), result.done());
+
+                        if (result.done()) {
+                            log.info("Episode completed at step {}", i);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("FrozenLake8x8-v1 should also have Discrete(4) action space")
+        void testFrozenLake8x8ActionSpace() {
+            try (var env = Gym.make("FrozenLake8x8-v1", ndManager)) {
+                log.info("FrozenLake8x8 action space: {}", env.actionSpaceStr());
+
+                assertTrue(env.actionSpaceStr().contains("Discrete(4)"));
+
+                try (var action = env.actionSpaceSample()) {
+                    assertEquals(DISCRETE, action.spaceType());
+
+                    Long value = action.value();
+                    assertNotNull(value);
+                    assertTrue(value >= 0 && value <= 3);
                 }
             }
         }
