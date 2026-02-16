@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
+
 public class PreProcessingWrapper {
 
     private final Env env;
@@ -34,7 +36,7 @@ public class PreProcessingWrapper {
         this.interpolation = interpolation;
     }
 
-    public EnvStepResult step(int action) {
+    public EnvStepResult step(ActionResult action) {
         var frames = new ArrayList<NDArray>();
         var rewards = new ArrayList<Double>();
 
@@ -63,7 +65,7 @@ public class PreProcessingWrapper {
         return new EnvStepResult(result.getValue(), term, trunc, info, result.getKey());
     }
 
-    private EnvStepResult skipFrames(int action) {
+    private EnvStepResult skipFrames(ActionResult action) {
         EnvStepResult stepResult = null;
         for (int i = 0; i <= skip; i++) {
             stepResult = env.step(action);

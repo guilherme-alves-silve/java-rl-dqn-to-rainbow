@@ -5,13 +5,14 @@ import io.vavr.CheckedRunnable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
+import org.bytedeco.javacpp.BytePointer;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Map;
 
+import static br.com.guialves.rflr.python.PythonTypeChecks.isPyNull;
 import static org.bytedeco.cpython.global.python.*;
 
 @Slf4j
@@ -19,7 +20,7 @@ public final class PythonRuntime {
 
     public static final String JAVA_RL_SITE_PACKAGES = "JAVA_RL_SITE_PACKAGES";
     public static final String JAVA_RL_INCLUDE = "JAVA_RL_INCLUDE";
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     private static boolean initialized = false;
     private static PyObject globals;
 
@@ -65,23 +66,43 @@ public final class PythonRuntime {
         System.setProperty("python.initialized", "true");
     }
 
+    /**
+     * Py_Finalize() is intentionally not called due to known issues documented in the
+     * Python C API documentation (<a href="https://docs.python.org/3/c-api/init.html">...</a>):
+     * - "Dynamically loaded extension modules loaded by Python are not unloaded"
+     * - "Some memory allocated by extension modules may not be freed"
+     * - Random destruction order can cause crashes in extension module destructors
+     * <p>
+     * In practice, calling Py_Finalize() with extension modules like NumPy and Gymnasium
+     * (which Gymnasium depends on) causes JVM crashes in our environment.
+     * <p>
+     * The OS will properly clean up all resources when the JVM process terminates.
+     */
     public static synchronized void finalizePython() {
         if (!initialized) return;
         if (!Boolean.getBoolean("python.initialized")) {
             initialized = false;
             return;
         }
-        Py_Finalize();
-        initialized = false;
-        globals.close();
-        globals = null;
-        System.clearProperty("python.initialized");
+
+        try {
+            if (globals != null) {
+                globals.close();
+                globals = null;
+            }
+
+            initialized = false;
+            log.info("Python finalized successfully");
+        } catch (Exception e) {
+            log.error("Error during Python finalization", e);
+        } finally {
+            System.clearProperty("python.initialized");
+        }
     }
 
     /**
      * For performance reasons, not all methods are
      * check inside the GIL (Global Interpreter Lock)
-     * @param runnable
      */
     @SneakyThrows
     public static void insideGil(CheckedRunnable runnable) {
@@ -144,23 +165,11 @@ public final class PythonRuntime {
         }
     }
 
-    public static int[] pyIntArrayToJava(PyObject obj) {
-        try (var pyStr = PyObject_Str(obj)) {
-            var repr = PythonRuntime.str(pyStr);
-            return PythonSequenceConverter.parsePythonIntArray(repr);
-        }
+    public static String toStr(PyObject obj) {
+        return toStr(obj, "");
     }
 
-    @SuppressWarnings("unchecked")
-    public static <K, V> Map<K, V> pyDictToJava(PyObject obj) {
-        try (var pyStr = PyObject_Str(obj)) {
-            var repr = PythonRuntime.str(pyStr);
-            if (null == repr) return null;
-            return (Map<K, V>) PythonDictConverter.parsePythonDictRepr(repr);
-        }
-    }
-
-    public static String str(PyObject obj) {
+    public static String toStr(PyObject obj, String msg) {
         if (null == obj || Py_IsNone(obj) == 1) {
             return null;
         }
@@ -168,13 +177,13 @@ public final class PythonRuntime {
         try (var pyStr = PyObject_Str(obj)) {
             if (pyStr == null) {
                 PyErr_Print();
-                throw new RuntimeException("PyObject_Str failed");
+                throw new RuntimeException("PyObject_Str failed: " + msg);
             }
 
             try (var bytes = PyUnicode_AsUTF8String(pyStr)) {
                 if (bytes == null) {
                     PyErr_Print();
-                    throw new RuntimeException("PyUnicode_AsUTF8String failed");
+                    throw new RuntimeException("PyUnicode_AsUTF8String failed: " + msg);
                 }
 
                 try (var temp = PyBytes_AsString(bytes)) {
@@ -190,12 +199,16 @@ public final class PythonRuntime {
             PyErr_Print();
             throw new IllegalArgumentException("Attribute not found: " + attr);
         }
-        return result.retainReference();
+        return result;
+    }
+
+    public static boolean hasAttr(PyObject obj, String name) {
+        return PyObject_HasAttrString(obj, name) == 1;
     }
 
     public static String attrStr(PyObject obj, String attr) {
         try (var attrObj = PyObject_GetAttrString(obj, attr)) {
-            return str(attrObj);
+            return toStr(attrObj);
         }
     }
 
@@ -222,10 +235,6 @@ public final class PythonRuntime {
             throw new RuntimeException("Failed to call PyObject");
         }
         return result.retainReference();
-    }
-
-    public static PyObject getItem(PyObject obj, int pos) {
-        return PyTuple_GetItem(obj, pos);
     }
 
     public static PyObject callMethod(PyObject obj, String method, PyObject... args) {
@@ -282,7 +291,7 @@ public final class PythonRuntime {
     }
 
     public static PyObject callFunction(PyObject fn, PyObject... args) {
-        if (fn == null || fn.isNull()) {
+        if (isPyNull(fn)) {
             throw new IllegalArgumentException("Cannot call null function");
         }
 
@@ -301,67 +310,102 @@ public final class PythonRuntime {
 
     public static PyObject newArgs(PyObject... args) {
         var tuple = PyTuple_New(args.length);
-        for (int i = 0; i < args.length; i++) {
-            PyTuple_SetItem(tuple, i, args[i]);
+        if (tuple == null || tuple.isNull()) {
+            throw new RuntimeException("Failed to allocate tuple");
         }
+
+        for (int i = 0; i < args.length; i++) {
+            PyObject arg = args[i];
+            if (isPyNull(arg)) {
+                Py_DECREF(tuple);
+                throw new IllegalArgumentException("Null argument at index " + i);
+            }
+
+            Py_INCREF(arg);
+            PyTuple_SetItem(tuple, i, arg); // steals that reference
+        }
+
         return tuple;
     }
 
-    //public static PyObject pyLong(long v) {
-    //    return PyLong_FromLong(v);
-    //}
+    public static PyObject pyLong(long val) {
+        return PyLong_FromLong(val);
+    }
 
-    public static PyObject pyLong(long v) {
-        // 1. Cria o objeto - já vem com refcount = 1
-        PyObject result = PyLong_FromLong(v);
+    public static PyObject pyDouble(double val) {
+        return PyFloat_FromDouble(val);
+    }
 
-        // 2. Verifica se criou corretamente
-        if (result == null || result.isNull()) {
-            PyErr_Print();
-            throw new RuntimeException("Failed to create PyLong: " + v);
+    public static PyObject pyBool(boolean val) {
+        return PyBool_FromLong(val ? 1 : 0);
+    }
+
+    public static PyObject pyStr(String obj) {
+        return PyUnicode_FromString(obj);
+    }
+
+    /**
+     * Equivalent to Python:
+     * <code>b = bytes("abc", "utf-8")</code>
+     */
+    public static PyObject pyBytesStr(String value) {
+        if (value == null) {
+            return null;
         }
 
-        // 3. VERIFICAÇÃO CRÍTICA - Tenta converter de volta
-        long check = PyLong_AsLong(result);
-        if (PyErr_Occurred() != null) {
-            PyErr_Print();
-            Py_DECREF(result);
-            throw new RuntimeException("PyLong_AsLong failed for value: " + v);
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+
+        try (var ptr = new BytePointer(bytes)) {
+            var pyBytes = PyBytes_FromStringAndSize(ptr, bytes.length);
+            checkError();
+            return pyBytes;   // new reference
+        }
+    }
+
+    /**
+     * Equivalent to Python:
+     * <code>b = bytearray("abc", "utf-8")</code>
+     */
+    public static PyObject pyByteArrayStr(String value) {
+        if (value == null) {
+            return null;
         }
 
-        if (check != v) {
-            Py_DECREF(result);
-            throw new RuntimeException(String.format(
-                    "PyLong value mismatch: created %d but got %d", v, check));
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+
+        try (var ptr = new BytePointer(bytes)) {
+            PyObject pyByteArray = PyByteArray_FromStringAndSize(ptr, bytes.length);
+            checkError();
+            return pyByteArray;   // new reference
         }
-
-        // 4. DEBUG - opcional
-        //log.debug("Created PyLong: {} -> {}, refcount={}", v, check, result);
-
-        return result;  // NUNCA faça .retain()!
     }
 
-    public static PyObject pyFloat(double v) {
-        return PyFloat_FromDouble(v);
-    }
-
-    public static PyObject pyBool(boolean v) {
-        return PyBool_FromLong(v ? 1 : 0);
-    }
-
-    public static PyObject pyStr(String s) {
-        return PyUnicode_FromString(s);
-    }
-
-    public static void refInc(PyObject obj) {
+    public static void incRef(PyObject obj) {
         Py_INCREF(obj);
     }
 
-    public static void refDec(PyObject obj) {
+    public static void decRef(PyObject obj) {
         Py_DECREF(obj);
     }
 
-    private static void checkError() {
+    public static void refDecSafe(PyObject obj) {
+        if (isPyNull(obj)) {
+            throw new IllegalStateException("PyObject is null!");
+        }
+
+        long refCount = Py_REFCNT(obj);
+        if (refCount <= 0) {
+            throw new IllegalStateException("ActionResult already closed or invalid! RefCount: " + refCount);
+        }
+
+        Py_DECREF(obj);
+    }
+
+    public static long refCount(PyObject obj) {
+        return Py_REFCNT(obj);
+    }
+
+    static void checkError() {
         try (var err = PyErr_Occurred()) {
             if (err != null) {
                 PyErr_Print();
@@ -370,7 +414,7 @@ public final class PythonRuntime {
         }
     }
 
-    private static void printDict(PyObject dict, String msg) {
+    static void printDict(PyObject dict, String msg) {
         log.info(msg);
         try (var items = PyDict_Items(dict)) {
             long size = PyList_Size(items);
@@ -380,9 +424,9 @@ public final class PythonRuntime {
                      var key = PyTuple_GetItem(item, 0);
                      var value = PyTuple_GetItem(item, 1)) {
 
-                    String keyStr = str(key);
-                    String valueStr = str(value);
-                    System.out.println("  " + keyStr + " = " + valueStr);
+                    String keyStr = toStr(key);
+                    String valueStr = toStr(value);
+                    IO.println("  " + keyStr + " = " + valueStr);
                 }
             }
         }

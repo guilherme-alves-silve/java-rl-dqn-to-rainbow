@@ -2,12 +2,8 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.types.DataType;
-import ai.djl.ndarray.types.Shape;
 import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
-import br.com.guialves.rflr.gymnasium4j.utils.Numpy2DJLTypeMapper;
-import br.com.guialves.rflr.python.PythonRuntime;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
@@ -16,22 +12,31 @@ import org.bytedeco.cpython.PyObject;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.Map;
+import java.util.UUID;
 
+import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
-import static br.com.guialves.rflr.python.PythonRuntime.eval;
+import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.numpy.NumpyByteBuffer.fillFromNumpy;
-import static org.bytedeco.cpython.global.python.*;
 
 @Slf4j
 @Accessors(fluent = true)
 public final class Env implements AutoCloseable {
 
+    private static final boolean DEBUG = true;
     private final NDManager ndManager;
-    private final PyObject env;
-    private final PyObject stepMethod;
+    private final String varEnvCode;
+    private final PyObject pyEnv;
+    private final PyObject pyActionSpace;
+    private final PyObject pyObservationSpace;
+    private final PyObject pyRender;
+    private final PyObject pyStep;
+    private final PyObject pyReset;
+    private final ActionSpaceType actionSpaceType;
 
+    @Getter
+    private boolean closed;
     private EnvStateMetadata stateMetadata;
     private EnvRenderMetadata renderMetadata;
 
@@ -41,48 +46,40 @@ public final class Env implements AutoCloseable {
     public Env(String envId, NDManager manager) {
         initPython();
         this.ndManager = manager.newSubManager();
-
+        this.varEnvCode = UUID.randomUUID().toString().replace("-", "");
         exec("""
         import gymnasium as gym
-        env = gym.make('%s', render_mode='rgb_array')
-        """.formatted(envId));
+        env_%s = gym.make('%s', render_mode='rgb_array')
+        """.formatted(varEnvCode, envId));
 
-        env = eval("env");
-        stepMethod = attr(env, "step");
+        this.pyEnv = eval("env_" + varEnvCode);
+        this.pyActionSpace = attr(pyEnv, "action_space");
+        this.actionSpaceType = detectActionSpaceType(pyActionSpace);
+        this.pyObservationSpace = attr(pyEnv, "observation_space");
+        this.pyRender = attr(pyEnv, "render");
+        this.pyStep = attr(pyEnv, "step");
+        this.pyReset = attr(pyEnv, "reset");
     }
 
     public String actionSpaceStr() {
-        try (var attr = PyObject_GetAttrString(env, "action_space");
-             var out = PyObject_Str(attr)) {
-            return str(out);
-        }
+        return toStr(pyActionSpace);
     }
 
     public String observationSpaceStr() {
-        try (var attr = PyObject_GetAttrString(env, "observation_space");
-             var out = PyObject_Str(attr)) {
-            return str(out);
-        }
+        return toStr(pyObservationSpace);
     }
 
-    public long actionSpaceSampleLong() {
-        try (var sample = PyObject_CallMethod(env,
-                "action_space.sample", null)) {
-            return toLong(sample);
-        }
-    }
-
-    public double actionSpaceSampleDouble() {
-        try (var sample = PyObject_CallMethod(env,
-                "action_space.sample", null)) {
-            return toDouble(sample);
+    public ActionResult actionSpaceSample() {
+        try (var pySample = callMethod(pyActionSpace, "sample")) {
+            return actionSpaceType.convert(pySample);
         }
     }
 
     public Pair<Map<Object, Object>, NDArray> reset() {
-        try (var pyReset = callMethod(env, "reset");
-             var pyState = getItem(pyReset, 0);
-             var pyInfo = getItem(pyReset, 1)) {
+        try (var result = callFunction(pyReset)) {
+
+            var pyState = getItem(result, 0);
+            var infoMap = getItemMap(result, 1);
 
             if (stateMetadata == null) {
                 stateMetadata = EnvStateMetadata.fromNumpy(pyState);
@@ -99,48 +96,35 @@ public final class Env implements AutoCloseable {
                     stateMetadata.djlType
             );
 
-            var infoMap = pyDictToJava(pyInfo);
             return new Pair<>(infoMap, state);
         }
     }
 
-    public EnvStepResult step(Object action) {
+    public EnvStepResult step(ActionResult action) {
         if (stateBuffer == null) {
             throw new IllegalStateException("You should call reset() first!");
         }
 
-        try (var pyStep = eval("env.step(%d)".formatted(action))) {
-            var pyState = getItem(pyStep, 0);
-            refInc(pyState);
+        try (var result = callFunction(pyStep, action.pyObj)) {
+            fillFromNumpy(getItem(result, 0), stateBuffer);
+            double reward = getItemDouble(result, 1);
+            boolean terminated = getItemBool(result, 2);
+            boolean truncated = getItemBool(result, 3);
+            var infoMap = getItemMap(result, 4);
 
-            try (pyState;
-                 var pyReward = getItem(pyStep, 1);
-                 var pyTerminated = getItem(pyStep, 2);
-                 var pyTruncated = getItem(pyStep, 3);
-                 var pyInfoMap = getItem(pyStep, 4)) {
+            var state = ndManager.create(
+                    stateBuffer,
+                    stateMetadata.djlShape,
+                    stateMetadata.djlType
+            );
 
-                double reward = toDouble(pyReward);
-                boolean terminated = toBool(pyTerminated);
-                boolean truncated = toBool(pyTruncated);
-                var infoMap = pyDictToJava(pyInfoMap);
-
-                fillFromNumpy(pyState, stateBuffer);
-
-                var state = ndManager.create(
-                        stateBuffer,
-                        stateMetadata.djlShape,
-                        stateMetadata.djlType
-                );
-
-                return new EnvStepResult(reward, terminated, truncated, infoMap)
-                        .state(state);
-            }
+            return new EnvStepResult(reward, terminated, truncated, infoMap)
+                    .state(state);
         }
     }
 
     public BufferedImage render() {
-        try (var ndarray = callMethod(env, "render")) {
-
+        try (var ndarray = callFunction(pyRender)) {
             if (renderMetadata == null) {
                 renderMetadata = EnvRenderMetadata.fromNumpy(ndarray);
                 imageBuffer = ByteBuffer
@@ -161,82 +145,30 @@ public final class Env implements AutoCloseable {
 
     @Override
     public void close() {
-        try (var _ = callMethod(env, "close")) {
-            log.info("Closed Env");
-        } finally {
-            ndManager.close();
-            env.close();
+        if (closed) {
+            log.warn("The env_{} was already closed!", varEnvCode);
+            return;
         }
-    }
+        this.closed = true;
 
-    @Accessors(fluent = true)
-    public static class EnvStateMetadata {
+        if (DEBUG) log.info("Before close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
+                refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
+                refCount(pyRender), refCount(pyStep), refCount(pyReset));
 
-        protected final int[] shape;
-        @Getter
-        protected final String dtype;
-        @Getter
-        protected final Shape djlShape;
-        @Getter
-        protected final DataType djlType;
-        @Getter
-        protected final int size;
+        decRef(pyActionSpace);
+        decRef(pyObservationSpace);
+        decRef(pyRender);
+        decRef(pyStep);
+        decRef(pyReset);
+        decRef(pyEnv);
 
-        static EnvStateMetadata fromNumpy(PyObject arr) {
-            int[] shape = pyIntArrayToJava(attr(arr, "shape"));
-            String dtype = attrStr(arr, "dtype");
+        exec("if 'env' in globals(): del env");
 
-            long[] longShape = Arrays.stream(shape).mapToLong(i -> i).toArray();
-            DataType djlType = Numpy2DJLTypeMapper.numpyToDjl(dtype);
+        if (DEBUG) log.info("After close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
+                    refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
+                    refCount(pyRender), refCount(pyStep), refCount(pyReset));
 
-            int elements = Arrays.stream(shape).reduce(1, Math::multiplyExact);
-            int size = elements * Numpy2DJLTypeMapper.bytesPerElement(dtype);
-
-            return new EnvStateMetadata(shape, dtype,
-                    new Shape(longShape), djlType, size);
-        }
-
-        private EnvStateMetadata(
-                int[] shape,
-                String dtype,
-                Shape djlShape,
-                DataType djlType,
-                int size
-        ) {
-            this.shape = shape;
-            this.dtype = dtype;
-            this.djlShape = djlShape;
-            this.djlType = djlType;
-            this.size = size;
-        }
-    }
-
-    @Accessors(fluent = true)
-    public static class EnvRenderMetadata extends EnvStateMetadata {
-
-        static EnvRenderMetadata fromNumpy(PyObject arr) {
-            var base = EnvStateMetadata.fromNumpy(arr);
-            return new EnvRenderMetadata(
-                    base.shape,
-                    base.dtype,
-                    base.djlShape,
-                    base.djlType,
-                    base.size
-            );
-        }
-
-        private EnvRenderMetadata(
-                int[] shape,
-                String dtype,
-                Shape djlShape,
-                DataType djlType,
-                int size
-        ) {
-            super(shape, dtype, djlShape, djlType, size);
-        }
-
-        public int height() { return shape[0]; }
-        public int width()  { return shape[1]; }
-        public int channels() { return shape.length > 2 ? shape[2] : 1; }
+        log.info("Closed Env");
+        ndManager.close();
     }
 }

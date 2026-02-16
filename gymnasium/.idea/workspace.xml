@@ -1,27 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="86007aab-ef0a-406d-8e08-9add190abc41" name="Changes" comment="" />
+    <list default="true" id="86007aab-ef0a-406d-8e08-9add190abc41" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/gymnasium4j/ActionSpaceTypeTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/ActionSpaceType.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/ActionSpaceType.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/Env.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/Env.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/PythonRuntime.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/PythonRuntime.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "customColor": "",
-  "associatedIndex": 2
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="39XikZT2VCQ1FCFUnttkkdzCIJi" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feat-javacpp-gym&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

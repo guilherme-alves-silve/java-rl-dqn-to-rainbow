@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.python.numpy;
 
+import br.com.guialves.rflr.python.PythonDataStructures;
 import org.bytedeco.cpython.PyObject;
 import org.bytedeco.cpython.Py_buffer;
 
@@ -47,7 +48,7 @@ public class NumpyByteBuffer {
      * @param size buffer size in bytes
      * @return ByteBuffer configured with the correct byte order for NumPy
      */
-    public static ByteBuffer newBufferForNumpy(int size) {
+    public static ByteBuffer onHeapBufferNumpy(int size) {
         return ByteBuffer.allocate(size).order(BYTE_ORDER);
     }
 
@@ -58,7 +59,7 @@ public class NumpyByteBuffer {
      * @param size buffer size in bytes
      * @return ByteBuffer configured with the correct byte order for NumPy
      */
-    public static ByteBuffer newDirectBufferForNumpy(int size) {
+    public static ByteBuffer offHeapBufferNumpy(int size) {
         return ByteBuffer.allocateDirect(size).order(BYTE_ORDER);
     }
 
@@ -74,7 +75,7 @@ public class NumpyByteBuffer {
      * @param size buffer size in bytes
      * @return ByteBuffer configured with the array's byte order
      */
-    public static ByteBuffer newBufferForNumpy(PyObject ndarray, int size) {
+    public static ByteBuffer onHeapBufferNumpy(PyObject ndarray, int size) {
         String byteOrder = attrStr(attr(ndarray, "dtype"), "byteorder");
         var order = switch (byteOrder) {
             case ">" -> ByteOrder.BIG_ENDIAN;
@@ -146,5 +147,95 @@ public class NumpyByteBuffer {
         }
 
         buffer.flip();
+    }
+
+    public static int[] toIntArray(PyObject obj) {
+
+        if (!hasAttr(obj, "dtype")) {
+            return PythonDataStructures.toIntArray(obj);
+        }
+
+        String dtype = attrStr(attr(obj, "dtype"), "name");
+
+        if (!"int32".equals(dtype)) {
+            throw new IllegalArgumentException("Expected numpy int32 array, got " + dtype);
+        }
+
+        int bytes = nbytes(obj);
+
+        var buffer = onHeapBufferNumpy(obj, bytes);
+        fillFromNumpy(obj, buffer);
+
+        var intView = buffer.asIntBuffer();
+
+        int[] result = new int[intView.remaining()];
+        intView.get(result);
+
+        return result;
+    }
+
+    public static long[] toLongArray(PyObject obj) {
+
+        if (!hasAttr(obj, "dtype")) {
+            return PythonDataStructures.toLongArray(obj);
+        }
+
+        String dtype = attrStr(attr(obj, "dtype"), "name");
+
+        if (!"int64".equals(dtype)) {
+            throw new IllegalArgumentException("Expected numpy int64 array, got " + dtype);
+        }
+
+        int bytes = nbytes(obj);
+
+        var buffer = onHeapBufferNumpy(obj, bytes);
+        fillFromNumpy(obj, buffer);
+
+        var longView = buffer.asLongBuffer();
+
+        long[] result = new long[longView.remaining()];
+        longView.get(result);
+
+        return result;
+    }
+
+    public static double[] toDoubleArray(PyObject obj) {
+
+        if (!hasAttr(obj, "dtype")) {
+            return PythonDataStructures.toDoubleArray(obj);
+        }
+
+        String dtype = attrStr(attr(obj, "dtype"), "name");
+
+        if (!("float64".equals(dtype) || "float32".equals(dtype))) {
+            throw new IllegalArgumentException("Expected numpy float64 or float32 array, got " + dtype);
+        }
+
+        int bytes = nbytes(obj);
+
+        var buffer = onHeapBufferNumpy(obj, bytes);
+        fillFromNumpy(obj, buffer);
+
+        if ("float64".equals(dtype)) {
+            var doubleView = buffer.asDoubleBuffer();
+            double[] result = new double[doubleView.remaining()];
+            doubleView.get(result);
+            return result;
+        }
+
+        // maybe separate float32 and float64 if performance demands
+        var floatView = buffer.asFloatBuffer();
+        int size = floatView.remaining();
+        double[] result = new double[size];
+        for (int i = 0; i < size; i++) {
+            result[i] = floatView.get();
+        }
+        return result;
+    }
+
+    private static int nbytes(PyObject ndarray) {
+        try (var nb = attr(ndarray, "nbytes")) {
+            return (int) PyLong_AsLong(nb);
+        }
     }
 }

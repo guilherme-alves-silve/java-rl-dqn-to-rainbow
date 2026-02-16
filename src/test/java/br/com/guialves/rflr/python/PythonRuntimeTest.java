@@ -2,6 +2,7 @@ package br.com.guialves.rflr.python;
 
 import org.junit.jupiter.api.*;
 
+import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,7 +55,7 @@ class PythonRuntimeTest {
         exec("global_var = 'global'");
         execIsolated("global_var = 'isolated'");
         try (var result = eval("global_var")) {
-            assertEquals("global", str(result));
+            assertEquals("global", toStr(result));
         }
     }
 
@@ -88,8 +89,7 @@ class PythonRuntimeTest {
         exec("arr = (1, 2, 3, 4, 5)");
 
         try (var arr = eval("arr")) {
-            int[] result = pyIntArrayToJava(arr);
-
+            int[] result = toIntArray(arr);
             assertArrayEquals(new int[]{1, 2, 3, 4, 5}, result);
         }
     }
@@ -99,7 +99,7 @@ class PythonRuntimeTest {
         exec("arr = [1, 2, 3, 4, 5]");
 
         try (var arr = eval("arr")) {
-            int[] result = pyIntArrayToJava(arr);
+            int[] result = toIntArray(arr);
 
             assertArrayEquals(new int[]{1, 2, 3, 4, 5}, result);
         }
@@ -110,7 +110,7 @@ class PythonRuntimeTest {
         exec("d = {'a': 1, 'b': 2, 'c': 3}");
 
         try (var dict = eval("d")) {
-            var result = pyDictToJava(dict);
+            var result = toMap(dict);
 
             assertEquals(3, result.size());
             assertEquals(1L, result.get("a"));
@@ -124,7 +124,7 @@ class PythonRuntimeTest {
         exec("d = {'a': 'A', 'b': 'B', 'c': 'C'}");
 
         try (var dict = eval("d")) {
-            var result = pyDictToJava(dict);
+            var result = toMap(dict);
 
             assertEquals(3, result.size());
             assertEquals("A", result.get("a"));
@@ -138,7 +138,7 @@ class PythonRuntimeTest {
         exec("d = {1: \"A\", 2: \"B\", 3: \"C\"}");
 
         try (var dict = eval("d")) {
-            var result = pyDictToJava(dict);
+            var result = toMap(dict);
 
             assertEquals(3, result.size());
             assertEquals("A", result.get(1L));
@@ -148,24 +148,24 @@ class PythonRuntimeTest {
     }
 
     @Test
-    void testStr() {
+    void testToStr() {
         exec("s = 'Hello, Python!'");
 
         try (var s = eval("s")) {
-            assertEquals("Hello, Python!", str(s));
+            assertEquals("Hello, Python!", toStr(s));
         }
     }
 
     @Test
-    void testStrWithNone() {
+    void testToStrWithNone() {
         try (var none = eval("None")) {
-            assertNull(str(none));
+            assertNull(toStr(none));
         }
     }
 
     @Test
-    void testStrWithNull() {
-        assertNull(str(null));
+    void testToStrWithNull() {
+        assertNull(toStr(null));
     }
 
     @Test
@@ -174,17 +174,17 @@ class PythonRuntimeTest {
         class MyClass:
             def __init__(self):
                 self.value = 42
-        obj = MyClass()
+        pyObj = MyClass()
         """);
 
-        try (var obj = eval("obj");
+        try (var obj = eval("pyObj");
              var value = attr(obj, "value")) {
             assertEquals(42L, toLong(value));
         }
     }
 
     @Test
-    void testAttrStr() {
+    void testAttrToStr() {
         exec("""
         class Person:
             def __init__(self):
@@ -242,10 +242,10 @@ class PythonRuntimeTest {
         exec("""
         class MyClass:
             pass
-        obj = MyClass()
+        pyObj = MyClass()
         """);
 
-        try (var obj = eval("obj")) {
+        try (var obj = eval("pyObj")) {
             IllegalArgumentException exception = assertThrows(
                     IllegalArgumentException.class,
                     () -> callMethod(obj, "non_existent_method")
@@ -278,8 +278,8 @@ class PythonRuntimeTest {
     }
 
     @Test
-    void testPyFloat() {
-        try (var num = pyFloat(2.71828)) {
+    void testPyDouble() {
+        try (var num = pyDouble(2.71828)) {
             assertEquals(2.71828, toDouble(num), 0.00001);
         }
     }
@@ -294,9 +294,9 @@ class PythonRuntimeTest {
     }
 
     @Test
-    void testPyStr() {
+    void testPyToStr() {
         try (var s = pyStr("Test String")) {
-            assertEquals("Test String", str(s));
+            assertEquals("Test String", toStr(s));
         }
     }
 
@@ -319,9 +319,9 @@ class PythonRuntimeTest {
         exec("x = [1, 2, 3]");
 
         try (var list = eval("x")) {
-            refInc(list);
-            refDec(list);
-            assertDoesNotThrow(() -> str(list));
+            incRef(list);
+            decRef(list);
+            assertDoesNotThrow(() -> toStr(list));
         }
     }
 
@@ -373,7 +373,7 @@ class PythonRuntimeTest {
         assertDoesNotThrow(() -> exec("recovery_test = 'ok'"));
 
         try (var result = eval("recovery_test")) {
-            assertEquals("ok", str(result));
+            assertEquals("ok", toStr(result));
         }
     }
 }
