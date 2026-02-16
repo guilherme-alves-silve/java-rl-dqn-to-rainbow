@@ -13,6 +13,7 @@ import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Map;
+import java.util.UUID;
 
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
@@ -25,6 +26,7 @@ public final class Env implements AutoCloseable {
 
     private static final boolean DEBUG = true;
     private final NDManager ndManager;
+    private final String varEnvCode;
     private final PyObject pyEnv;
     private final PyObject pyActionSpace;
     private final PyObject pyObservationSpace;
@@ -44,13 +46,13 @@ public final class Env implements AutoCloseable {
     public Env(String envId, NDManager manager) {
         initPython();
         this.ndManager = manager.newSubManager();
-
+        this.varEnvCode = UUID.randomUUID().toString().replace("-", "");
         exec("""
         import gymnasium as gym
-        env = gym.make('%s', render_mode='rgb_array')
-        """.formatted(envId));
+        env_%s = gym.make('%s', render_mode='rgb_array')
+        """.formatted(varEnvCode, envId));
 
-        this.pyEnv = eval("env");
+        this.pyEnv = eval("env_" + varEnvCode);
         this.pyActionSpace = attr(pyEnv, "action_space");
         this.actionSpaceType = detectActionSpaceType(pyActionSpace);
         this.pyObservationSpace = attr(pyEnv, "observation_space");
@@ -144,7 +146,7 @@ public final class Env implements AutoCloseable {
     @Override
     public void close() {
         if (closed) {
-            log.warn("The env was already closed!");
+            log.warn("The env_{} was already closed!", varEnvCode);
             return;
         }
         this.closed = true;

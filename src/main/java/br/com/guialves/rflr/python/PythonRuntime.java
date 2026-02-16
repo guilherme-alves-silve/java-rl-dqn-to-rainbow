@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.bytedeco.cpython.global.python.*;
 
@@ -362,11 +363,88 @@ public final class PythonRuntime {
         return PyUnicode_FromString(obj);
     }
 
+    public static PyObject pyList(Number[] values, Function<Number, PyObject> mapper) {
+        var pyList = PyList_New(values.length);
+        for (int i = 0; i < values.length; i++) {
+            PyList_SetItem(pyList, i, mapper.apply(values[i]));
+        }
+
+        return pyList;
+    }
+
+    public static PyObject pyListDoubles(double[] values) {
+        final int length = values.length;
+        var pyList = PyList_New(length);
+
+        for (int i = 0; i < length; i++) {
+            PyList_SetItem(pyList, i, pyDouble(values[i]));
+        }
+
+        return pyList;
+    }
+
+    public static PyObject pyListFloats(float[] values) {
+        final int length = values.length;
+        var pyList = PyList_New(length);
+
+        for (int i = 0; i < length; i++) {
+            PyList_SetItem(pyList, i, pyDouble(values[i]));
+        }
+
+        return pyList;
+    }
+
+    public static PyObject pyListLongs(long[] values) {
+        final int length = values.length;
+        var pyList = PyList_New(length);
+
+        for (int i = 0; i < length; i++) {
+            PyList_SetItem(pyList, i, pyLong(values[i]));
+        }
+
+        return pyList;
+    }
+
+    public static PyObject pyListInts(int[] values) {
+        final int length = values.length;
+        var pyList = PyList_New(length);
+
+        for (int i = 0; i < length; i++) {
+            PyList_SetItem(pyList, i, pyLong(values[i]));
+        }
+
+        return pyList;
+    }
+
+    public static PyObject pyListBools(boolean[] values) {
+        final int length = values.length;
+        var pyList = PyList_New(length);
+
+        for (int i = 0; i < length; i++) {
+            PyList_SetItem(pyList, i, pyLong(values[i] ? 1L : 0L));
+        }
+
+        return pyList;
+    }
+
     public static void refInc(PyObject obj) {
         Py_INCREF(obj);
     }
 
     public static void refDec(PyObject obj) {
+        Py_DECREF(obj);
+    }
+
+    public static void refDecSafe(PyObject obj) {
+        if (obj == null || obj.isNull()) {
+            throw new IllegalStateException("PyObject is null!");
+        }
+
+        long refCount = Py_REFCNT(obj);
+        if (refCount <= 0) {
+            throw new IllegalStateException("ActionResult already closed or invalid! RefCount: " + refCount);
+        }
+
         Py_DECREF(obj);
     }
 
@@ -395,7 +473,7 @@ public final class PythonRuntime {
 
                     String keyStr = str(key);
                     String valueStr = str(value);
-                    System.out.println("  " + keyStr + " = " + valueStr);
+                    IO.println("  " + keyStr + " = " + valueStr);
                 }
             }
         }

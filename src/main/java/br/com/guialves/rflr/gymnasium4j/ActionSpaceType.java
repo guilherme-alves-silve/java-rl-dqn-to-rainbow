@@ -6,8 +6,6 @@ import lombok.experimental.Accessors;
 import org.bytedeco.cpython.PyObject;
 
 import static br.com.guialves.rflr.python.PythonRuntime.*;
-import static br.com.guialves.rflr.python.PythonRuntime.refDec;
-import static org.bytedeco.cpython.global.python.PyObject_GetAttrString;
 
 /**
  * Represent the gymnasium.spaces, it can be Box, Discrete and other.
@@ -16,39 +14,60 @@ import static org.bytedeco.cpython.global.python.PyObject_GetAttrString;
 public enum ActionSpaceType {
     DISCRETE {
         @Override
-        public ActionResult get(Number value) {
-            return new ActionResult(pyLong(value.longValue()), this);
+        public ActionResult get(long value) {
+            return new ActionResult(pyLong(value), this);
+        }
+
+        @Override
+        public ActionResult get(int value) {
+            return new ActionResult(pyLong(value), this);
         }
     },
     BOX {
         @Override
-        public ActionResult get(Number value) {
-            return new ActionResult(pyDouble(value.doubleValue()), this);
+        public ActionResult get(double value) {
+            return new ActionResult(pyDouble(value), this);
+        }
+
+        @Override
+        public ActionResult get(double[] values) {
+            return new ActionResult(pyListDoubles(values), this);
+        }
+
+        @Override
+        public ActionResult get(float[] values) {
+            return new ActionResult(pyListFloats(values), this);
         }
     },
     MULTI_DISCRETE {
         @Override
-        public ActionResult convert(PyObject obj) {
-            // Returns int array
-            throw new UnsupportedOperationException("MULTI_DISCRETE is not supported yet!");
+        public ActionResult get(int[] values) {
+            return new ActionResult(pyListInts(values), this);
+        }
+
+        @Override
+        public ActionResult get(long[] values) {
+            return new ActionResult(pyListLongs(values), this);
         }
     },
     MULTI_BINARY {
         @Override
-        public ActionResult convert(PyObject obj) {
-            // Returns binary array
-            throw new UnsupportedOperationException("MULTI_BINARY is not supported yet!");
+        public ActionResult get(boolean[] values) {
+            return new ActionResult(pyListBools(values), this);
         }
 
+        /**
+         * accept ints and convert to binary
+         */
         @Override
-        public ActionResult get(Number value) {
-            return super.get(value);
+        public ActionResult get(int[] values) {
+            return new ActionResult(pyListInts(values), this);
         }
     },
     TEXT {
         @Override
-        public ActionResult convert(PyObject obj) {
-            throw new UnsupportedOperationException("TEXT is not supported yet!");
+        public ActionResult get(String value) {
+            return new ActionResult(pyStr(value), this);
         }
     },
     UNKNOWN {
@@ -60,7 +79,7 @@ public enum ActionSpaceType {
 
     static ActionSpaceType detectActionSpaceType(PyObject pyActionSpace) {
         var pySpaceClass = attr(pyActionSpace, "__class__");
-        var pyClassName = PyObject_GetAttrString(pySpaceClass, "__name__");
+        var pyClassName = attr(pySpaceClass, "__name__");
 
         String name = str(pyClassName, "pyClassName");
 
@@ -72,6 +91,7 @@ public enum ActionSpaceType {
             case "Box" -> ActionSpaceType.BOX;
             case "MultiDiscrete" -> ActionSpaceType.MULTI_DISCRETE;
             case "MultiBinary" -> ActionSpaceType.MULTI_BINARY;
+            case "Text" -> ActionSpaceType.TEXT;
             default -> ActionSpaceType.UNKNOWN;
         };
     }
@@ -80,32 +100,83 @@ public enum ActionSpaceType {
         return new ActionResult(obj, this);
     }
 
-    public ActionResult get(Number value) {
-        throw new UnsupportedOperationException("get for \"%s\" is not supported yet!".formatted(this.name()));
+    public ActionResult get(int value) {
+        throw new UnsupportedOperationException("get(int) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(long value) {
+        throw new UnsupportedOperationException("get(long) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(double value) {
+        throw new UnsupportedOperationException("get(double) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(float value) {
+        throw new UnsupportedOperationException("get(float) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(String value) {
+        throw new UnsupportedOperationException("get(String) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(int[] values) {
+        throw new UnsupportedOperationException("get(int[]) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(long[] values) {
+        throw new UnsupportedOperationException("get(long[]) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(double[] values) {
+        throw new UnsupportedOperationException("get(double[]) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(float[] values) {
+        throw new UnsupportedOperationException("get(float[]) for \"%s\" is not supported!".formatted(this.name()));
+    }
+
+    public ActionResult get(boolean[] values) {
+        throw new UnsupportedOperationException("get(boolean[]) for \"%s\" is not supported!".formatted(this.name()));
     }
 
     @RequiredArgsConstructor
     @Accessors(fluent = true)
     public static class ActionResult implements AutoCloseable {
 
-        // I don't want to expose this outside of package, to avoid crashes
+        // I don't want to expose this, to avoid crashes
         final PyObject pyObj;
         @Getter
         final ActionSpaceType spaceType;
 
         private boolean closed = false;
 
+        public Object value() {
+            if (closed) {
+                throw new IllegalStateException("Cannot get value from closed ActionResult");
+            }
+            return null;
+        }
+
         @Override
         public void close() {
             if (closed) {
                 throw new IllegalStateException("ActionResult already closed!");
             }
-            refDec(pyObj);
+
+            refDecSafe(pyObj);
             closed = true;
         }
 
         public boolean isClosed() {
             return closed;
+        }
+
+        /**
+         * Check if this object is still valid (has references)
+         */
+        public boolean isValid() {
+            return !closed && pyObj != null && !pyObj.isNull() && refCount(pyObj) > 0;
         }
     }
 }
