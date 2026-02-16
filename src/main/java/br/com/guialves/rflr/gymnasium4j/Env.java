@@ -42,6 +42,7 @@ public final class Env implements AutoCloseable {
 
     private ByteBuffer stateBuffer;
     private ByteBuffer imageBuffer;
+    private boolean discreteObservation;
 
     public Env(String envId, NDManager manager) {
         initPython();
@@ -81,42 +82,61 @@ public final class Env implements AutoCloseable {
             var pyState = getItem(result, 0);
             var infoMap = getItemMap(result, 1);
 
-            if (stateMetadata == null) {
-                stateMetadata = EnvStateMetadata.fromNumpy(pyState);
-                stateBuffer = ByteBuffer
-                        .allocate(stateMetadata.size())
-                        .order(ByteOrder.nativeOrder());
+            if (!hasAttr(pyState, "shape")) {
+                this.discreteObservation = true;
+                long observationValue = toLong(pyState);
+                var state = ndManager.create(observationValue);
+                log.debug("Discrete observation: {}", observationValue);
+                return new Pair<>(infoMap, state);
+            } else {
+                discreteObservation = false;
+                if (stateMetadata == null) {
+                    stateMetadata = EnvStateMetadata.fromNumpy(pyState);
+                    stateBuffer = ByteBuffer
+                            .allocate(stateMetadata.size())
+                            .order(ByteOrder.nativeOrder());
+                }
+
+                fillFromNumpy(pyState, stateBuffer);
+
+                var state = ndManager.create(
+                        stateBuffer,
+                        stateMetadata.djlShape(),
+                        stateMetadata.djlType
+                );
+
+                return new Pair<>(infoMap, state);
             }
-
-            fillFromNumpy(pyState, stateBuffer);
-
-            var state = ndManager.create(
-                    stateBuffer,
-                    stateMetadata.djlShape(),
-                    stateMetadata.djlType
-            );
-
-            return new Pair<>(infoMap, state);
         }
     }
 
     public EnvStepResult step(ActionResult action) {
-        if (stateBuffer == null) {
-            throw new IllegalStateException("You should call reset() first!");
-        }
-
         try (var result = callFunction(pyStep, action.pyObj)) {
-            fillFromNumpy(getItem(result, 0), stateBuffer);
+            NDArray state;
+
+            if (discreteObservation) {
+                var pyState = getItem(result, 0);
+                long observationValue = toLong(pyState);
+                state = ndManager.create(observationValue);
+
+                log.debug("Discrete observation after step: {}", observationValue);
+            } else {
+                if (stateBuffer == null) {
+                    throw new IllegalStateException("You should call reset() first!");
+                }
+
+                fillFromNumpy(getItem(result, 0), stateBuffer);
+                state = ndManager.create(
+                        stateBuffer,
+                        stateMetadata.djlShape,
+                        stateMetadata.djlType
+                );
+            }
+
             double reward = getItemDouble(result, 1);
             boolean terminated = getItemBool(result, 2);
             boolean truncated = getItemBool(result, 3);
             var infoMap = getItemMap(result, 4);
-
-            var state = ndManager.create(
-                    stateBuffer,
-                    stateMetadata.djlShape,
-                    stateMetadata.djlType
-            );
 
             return new EnvStepResult(reward, terminated, truncated, infoMap)
                     .state(state);
