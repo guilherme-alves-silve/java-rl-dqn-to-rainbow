@@ -174,10 +174,10 @@ class PythonRuntimeTest {
         class MyClass:
             def __init__(self):
                 self.value = 42
-        obj = MyClass()
+        pyObj = MyClass()
         """);
 
-        try (var obj = eval("obj");
+        try (var obj = eval("pyObj");
              var value = attr(obj, "value")) {
             assertEquals(42L, toLong(value));
         }
@@ -242,10 +242,10 @@ class PythonRuntimeTest {
         exec("""
         class MyClass:
             pass
-        obj = MyClass()
+        pyObj = MyClass()
         """);
 
-        try (var obj = eval("obj")) {
+        try (var obj = eval("pyObj")) {
             IllegalArgumentException exception = assertThrows(
                     IllegalArgumentException.class,
                     () -> callMethod(obj, "non_existent_method")
@@ -278,8 +278,8 @@ class PythonRuntimeTest {
     }
 
     @Test
-    void testPyFloat() {
-        try (var num = pyFloat(2.71828)) {
+    void testPyDouble() {
+        try (var num = pyDouble(2.71828)) {
             assertEquals(2.71828, toDouble(num), 0.00001);
         }
     }

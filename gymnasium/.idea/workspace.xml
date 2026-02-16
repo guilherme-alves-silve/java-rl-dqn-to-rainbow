@@ -1,16 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="86007aab-ef0a-406d-8e08-9add190abc41" name="Changes" comment="" />
+    <list default="true" id="86007aab-ef0a-406d-8e08-9add190abc41" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../DEBUG.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../TODO.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/ActionSpaceType.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/EnvRenderMetadata.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/EnvStateMetadata.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/App.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/App.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/Env.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/Env.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/PythonRuntime.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/PythonRuntime.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/numpy/NumpyByteBuffer.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/numpy/NumpyByteBuffer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/utils/PreProcessingWrapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/utils/PreProcessingWrapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/gymnasium4j/GymTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/gymnasium4j/GymTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/python/PythonRuntimeTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/python/PythonRuntimeTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/python/numpy/NumpyByteBufferTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/python/numpy/NumpyByteBufferTest.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "customColor": "",
-  "associatedIndex": 2
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="39XikZT2VCQ1FCFUnttkkdzCIJi" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -19,7 +37,9 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true"
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "feat-javacpp-gym"
   }
 }]]></component>
   <component name="SharedIndexes">

@@ -47,7 +47,7 @@ public class NumpyByteBuffer {
      * @param size buffer size in bytes
      * @return ByteBuffer configured with the correct byte order for NumPy
      */
-    public static ByteBuffer newBufferForNumpy(int size) {
+    public static ByteBuffer onHeapBufferNumpy(int size) {
         return ByteBuffer.allocate(size).order(BYTE_ORDER);
     }
 
@@ -58,7 +58,7 @@ public class NumpyByteBuffer {
      * @param size buffer size in bytes
      * @return ByteBuffer configured with the correct byte order for NumPy
      */
-    public static ByteBuffer newDirectBufferForNumpy(int size) {
+    public static ByteBuffer offHeapBufferNumpy(int size) {
         return ByteBuffer.allocateDirect(size).order(BYTE_ORDER);
     }
 
@@ -74,7 +74,7 @@ public class NumpyByteBuffer {
      * @param size buffer size in bytes
      * @return ByteBuffer configured with the array's byte order
      */
-    public static ByteBuffer newBufferForNumpy(PyObject ndarray, int size) {
+    public static ByteBuffer onHeapBufferNumpy(PyObject ndarray, int size) {
         String byteOrder = attrStr(attr(ndarray, "dtype"), "byteorder");
         var order = switch (byteOrder) {
             case ">" -> ByteOrder.BIG_ENDIAN;

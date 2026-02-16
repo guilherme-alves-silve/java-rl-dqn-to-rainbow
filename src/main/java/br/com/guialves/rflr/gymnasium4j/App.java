@@ -16,7 +16,7 @@ public class App {
              var ndManager = NDManager.newBaseManager(device);
              var env = Gym.make(envName, ndManager)) {
 
-            log.info("action space: {}, state space: {}", env.actionSpaceSampleDouble(), env.observationSpaceStr());
+            log.info("action space: {}, state space: {}", env.actionSpaceSample(), env.observationSpaceStr());
 
             while (!Thread.currentThread().isInterrupted()) {
                 render.display(env.render());
