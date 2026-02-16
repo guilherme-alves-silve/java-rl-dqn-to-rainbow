@@ -17,7 +17,7 @@ import java.util.UUID;
 
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
-import static br.com.guialves.rflr.python.PythonRuntime.eval;
+import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.numpy.NumpyByteBuffer.fillFromNumpy;
 
 @Slf4j
@@ -62,11 +62,11 @@ public final class Env implements AutoCloseable {
     }
 
     public String actionSpaceStr() {
-        return str(pyActionSpace);
+        return toStr(pyActionSpace);
     }
 
     public String observationSpaceStr() {
-        return str(pyObservationSpace);
+        return toStr(pyObservationSpace);
     }
 
     public ActionResult actionSpaceSample() {
@@ -155,12 +155,12 @@ public final class Env implements AutoCloseable {
                 refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
                 refCount(pyRender), refCount(pyStep), refCount(pyReset));
 
-        refDec(pyActionSpace);
-        refDec(pyObservationSpace);
-        refDec(pyRender);
-        refDec(pyStep);
-        refDec(pyReset);
-        refDec(pyEnv);
+        decRef(pyActionSpace);
+        decRef(pyObservationSpace);
+        decRef(pyRender);
+        decRef(pyStep);
+        decRef(pyReset);
+        decRef(pyEnv);
 
         exec("if 'env' in globals(): del env");
 

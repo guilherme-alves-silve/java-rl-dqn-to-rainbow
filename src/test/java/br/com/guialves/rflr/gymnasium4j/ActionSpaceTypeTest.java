@@ -324,7 +324,7 @@ class ActionSpaceTypeTest {
         void testUnknownConvert() {
             PyObject pyObj = pyLong(5);
             assertThrows(UnsupportedOperationException.class, () -> UNKNOWN.convert(pyObj));
-            refDec(pyObj);
+            decRef(pyObj);
         }
 
         @Test
@@ -351,7 +351,7 @@ class ActionSpaceTypeTest {
             ActionSpaceType detected = ActionSpaceType.detectActionSpaceType(pySpace);
 
             assertEquals(DISCRETE, detected);
-            refDec(pySpace);
+            decRef(pySpace);
             exec("del space");
         }
 
@@ -364,7 +364,7 @@ class ActionSpaceTypeTest {
             ActionSpaceType detected = ActionSpaceType.detectActionSpaceType(pySpace);
 
             assertEquals(BOX, detected);
-            refDec(pySpace);
+            decRef(pySpace);
             exec("del space");
         }
 
@@ -377,7 +377,7 @@ class ActionSpaceTypeTest {
             ActionSpaceType detected = ActionSpaceType.detectActionSpaceType(pySpace);
 
             assertEquals(MULTI_DISCRETE, detected);
-            refDec(pySpace);
+            decRef(pySpace);
             exec("del space");
         }
 
@@ -390,7 +390,7 @@ class ActionSpaceTypeTest {
             ActionSpaceType detected = ActionSpaceType.detectActionSpaceType(pySpace);
 
             assertEquals(MULTI_BINARY, detected);
-            refDec(pySpace);
+            decRef(pySpace);
             exec("del space");
         }
 
@@ -403,7 +403,7 @@ class ActionSpaceTypeTest {
             ActionSpaceType detected = ActionSpaceType.detectActionSpaceType(pySpace);
 
             assertEquals(TEXT, detected);
-            refDec(pySpace);
+            decRef(pySpace);
             exec("del space");
         }
 
@@ -417,7 +417,7 @@ class ActionSpaceTypeTest {
             ActionSpaceType detected = ActionSpaceType.detectActionSpaceType(pySpace);
 
             assertEquals(UNKNOWN, detected);
-            refDec(pySpace);
+            decRef(pySpace);
             exec("del space; del CustomSpace");
         }
     }

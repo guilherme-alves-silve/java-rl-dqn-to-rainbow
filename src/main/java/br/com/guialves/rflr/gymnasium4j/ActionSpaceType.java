@@ -1,11 +1,18 @@
 package br.com.guialves.rflr.gymnasium4j;
 
+import br.com.guialves.rflr.python.PythonDataStructures;
+import br.com.guialves.rflr.python.numpy.NumpyByteBuffer;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import org.bytedeco.cpython.PyObject;
 
+import java.util.Arrays;
+
 import static br.com.guialves.rflr.python.PythonRuntime.*;
+import static br.com.guialves.rflr.python.PythonDataStructures.*;
+import static br.com.guialves.rflr.python.PythonTypeChecks.*;
+import static org.bytedeco.cpython.global.python.*;
 
 /**
  * Represent the gymnasium.spaces, it can be Box, Discrete and other.
@@ -31,29 +38,29 @@ public enum ActionSpaceType {
 
         @Override
         public ActionResult get(double[] values) {
-            return new ActionResult(pyListDoubles(values), this);
+            return new ActionResult(PythonDataStructures.pyList(values), this);
         }
 
         @Override
         public ActionResult get(float[] values) {
-            return new ActionResult(pyListFloats(values), this);
+            return new ActionResult(PythonDataStructures.pyList(values), this);
         }
     },
     MULTI_DISCRETE {
         @Override
         public ActionResult get(int[] values) {
-            return new ActionResult(pyListInts(values), this);
+            return new ActionResult(PythonDataStructures.pyList(values), this);
         }
 
         @Override
         public ActionResult get(long[] values) {
-            return new ActionResult(pyListLongs(values), this);
+            return new ActionResult(PythonDataStructures.pyList(values), this);
         }
     },
     MULTI_BINARY {
         @Override
         public ActionResult get(boolean[] values) {
-            return new ActionResult(pyListBools(values), this);
+            return new ActionResult(PythonDataStructures.pyList(values), this);
         }
 
         /**
@@ -61,7 +68,7 @@ public enum ActionSpaceType {
          */
         @Override
         public ActionResult get(int[] values) {
-            return new ActionResult(pyListInts(values), this);
+            return new ActionResult(PythonDataStructures.pyList(values), this);
         }
     },
     TEXT {
@@ -81,10 +88,10 @@ public enum ActionSpaceType {
         var pySpaceClass = attr(pyActionSpace, "__class__");
         var pyClassName = attr(pySpaceClass, "__name__");
 
-        String name = str(pyClassName, "pyClassName");
+        String name = toStr(pyClassName, "pyClassName");
 
-        refDec(pyClassName);
-        refDec(pySpaceClass);
+        decRef(pyClassName);
+        decRef(pySpaceClass);
 
         return switch (name) {
             case "Discrete" -> ActionSpaceType.DISCRETE;
@@ -151,13 +158,6 @@ public enum ActionSpaceType {
 
         private boolean closed = false;
 
-        public Object value() {
-            if (closed) {
-                throw new IllegalStateException("Cannot get value from closed ActionResult");
-            }
-            return null;
-        }
-
         @Override
         public void close() {
             if (closed) {
@@ -177,6 +177,132 @@ public enum ActionSpaceType {
          */
         public boolean isValid() {
             return !closed && pyObj != null && !pyObj.isNull() && refCount(pyObj) > 0;
+        }
+
+        /**
+         * Extract the value from the PyObject based on the space type.
+         * Returns the appropriate Java type:
+         * - DISCRETE: Long
+         * - BOX (scalar): Double
+         * - BOX (array): double[]
+         * - MULTI_DISCRETE: int[] or long[]
+         * - MULTI_BINARY: boolean[]
+         * - TEXT: String
+         *
+         * @return the extracted value
+         * @param <T> the expected return type
+         * @throws IllegalStateException if the ActionResult is closed
+         * @throws UnsupportedOperationException if extraction is not supported for the space type
+         */
+        @SuppressWarnings("unchecked")
+        public <T> T value() {
+            if (closed) {
+                throw new IllegalStateException("Cannot access value of closed ActionResult!");
+            }
+            if (isPyNull(pyObj)) {
+                throw new IllegalStateException("PyObject is null or invalid!");
+            }
+
+            return (T) switch (spaceType) {
+                case DISCRETE -> toLong(pyObj);
+                case BOX -> extractBoxValue(pyObj);
+                case MULTI_DISCRETE -> extractMultiDiscreteValue(pyObj);
+                case MULTI_BINARY -> toBoolArray(pyObj);
+                case TEXT -> toStr(pyObj);
+                case UNKNOWN -> throw new UnsupportedOperationException(
+                        "Cannot extract value from UNKNOWN space type"
+                );
+            };
+        }
+
+        /**
+         * Extract value as a specific type with type checking.
+         *
+         * @param clazz the expected class type
+         * @param <T> the type parameter
+         * @return the value cast to the expected type
+         * @throws IllegalStateException if closed
+         * @throws ClassCastException if the value is not of the expected type
+         */
+        public <T> T valueAs(Class<T> clazz) {
+            Object value = value();
+            if (value == null) {
+                return null;
+            }
+            if (!clazz.isInstance(value)) {
+                throw new ClassCastException(
+                        "Expected %s but got %s".formatted(clazz.getName(), value.getClass().getName())
+                );
+            }
+            return clazz.cast(value);
+        }
+
+        /**
+         * Extract value for BOX space (can be scalar or array)
+         */
+        private Object extractBoxValue(PyObject obj) {
+            if (isSequence(obj)) {
+                return NumpyByteBuffer.toDoubleArray(obj);
+            }
+
+            return PyFloat_AsDouble(obj);
+        }
+
+        /**
+         * Extract value for MULTI_DISCRETE space
+         */
+        private Object extractMultiDiscreteValue(PyObject obj) {
+            if (!isList(obj)) {
+                throw new IllegalStateException("Expected list for MULTI_DISCRETE");
+            }
+
+            long size = PyList_Size(obj);
+
+            if (size > 0) {
+                PyObject first = PyList_GetItem(obj, 0);
+                long value = PyLong_AsLong(first);
+
+                if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
+                    return toIntArray(obj);
+                }
+            }
+
+            return toLongArray(obj);
+        }
+
+        /**
+         * Get a string representation of the value for debugging.
+         */
+        public String valueToString() {
+            if (closed) {
+                return "[closed]";
+            }
+
+            try {
+                Object value = value();
+                return switch (value) {
+                    case null -> "null";
+                    case int[] arr -> Arrays.toString(arr);
+                    case long[] arr -> Arrays.toString(arr);
+                    case double[] arr -> Arrays.toString(arr);
+                    case float[] arr -> Arrays.toString(arr);
+                    case boolean[] arr -> Arrays.toString(arr);
+                    default -> value.toString();
+                };
+
+            } catch (Exception e) {
+                return "[error: " + e.getMessage() + "]";
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "ActionResult{" +
+                    "spaceType=" + spaceType +
+                    ", value=" + valueToString() +
+                    ", closed=" + closed +
+                    ", valid=" + isValid() +
+                    '}';
         }
     }
 }

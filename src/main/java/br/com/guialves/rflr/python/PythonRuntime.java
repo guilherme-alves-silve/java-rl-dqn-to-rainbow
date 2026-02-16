@@ -5,13 +5,14 @@ import io.vavr.CheckedRunnable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
+import org.bytedeco.javacpp.BytePointer;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.function.Function;
 
+import static br.com.guialves.rflr.python.PythonTypeChecks.isPyNull;
 import static org.bytedeco.cpython.global.python.*;
 
 @Slf4j
@@ -164,27 +165,11 @@ public final class PythonRuntime {
         }
     }
 
-    public static int[] pyIntArrayToJava(PyObject obj) {
-        try (var pyStr = PyObject_Str(obj)) {
-            var repr = PythonRuntime.str(pyStr);
-            return PythonSequenceConverter.parsePythonIntArray(repr);
-        }
+    public static String toStr(PyObject obj) {
+        return toStr(obj, "");
     }
 
-    @SuppressWarnings("unchecked")
-    public static <K, V> Map<K, V> pyDictToJava(PyObject obj) {
-        try (var pyStr = PyObject_Str(obj)) {
-            var repr = PythonRuntime.str(pyStr);
-            if (null == repr) return null;
-            return (Map<K, V>) PythonDictConverter.parsePythonDictRepr(repr);
-        }
-    }
-
-    public static String str(PyObject obj) {
-        return str(obj, "");
-    }
-
-    public static String str(PyObject obj, String msg) {
+    public static String toStr(PyObject obj, String msg) {
         if (null == obj || Py_IsNone(obj) == 1) {
             return null;
         }
@@ -217,9 +202,13 @@ public final class PythonRuntime {
         return result;
     }
 
+    public static boolean hasAttr(PyObject obj, String name) {
+        return PyObject_HasAttrString(obj, name) == 1;
+    }
+
     public static String attrStr(PyObject obj, String attr) {
         try (var attrObj = PyObject_GetAttrString(obj, attr)) {
-            return str(attrObj);
+            return toStr(attrObj);
         }
     }
 
@@ -246,26 +235,6 @@ public final class PythonRuntime {
             throw new RuntimeException("Failed to call PyObject");
         }
         return result.retainReference();
-    }
-
-    public static PyObject getItem(PyObject obj, int pos) {
-        return PyTuple_GetItem(obj, pos);
-    }
-
-    public static boolean getItemBool(PyObject obj, int pos) {
-        return toBool(PyTuple_GetItem(obj, pos));
-    }
-
-    public static long getItemLong(PyObject obj, int pos) {
-        return toLong(PyTuple_GetItem(obj, pos));
-    }
-
-    public static double getItemDouble(PyObject obj, int pos) {
-        return toDouble(PyTuple_GetItem(obj, pos));
-    }
-
-    public static <K, V> Map<K, V> getItemMap(PyObject obj, int pos) {
-        return pyDictToJava(PyTuple_GetItem(obj, pos));
     }
 
     public static PyObject callMethod(PyObject obj, String method, PyObject... args) {
@@ -322,7 +291,7 @@ public final class PythonRuntime {
     }
 
     public static PyObject callFunction(PyObject fn, PyObject... args) {
-        if (fn == null || fn.isNull()) {
+        if (isPyNull(fn)) {
             throw new IllegalArgumentException("Cannot call null function");
         }
 
@@ -341,9 +310,21 @@ public final class PythonRuntime {
 
     public static PyObject newArgs(PyObject... args) {
         var tuple = PyTuple_New(args.length);
-        for (int i = 0; i < args.length; i++) {
-            PyTuple_SetItem(tuple, i, args[i]);
+        if (tuple == null || tuple.isNull()) {
+            throw new RuntimeException("Failed to allocate tuple");
         }
+
+        for (int i = 0; i < args.length; i++) {
+            PyObject arg = args[i];
+            if (isPyNull(arg)) {
+                Py_DECREF(tuple);
+                throw new IllegalArgumentException("Null argument at index " + i);
+            }
+
+            Py_INCREF(arg);
+            PyTuple_SetItem(tuple, i, arg); // steals that reference
+        }
+
         return tuple;
     }
 
@@ -363,80 +344,52 @@ public final class PythonRuntime {
         return PyUnicode_FromString(obj);
     }
 
-    public static PyObject pyList(Number[] values, Function<Number, PyObject> mapper) {
-        var pyList = PyList_New(values.length);
-        for (int i = 0; i < values.length; i++) {
-            PyList_SetItem(pyList, i, mapper.apply(values[i]));
+    /**
+     * Equivalent to Python:
+     * <code>b = bytes("abc", "utf-8")</code>
+     */
+    public static PyObject pyBytesStr(String value) {
+        if (value == null) {
+            return null;
         }
 
-        return pyList;
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+
+        try (var ptr = new BytePointer(bytes)) {
+            var pyBytes = PyBytes_FromStringAndSize(ptr, bytes.length);
+            checkError();
+            return pyBytes;   // new reference
+        }
     }
 
-    public static PyObject pyListDoubles(double[] values) {
-        final int length = values.length;
-        var pyList = PyList_New(length);
-
-        for (int i = 0; i < length; i++) {
-            PyList_SetItem(pyList, i, pyDouble(values[i]));
+    /**
+     * Equivalent to Python:
+     * <code>b = bytearray("abc", "utf-8")</code>
+     */
+    public static PyObject pyByteArrayStr(String value) {
+        if (value == null) {
+            return null;
         }
 
-        return pyList;
-    }
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
 
-    public static PyObject pyListFloats(float[] values) {
-        final int length = values.length;
-        var pyList = PyList_New(length);
-
-        for (int i = 0; i < length; i++) {
-            PyList_SetItem(pyList, i, pyDouble(values[i]));
+        try (var ptr = new BytePointer(bytes)) {
+            PyObject pyByteArray = PyByteArray_FromStringAndSize(ptr, bytes.length);
+            checkError();
+            return pyByteArray;   // new reference
         }
-
-        return pyList;
     }
 
-    public static PyObject pyListLongs(long[] values) {
-        final int length = values.length;
-        var pyList = PyList_New(length);
-
-        for (int i = 0; i < length; i++) {
-            PyList_SetItem(pyList, i, pyLong(values[i]));
-        }
-
-        return pyList;
-    }
-
-    public static PyObject pyListInts(int[] values) {
-        final int length = values.length;
-        var pyList = PyList_New(length);
-
-        for (int i = 0; i < length; i++) {
-            PyList_SetItem(pyList, i, pyLong(values[i]));
-        }
-
-        return pyList;
-    }
-
-    public static PyObject pyListBools(boolean[] values) {
-        final int length = values.length;
-        var pyList = PyList_New(length);
-
-        for (int i = 0; i < length; i++) {
-            PyList_SetItem(pyList, i, pyLong(values[i] ? 1L : 0L));
-        }
-
-        return pyList;
-    }
-
-    public static void refInc(PyObject obj) {
+    public static void incRef(PyObject obj) {
         Py_INCREF(obj);
     }
 
-    public static void refDec(PyObject obj) {
+    public static void decRef(PyObject obj) {
         Py_DECREF(obj);
     }
 
     public static void refDecSafe(PyObject obj) {
-        if (obj == null || obj.isNull()) {
+        if (isPyNull(obj)) {
             throw new IllegalStateException("PyObject is null!");
         }
 
@@ -452,7 +405,7 @@ public final class PythonRuntime {
         return Py_REFCNT(obj);
     }
 
-    private static void checkError() {
+    static void checkError() {
         try (var err = PyErr_Occurred()) {
             if (err != null) {
                 PyErr_Print();
@@ -461,7 +414,7 @@ public final class PythonRuntime {
         }
     }
 
-    private static void printDict(PyObject dict, String msg) {
+    static void printDict(PyObject dict, String msg) {
         log.info(msg);
         try (var items = PyDict_Items(dict)) {
             long size = PyList_Size(items);
@@ -471,8 +424,8 @@ public final class PythonRuntime {
                      var key = PyTuple_GetItem(item, 0);
                      var value = PyTuple_GetItem(item, 1)) {
 
-                    String keyStr = str(key);
-                    String valueStr = str(value);
+                    String keyStr = toStr(key);
+                    String valueStr = toStr(value);
                     IO.println("  " + keyStr + " = " + valueStr);
                 }
             }
