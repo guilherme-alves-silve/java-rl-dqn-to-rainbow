@@ -10,7 +10,7 @@ import java.nio.ByteOrder;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static org.bytedeco.cpython.global.python.*;
 
-public class NumpyByteBuffer {
+public class NumPyByteBuffer {
 
     private static final ByteOrder BYTE_ORDER;
 
@@ -37,7 +37,7 @@ public class NumpyByteBuffer {
         }
     }
 
-    private NumpyByteBuffer() {
+    private NumPyByteBuffer() {
         throw new IllegalArgumentException("No SafeByteBuffer!");
     }
 

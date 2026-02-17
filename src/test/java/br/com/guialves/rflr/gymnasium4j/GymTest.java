@@ -2,11 +2,14 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
+import br.com.guialves.rflr.gymnasium4j.wrappers.*;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import static br.com.guialves.rflr.python.PythonRuntime.insideGil;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
@@ -48,5 +51,41 @@ class GymTest {
             assertTrue(stepResult.term());
             assertTrue(frame > 0);
         }
+    }
+
+    @Test
+    void should() {
+
+    }
+
+    @Test
+    void shouldTestGeneratedWrappers() {
+        var envId = "CarRacing-v3";
+        var script = Gym.builder()
+                .envName(envId)
+                //.params(Gym.builderMap().put("domain_randomize", true)
+                //        .put("continuous", true))
+                .add(new DelayObservation(1),
+                     new GrayscaleObservation(false),
+                     new NormalizeObservation(),
+                     new MaxAndSkipObservation(4),
+                     new FrameStackObservation(4),
+                     new ReshapeObservation(new int[] {1, 84, 84}),
+                     new ResizeObservation(new int[] {50, 50, 1}))
+                .generatePyEnvScript();
+
+        assertThat(script).contains("import gymnasium as gym");
+        assertThat(script).contains("from gymnasium.wrappers import DelayObservation, GrayscaleObservation");
+        assertThat(script).contains("NormalizeObservation, MaxAndSkipObservation, FrameStackObservation");
+        assertThat(script).contains("ReshapeObservation, ResizeObservation");
+        //assertThat(script).containsPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array', \\{'domain_randomize': True, 'continuous': True}\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array'\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = DelayObservation\\(env_[0-9a-f]{32}, delay=1\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = GrayscaleObservation\\(env_[0-9a-f]{32}, keep_dim=False\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = NormalizeObservation\\(env_[0-9a-f]{32}, epsilon=1\\.0E-8\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = MaxAndSkipObservation\\(env_[0-9a-f]{32}, skip=4\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = FrameStackObservation\\(env_[0-9a-f]{32}, stack_size=4\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = ReshapeObservation\\(env_[0-9a-f]{32}, shape=\\[1, 84, 84]\\)");
+        assertThat(script).containsPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\[50, 50, 1]\\)");
     }
 }
