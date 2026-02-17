@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import br.com.guialves.rflr.python.PythonDataStructures;
 import br.com.guialves.rflr.python.numpy.NumPyByteBuffer;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -9,13 +8,13 @@ import org.bytedeco.cpython.PyObject;
 
 import java.util.Arrays;
 
-import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
+import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.PythonTypeChecks.*;
 import static org.bytedeco.cpython.global.python.*;
 
 /**
- * Represent the gymnasium.spaces, it can be Box, Discrete and other.
+ * Represent the <code>gymnasium.spaces</code>, it can be Box, Discrete and other.
  * <a href="https://gymnasium.farama.org/api/spaces/fundamental/">...</a>
  */
 public enum ActionSpaceType {
@@ -38,29 +37,29 @@ public enum ActionSpaceType {
 
         @Override
         public ActionResult get(double[] values) {
-            return new ActionResult(PythonDataStructures.pyList(values), this);
+            return new ActionResult(pyList(values), this);
         }
 
         @Override
         public ActionResult get(float[] values) {
-            return new ActionResult(PythonDataStructures.pyList(values), this);
+            return new ActionResult(pyList(values), this);
         }
     },
     MULTI_DISCRETE {
         @Override
         public ActionResult get(int[] values) {
-            return new ActionResult(PythonDataStructures.pyList(values), this);
+            return new ActionResult(pyList(values), this);
         }
 
         @Override
         public ActionResult get(long[] values) {
-            return new ActionResult(PythonDataStructures.pyList(values), this);
+            return new ActionResult(pyList(values), this);
         }
     },
     MULTI_BINARY {
         @Override
         public ActionResult get(boolean[] values) {
-            return new ActionResult(PythonDataStructures.pyList(values), this);
+            return new ActionResult(pyList(values), this);
         }
 
         /**
@@ -68,7 +67,7 @@ public enum ActionSpaceType {
          */
         @Override
         public ActionResult get(int[] values) {
-            return new ActionResult(PythonDataStructures.pyList(values), this);
+            return new ActionResult(pyList(values), this);
         }
     },
     TEXT {
