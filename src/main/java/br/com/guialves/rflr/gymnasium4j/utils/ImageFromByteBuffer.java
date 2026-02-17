@@ -9,8 +9,11 @@ import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.nio.ByteBuffer;
 
-@NoArgsConstructor
 public class ImageFromByteBuffer {
+
+    private ImageFromByteBuffer() {
+        throw new IllegalArgumentException("No ImageFromByteBuffer!");
+    }
 
     public static BufferedImage byteBufferToImage(ByteBuffer buffer, int width, int height, boolean hasAlpha) {
         int imageType = hasAlpha ? BufferedImage.TYPE_4BYTE_ABGR : BufferedImage.TYPE_3BYTE_BGR;

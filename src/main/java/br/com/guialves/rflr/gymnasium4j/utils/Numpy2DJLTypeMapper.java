@@ -9,7 +9,7 @@ import static java.util.Objects.requireNonNull;
 public final class Numpy2DJLTypeMapper {
 
     private Numpy2DJLTypeMapper() {
-        throw new IllegalArgumentException("No NumpyDTypeMapper!");
+        throw new IllegalArgumentException("No Numpy2DJLTypeMapper!");
     }
 
     public static int bytesPerElement(String dtype) {
