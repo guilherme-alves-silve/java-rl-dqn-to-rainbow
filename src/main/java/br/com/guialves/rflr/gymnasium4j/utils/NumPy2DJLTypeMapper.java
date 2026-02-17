@@ -6,9 +6,9 @@ import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 
-public final class Numpy2DJLTypeMapper {
+public final class NumPy2DJLTypeMapper {
 
-    private Numpy2DJLTypeMapper() {
+    private NumPy2DJLTypeMapper() {
         throw new IllegalArgumentException("No Numpy2DJLTypeMapper!");
     }
 
