@@ -31,7 +31,7 @@ public class Gym {
         return new PyMap();
     }
 
-    public static class EnvBuilder {
+    public static final class EnvBuilder {
 
         private static final PyMap DEFAULT_MAP = new PyMap();
         private final String varEnvCode;
@@ -74,11 +74,13 @@ public class Gym {
         }
 
         String generatePyEnvScript() {
+            var makeCall = generateMakeCall();
+
             if (wrappers.isEmpty()) {
                 return """
                 import gymnasium as gym
-                env_%s = gym.make('%s', render_mode='rgb_array')
-                """.formatted(varEnvCode, envName);
+                env_%s = %s
+                """.formatted(varEnvCode, makeCall);
             }
 
             var importPy = generateImportPy();
@@ -87,9 +89,18 @@ public class Gym {
             return """
             import gymnasium as gym
             %s
-            env_%s = gym.make('%s', render_mode='rgb_array')
+            env_%s = %s
             %s
-            """.formatted(importPy, varEnvCode, envName, wrappedEnvPy);
+            """.formatted(importPy, varEnvCode, makeCall, wrappedEnvPy);
+        }
+
+        private String generateMakeCall() {
+            if (params.isEmpty()) {
+                return "gym.make('%s', render_mode='rgb_array')".formatted(envName);
+            }
+
+            return "gym.make('%s', render_mode='rgb_array', %s)".formatted(
+                    envName, params.toPyKwargs());
         }
 
         private String generateImportPy() {
@@ -126,7 +137,7 @@ public class Gym {
      * Example: PyMap with domain_randomize=True, continuous=False
      * becomes: domain_randomize=True, continuous=False
      */
-    public static class PyMap {
+    public static final class PyMap {
 
         private final Map<String, String> params;
 
