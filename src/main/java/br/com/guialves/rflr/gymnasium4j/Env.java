@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.gymnasium4j;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.util.Pair;
@@ -25,7 +26,7 @@ import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.fillFromNumpy;
 public final class Env implements IEnv {
 
     private static final boolean DEBUG = true;
-    private final NDManager ndManager;
+    private final NDManager manager;
     @Getter
     private final String varEnvCode;
     @Getter
@@ -51,7 +52,7 @@ public final class Env implements IEnv {
         initPython();
         this.varEnvCode = varEnvCode;
         this.envName = envName;
-        this.ndManager = manager.newSubManager();
+        this.manager = manager.newSubManager();
         exec(generatedScript);
 
         this.pyEnv = eval("env_" + varEnvCode);
@@ -95,7 +96,7 @@ public final class Env implements IEnv {
             if (!hasAttr(pyState, "shape")) {
                 this.discreteObservation = true;
                 long observationValue = toLong(pyState);
-                var state = ndManager.create(observationValue);
+                var state = manager.create(observationValue);
                 log.debug("Discrete observation: {}", observationValue);
                 return new Pair<>(infoMap, state);
             } else {
@@ -109,7 +110,7 @@ public final class Env implements IEnv {
 
                 fillFromNumpy(pyState, stateBuffer);
 
-                var state = ndManager.create(
+                var state = manager.create(
                         stateBuffer,
                         stateMetadata.djlShape(),
                         stateMetadata.djlType
@@ -122,13 +123,18 @@ public final class Env implements IEnv {
 
     @Override
     public EnvStepResult step(ActionResult action) {
+        return step(action, manager);
+    }
+
+    @Override
+    public EnvStepResult step(ActionResult action, NDManager manager) {
         try (var result = callFunction(pyStep, action.pyObj)) {
             NDArray state;
 
             if (discreteObservation) {
                 var pyState = getItem(result, 0);
                 long observationValue = toLong(pyState);
-                state = ndManager.create(observationValue);
+                state = manager.create(observationValue);
 
                 log.debug("Discrete observation after step: {}", observationValue);
             } else {
@@ -137,7 +143,7 @@ public final class Env implements IEnv {
                 }
 
                 fillFromNumpy(getItem(result, 0), stateBuffer);
-                state = ndManager.create(
+                state = manager.create(
                         stateBuffer,
                         stateMetadata.djlShape,
                         stateMetadata.djlType
@@ -176,6 +182,11 @@ public final class Env implements IEnv {
     }
 
     @Override
+    public NDManager manager() {
+        return manager;
+    }
+
+    @Override
     public void close() {
         if (closed) {
             log.warn("The env_{} was already closed!", varEnvCode);
@@ -201,6 +212,6 @@ public final class Env implements IEnv {
                     refCount(pyRender), refCount(pyStep), refCount(pyReset));
 
         log.info("Closed Env");
-        ndManager.close();
+        manager.close();
     }
 }

@@ -12,12 +12,11 @@ import java.util.Map;
 @AllArgsConstructor
 @Accessors(fluent = true)
 @RequiredArgsConstructor
-public class EnvStepResult {
+public class EnvStepResult implements AutoCloseable {
     private final double reward;
     private final boolean term;
     private final boolean trunc;
     private final Map<Object, Object> info;
-    // package private so only EnvProxy access this, but, be careful
     private NDArray state;
 
     EnvStepResult state(NDArray state) {
@@ -27,5 +26,10 @@ public class EnvStepResult {
 
     public boolean done() {
         return term || trunc;
+    }
+
+    @Override
+    public void close() {
+        state.close();
     }
 }
