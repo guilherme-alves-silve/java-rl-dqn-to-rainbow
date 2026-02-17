@@ -1,6 +1,8 @@
 package br.com.guialves.rflr.gymnasium4j;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDManager;
 import ai.djl.util.Pair;
 
 import java.awt.image.BufferedImage;
@@ -22,5 +24,9 @@ public interface IEnv extends AutoCloseable {
 
     EnvStepResult step(ActionSpaceType.ActionResult action) ;
 
+    EnvStepResult step(ActionSpaceType.ActionResult action, NDManager manager);
+
     BufferedImage render();
+
+    NDManager manager();
 }

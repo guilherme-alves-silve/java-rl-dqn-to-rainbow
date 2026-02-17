@@ -1,5 +1,11 @@
 package br.com.guialves.rflr.gymnasium4j.wrappers;
 
+/**
+ * Equivalent to the Gymnasium (from Python):
+ *  <a href="https://gymnasium.farama.org/api/wrappers/observation_wrappers/#gymnasium.wrappers.GrayscaleObservation">...</a>
+ *
+ * @param keepDim
+ */
 public record GrayscaleObservation(boolean keepDim) implements IWrapper {
 
     public GrayscaleObservation() {

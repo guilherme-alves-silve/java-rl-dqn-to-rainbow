@@ -11,8 +11,18 @@
 
 ## Optimization
 
-TODO: Use allocateDirect with ByteBuffer to optimize performance, and manage
+TODO:
+
+- Use allocateDirect with ByteBuffer to optimize performance, and manage
 lifecycle together with DJL to reduce as much as possible memory copy, using ObjectPool of DirectByteBuffer.
+- Use ASM and ByteBuddy to manage reference counting of Python objects in Java.
+
+## CARLA Integration
+
+1. [CARLA Simulator - Python API (Basic)](https://blog.wuhanstudio.uk/blog/carla-tutorial-basic/)
+2. [CARLA Simulator - Python API (Intermediate)](https://blog.wuhanstudio.uk/blog/carla-tutorial-intermediate/)
+3. [CARLA Simulator - Python API (Advanced)](https://blog.wuhanstudio.uk/blog/carla-tutorial-advanced/)
+4. [The CARLA Coordinate System](https://blog.wuhanstudio.uk/blog/carla-coordinate/)
 
 ## Extras
 

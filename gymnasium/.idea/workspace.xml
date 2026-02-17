@@ -2,10 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="86007aab-ef0a-406d-8e08-9add190abc41" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/../src/test/java/br/com/guialves/rflr/gymnasium4j/ActionSpaceTypeTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/ActionSpaceType.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/ActionSpaceType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/Env.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/gymnasium4j/Env.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/PythonRuntime.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/python/PythonRuntime.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/dqn/DeepQNetworkMLP.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/utils/DjlTranslators.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/dqn/DeepQNetwork.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/br/com/guialves/rflr/dqn/DeepQNetworkCNN.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
