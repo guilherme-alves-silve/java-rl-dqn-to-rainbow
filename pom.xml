@@ -22,6 +22,7 @@
     <vavr.version>0.11.0</vavr.version>
     <javacpp.version>1.5.10</javacpp.version>
     <python.version>3.12.1</python.version>
+    <assertj.version>3.25.3</assertj.version>
   </properties>
 
   <dependencyManagement>
@@ -124,6 +125,14 @@
       <artifactId>junit-jupiter-params</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <build>

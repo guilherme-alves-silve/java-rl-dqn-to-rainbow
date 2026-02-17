@@ -13,20 +13,23 @@ import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Map;
-import java.util.UUID;
 
-import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
-import static br.com.guialves.rflr.python.PythonRuntime.*;
+import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
+import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.detectActionSpaceType;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
-import static br.com.guialves.rflr.python.numpy.NumpyByteBuffer.fillFromNumpy;
+import static br.com.guialves.rflr.python.PythonRuntime.*;
+import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.fillFromNumpy;
 
 @Slf4j
 @Accessors(fluent = true)
-public final class Env implements AutoCloseable {
+public final class Env implements IEnv {
 
     private static final boolean DEBUG = true;
     private final NDManager ndManager;
+    @Getter
     private final String varEnvCode;
+    @Getter
+    private final String envName;
     private final PyObject pyEnv;
     private final PyObject pyActionSpace;
     private final PyObject pyObservationSpace;
@@ -44,14 +47,12 @@ public final class Env implements AutoCloseable {
     private ByteBuffer imageBuffer;
     private boolean discreteObservation;
 
-    public Env(String envId, NDManager manager) {
+    Env(String varEnvCode, String envName, String generatedScript, NDManager manager) {
         initPython();
+        this.varEnvCode = varEnvCode;
+        this.envName = envName;
         this.ndManager = manager.newSubManager();
-        this.varEnvCode = UUID.randomUUID().toString().replace("-", "");
-        exec("""
-        import gymnasium as gym
-        env_%s = gym.make('%s', render_mode='rgb_array')
-        """.formatted(varEnvCode, envId));
+        exec(generatedScript);
 
         this.pyEnv = eval("env_" + varEnvCode);
         this.pyActionSpace = attr(pyEnv, "action_space");
@@ -62,20 +63,29 @@ public final class Env implements AutoCloseable {
         this.pyReset = attr(pyEnv, "reset");
     }
 
+    @Override
+    public boolean discreteObservation() {
+        return discreteObservation;
+    }
+
+    @Override
     public String actionSpaceStr() {
         return toStr(pyActionSpace);
     }
 
+    @Override
     public String observationSpaceStr() {
         return toStr(pyObservationSpace);
     }
 
+    @Override
     public ActionResult actionSpaceSample() {
         try (var pySample = callMethod(pyActionSpace, "sample")) {
             return actionSpaceType.convert(pySample);
         }
     }
 
+    @Override
     public Pair<Map<Object, Object>, NDArray> reset() {
         try (var result = callFunction(pyReset)) {
 
@@ -110,6 +120,7 @@ public final class Env implements AutoCloseable {
         }
     }
 
+    @Override
     public EnvStepResult step(ActionResult action) {
         try (var result = callFunction(pyStep, action.pyObj)) {
             NDArray state;
@@ -143,6 +154,7 @@ public final class Env implements AutoCloseable {
         }
     }
 
+    @Override
     public BufferedImage render() {
         try (var ndarray = callFunction(pyRender)) {
             if (renderMetadata == null) {

@@ -1,7 +1,7 @@
 package br.com.guialves.rflr.gymnasium4j;
 
 import br.com.guialves.rflr.python.PythonDataStructures;
-import br.com.guialves.rflr.python.numpy.NumpyByteBuffer;
+import br.com.guialves.rflr.python.numpy.NumPyByteBuffer;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
@@ -242,7 +242,7 @@ public enum ActionSpaceType {
          */
         private Object extractBoxValue(PyObject obj) {
             if (isSequence(obj)) {
-                return NumpyByteBuffer.toDoubleArray(obj);
+                return NumPyByteBuffer.toDoubleArray(obj);
             }
 
             return PyFloat_AsDouble(obj);

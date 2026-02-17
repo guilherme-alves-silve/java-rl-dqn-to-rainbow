@@ -2,8 +2,7 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import br.com.guialves.rflr.gymnasium4j.utils.Numpy2DJLTypeMapper;
-import br.com.guialves.rflr.python.PythonDataStructures;
+import br.com.guialves.rflr.gymnasium4j.utils.NumPy2DJLTypeMapper;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import org.bytedeco.cpython.PyObject;
@@ -31,10 +30,10 @@ public class EnvStateMetadata {
         String dtype = attrStr(arr, "dtype");
 
         long[] longShape = Arrays.stream(shape).mapToLong(i -> i).toArray();
-        DataType djlType = Numpy2DJLTypeMapper.numpyToDjl(dtype);
+        DataType djlType = NumPy2DJLTypeMapper.numpyToDjl(dtype);
 
         int elements = Arrays.stream(shape).reduce(1, Math::multiplyExact);
-        int size = elements * Numpy2DJLTypeMapper.bytesPerElement(dtype);
+        int size = elements * NumPy2DJLTypeMapper.bytesPerElement(dtype);
 
         return new EnvStateMetadata(shape, dtype,
                 new Shape(longShape), djlType, size);
