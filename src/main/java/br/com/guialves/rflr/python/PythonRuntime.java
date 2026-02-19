@@ -19,7 +19,6 @@ import static org.bytedeco.cpython.global.python.*;
 public final class PythonRuntime {
 
     public static final String JAVA_RL_SITE_PACKAGES = "JAVA_RL_SITE_PACKAGES";
-    public static final String JAVA_RL_INCLUDE = "JAVA_RL_INCLUDE";
     private static final boolean DEBUG = false;
     private static boolean initialized = false;
     private static PyObject globals;
@@ -30,19 +29,16 @@ public final class PythonRuntime {
 
     private static File[] cachePackages() throws IOException {
         var path = org.bytedeco.cpython.presets.python.cachePackages();
-        path = Arrays.copyOf(path, path.length + 2);
+        path = Arrays.copyOf(path, path.length + 1);
 
         var sitePackages = System.getProperty(JAVA_RL_SITE_PACKAGES,
                 System.getenv(JAVA_RL_SITE_PACKAGES));
-        var include = System.getProperty(JAVA_RL_INCLUDE,
-                System.getenv(JAVA_RL_INCLUDE));
 
-        if (null == sitePackages || null == include) {
-            throw new IllegalStateException("It's mandatory to pass sitePackages and include");
+        if (null == sitePackages) {
+            throw new IllegalStateException("It's mandatory to pass property/env JAVA_RL_SITE_PACKAGES");
         }
 
         path[path.length - 1] = new File(sitePackages);
-        path[path.length - 2] = new File(include);
         return path;
     }
 

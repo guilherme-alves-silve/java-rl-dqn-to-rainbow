@@ -12,5 +12,4 @@ The used environment is the [CartPole](https://gymnasium.farama.org/environments
 
 Configure the environment varibles. Example:
 
-`export JAVA_RL_SITE_PACKAGES=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/include/site/python3.12`
-`export JAVA_RL_INCLUDE=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/Lib/site-packages`
+- `export JAVA_RL_SITE_PACKAGES=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/include/site/python3.12`

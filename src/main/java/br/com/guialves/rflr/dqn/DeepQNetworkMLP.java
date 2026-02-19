@@ -1,7 +1,6 @@
 package br.com.guialves.rflr.dqn;
 
 import ai.djl.Model;
-import ai.djl.inference.Predictor;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
@@ -11,13 +10,9 @@ import ai.djl.nn.Activation;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
-import ai.djl.translate.TranslateException;
-import br.com.guialves.rflr.utils.DjlTranslators;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**

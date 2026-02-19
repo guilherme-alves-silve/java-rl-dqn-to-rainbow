@@ -1,4 +1,0 @@
--r requirements.txt
-debugpy
-pytest
-pytest-mock
