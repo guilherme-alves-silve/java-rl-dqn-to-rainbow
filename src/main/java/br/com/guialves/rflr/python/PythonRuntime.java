@@ -19,7 +19,6 @@ import static org.bytedeco.cpython.global.python.*;
 public final class PythonRuntime {
 
     public static final String JAVA_RL_SITE_PACKAGES = "JAVA_RL_SITE_PACKAGES";
-    public static final String JAVA_RL_INCLUDE = "JAVA_RL_INCLUDE";
     private static final boolean DEBUG = false;
     private static boolean initialized = false;
     private static PyObject globals;
@@ -36,7 +35,7 @@ public final class PythonRuntime {
                 System.getenv(JAVA_RL_SITE_PACKAGES));
 
         if (null == sitePackages) {
-            throw new IllegalStateException("It's mandatory to pass sitePackages and include");
+            throw new IllegalStateException("It's mandatory to pass property/env JAVA_RL_SITE_PACKAGES");
         }
 
         path[path.length - 1] = new File(sitePackages);
