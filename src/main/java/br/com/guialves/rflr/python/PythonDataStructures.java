@@ -152,7 +152,7 @@ public final class PythonDataStructures {
         T[] result = (T[]) Array.newInstance(componentType, size);
 
         for (int i = 0; i < size; i++) {
-            PyObject item = getSequenceItem(obj, i); // borrowed reference
+            var item = getSequenceItem(obj, i); // borrowed reference
             result[i] = mapper.apply(item);
         }
 
@@ -302,9 +302,7 @@ public final class PythonDataStructures {
     }
 
     private static PyObject buildSet(int length, Function<Integer, PyObject> supplier) {
-        PyObject set = PySet_New(null);
-        if (set == null) checkError();
-
+        var set = pySet();
         for (int i = 0; i < length; i++) {
             try (PyObject item = supplier.apply(i)) {
                 if (item == null) checkError();
@@ -313,6 +311,7 @@ public final class PythonDataStructures {
                 }
             }
         }
+
         return set;
     }
 

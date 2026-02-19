@@ -30,19 +30,16 @@ public final class PythonRuntime {
 
     private static File[] cachePackages() throws IOException {
         var path = org.bytedeco.cpython.presets.python.cachePackages();
-        path = Arrays.copyOf(path, path.length + 2);
+        path = Arrays.copyOf(path, path.length + 1);
 
         var sitePackages = System.getProperty(JAVA_RL_SITE_PACKAGES,
                 System.getenv(JAVA_RL_SITE_PACKAGES));
-        var include = System.getProperty(JAVA_RL_INCLUDE,
-                System.getenv(JAVA_RL_INCLUDE));
 
-        if (null == sitePackages || null == include) {
+        if (null == sitePackages) {
             throw new IllegalStateException("It's mandatory to pass sitePackages and include");
         }
 
         path[path.length - 1] = new File(sitePackages);
-        path[path.length - 2] = new File(include);
         return path;
     }
 
