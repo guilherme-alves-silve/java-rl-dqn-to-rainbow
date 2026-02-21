@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.python.numpy;
 
-import br.com.guialves.rflr.python.PythonRuntime;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +15,7 @@ class NumPyByteBufferTest {
 
     @BeforeAll
     static void setUp() {
-        PythonRuntime.initPython();
+        initPython();
         insideGil(() -> assertDoesNotThrow(() -> exec("x = 1")));
     }
 

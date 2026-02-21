@@ -35,9 +35,9 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify boolean types correctly")
         void testBool() {
-            try (PyObject pyTrue = pyBool(true);
-                 PyObject pyFalse = pyBool(false);
-                 PyObject pyInt = pyLong(1)) {
+            try (var pyTrue = pyBool(true);
+                 var pyFalse = pyBool(false);
+                 var pyInt = pyLong(1)) {
 
                 assertTrue(isBool(pyTrue));
                 assertTrue(isBool(pyFalse));
@@ -49,10 +49,10 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify long/int types correctly")
         void testLong() {
-            try (PyObject pyInt = pyLong(42);
-                 PyObject pyLong = pyLong(9999999999L);
-                 PyObject pyDouble = pyDouble(3.14);
-                 PyObject pyBool = pyBool(true)) {
+            try (var pyInt = pyLong(42);
+                 var pyLong = pyLong(9999999999L);
+                 var pyDouble = pyDouble(3.14);
+                 var pyBool = pyBool(true)) {
 
                 assertTrue(isLong(pyInt));
                 assertTrue(isLong(pyLong));
@@ -65,9 +65,9 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify float types correctly")
         void testFloat() {
-            try (PyObject pyDouble = pyDouble(3.14159);
-                 PyObject pyInt = pyLong(42);
-                 PyObject pyString = pyStr("3.14")) {
+            try (var pyDouble = pyDouble(3.14159);
+                 var pyInt = pyLong(42);
+                 var pyString = pyStr("3.14")) {
 
                 assertTrue(isDouble(pyDouble));
                 assertFalse(isDouble(pyInt));
@@ -81,15 +81,13 @@ class PythonTypeChecksTest {
         void testComplex() {
             // Create a complex number using Python execution
             exec("c = 3 + 4j");
-            try (PyObject pyComplex = eval("c")) {
-                try (PyObject pyDouble = pyDouble(3.14);
-                     PyObject pyInt = pyLong(42)) {
-
-                    assertTrue(isComplex(pyComplex));
-                    assertFalse(isComplex(pyDouble));
-                    assertFalse(isComplex(pyInt));
-                    assertFalse(isComplex(null));
-                }
+            try (var pyComplex = eval("c");
+                 var pyDouble = pyDouble(3.14);
+                 var pyInt = pyLong(42)) {
+                assertTrue(isComplex(pyComplex));
+                assertFalse(isComplex(pyDouble));
+                assertFalse(isComplex(pyInt));
+                assertFalse(isComplex(null));
             } finally {
                 exec("del c");
             }
@@ -98,9 +96,9 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify string types correctly")
         void testString() {
-            try (PyObject pyString = pyStr("hello");
-                 PyObject pyBytes = pyBytesStr("hello");
-                 PyObject pyInt = pyLong(42)) {
+            try (var pyString = pyStr("hello");
+                 var pyBytes = pyBytesStr("hello");
+                 var pyInt = pyLong(42)) {
 
                 assertTrue(isString(pyString));
                 assertFalse(isString(pyBytes));
@@ -112,9 +110,9 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify bytes types correctly")
         void testBytes() {
-            try (PyObject pyBytes = pyBytesStr("hello");
-                 PyObject pyString = pyStr("hello");
-                 PyObject pyByteArray = pyByteArrayStr("hello")) {
+            try (var pyBytes = pyBytesStr("hello");
+                 var pyString = pyStr("hello");
+                 var pyByteArray = pyByteArrayStr("hello")) {
 
                 assertTrue(isBytes(pyBytes));
                 assertFalse(isBytes(pyString));
@@ -126,9 +124,9 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify bytearray types correctly")
         void testByteArray() {
-            try (PyObject pyByteArray = pyByteArrayStr("hello");
-                 PyObject pyBytes = pyBytesStr("hello");
-                 PyObject pyString = pyStr("hello")) {
+            try (var pyByteArray = pyByteArrayStr("hello");
+                 var pyBytes = pyBytesStr("hello");
+                 var pyString = pyStr("hello")) {
 
                 assertTrue(isByteArray(pyByteArray));
                 assertFalse(isByteArray(pyBytes));
@@ -145,12 +143,12 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify list types correctly")
         void testList() {
-            try (PyObject pyList = pyList(1);
-                 PyObject pyTuple = pyTuple();
-                 PyObject pyDict = pyDict()) {
+            try (var pyList = pyList(1);
+                 var pyTuple = pyTuple();
+                 var pyDict = pyDict()) {
 
                 // Add an element to list
-                try (PyObject pyInt = pyLong(1)) {
+                try (var pyInt = pyLong(1)) {
                     incRef(pyInt);
                     PyList_Append(pyList, pyInt);
                 }
@@ -165,9 +163,9 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify tuple types correctly")
         void testTuple() {
-            try (PyObject pyTuple = pyTuple();
-                 PyObject pyList = pyList(1);
-                 PyObject pyDict = pyDict()) {
+            try (var pyTuple = pyTuple();
+                 var pyList = pyList(1);
+                 var pyDict = pyDict()) {
 
                 assertTrue(isTuple(pyTuple));
                 assertFalse(isTuple(pyList));
@@ -179,13 +177,13 @@ class PythonTypeChecksTest {
         @Test
         @DisplayName("Should identify dict types correctly")
         void testDict() {
-            try (PyObject pyDict = pyDict();
-                 PyObject pyList = pyList(1);
-                 PyObject pySet = pySet()) {
+            try (var pyDict = pyDict();
+                 var pyList = pyList(1);
+                 var pySet = pySet()) {
 
                 // Add a key-value pair
-                try (PyObject pyKey = pyStr("key");
-                     PyObject pyValue = pyLong(42)) {
+                try (var pyKey = pyStr("key");
+                     var pyValue = pyLong(42)) {
                     incRef(pyKey);
                     incRef(pyValue);
                     PyDict_SetItem(pyDict, pyKey, pyValue);
@@ -202,15 +200,13 @@ class PythonTypeChecksTest {
         @DisplayName("Should identify set types correctly")
         void testSet() {
             exec("s = {1, 2, 3}");
-            try (PyObject pySet = eval("s")) {
-                try (PyObject pyList = pyList(1);
-                     PyObject pyFrozenSet = eval("frozenset([1,2,3])")) {
-
-                    assertTrue(isSet(pySet));
-                    assertFalse(isSet(pyList));
-                    assertFalse(isSet(pyFrozenSet)); // frozenset is different from set
-                    assertFalse(isSet(null));
-                }
+            try (var pySet = eval("s");
+                 var pyList = pyList(1);
+                 var pyFrozenSet = eval("frozenset([1,2,3])")) {
+                assertTrue(isSet(pySet));
+                assertFalse(isSet(pyList));
+                assertFalse(isSet(pyFrozenSet)); // frozenset is different from set
+                assertFalse(isSet(null));
             } finally {
                 exec("del s");
             }
@@ -220,15 +216,13 @@ class PythonTypeChecksTest {
         @DisplayName("Should identify frozenset types correctly")
         void testFrozenSet() {
             exec("fs = frozenset([1, 2, 3])");
-            try (PyObject pyFrozenSet = eval("fs")) {
-                try (PyObject pySet = eval("{1, 2, 3}");
-                     PyObject pyList = pyList(1)) {
-
-                    assertTrue(isFrozenSet(pyFrozenSet));
-                    assertFalse(isFrozenSet(pySet));
-                    assertFalse(isFrozenSet(pyList));
-                    assertFalse(isFrozenSet(null));
-                }
+            try (var pyFrozenSet = eval("fs");
+                 var pySet = eval("{1, 2, 3}");
+                 var pyList = pyList(1)) {
+                assertTrue(isFrozenSet(pyFrozenSet));
+                assertFalse(isFrozenSet(pySet));
+                assertFalse(isFrozenSet(pyList));
+                assertFalse(isFrozenSet(null));
             } finally {
                 exec("del fs");
             }
@@ -245,15 +239,13 @@ class PythonTypeChecksTest {
             exec("my_list = [1, 2, 3]");
             exec("iter_list = iter(my_list)");
 
-            try (PyObject pyListIterator = eval("iter_list")) {
-                try (PyObject pyList = eval("my_list");
-                     PyObject pyReverseIterator = eval("reversed(my_list)")) {
-
-                    assertTrue(isListIterator(pyListIterator));
-                    assertFalse(isListIterator(pyList));
-                    assertFalse(isListIterator(pyReverseIterator));
-                    assertFalse(isListIterator(null));
-                }
+            try (var pyListIterator = eval("iter_list");
+                 var pyList = eval("my_list");
+                 var pyReverseIterator = eval("reversed(my_list)")) {
+                assertTrue(isListIterator(pyListIterator));
+                assertFalse(isListIterator(pyList));
+                assertFalse(isListIterator(pyReverseIterator));
+                assertFalse(isListIterator(null));
             } finally {
                 exec("del my_list, iter_list");
             }
@@ -265,15 +257,13 @@ class PythonTypeChecksTest {
             exec("my_list = [1, 2, 3]");
             exec("rev_iter = reversed(my_list)");
 
-            try (PyObject pyReverseIterator = eval("rev_iter")) {
-                try (PyObject pyList = eval("my_list");
-                     PyObject pyListIterator = eval("iter(my_list)")) {
-
-                    assertTrue(isReverseListIterator(pyReverseIterator));
-                    assertFalse(isReverseListIterator(pyList));
-                    assertFalse(isReverseListIterator(pyListIterator));
-                    assertFalse(isReverseListIterator(null));
-                }
+            try (var pyReverseIterator = eval("rev_iter");
+                 var pyList = eval("my_list");
+                 var pyListIterator = eval("iter(my_list)")) {
+                assertTrue(isReverseListIterator(pyReverseIterator));
+                assertFalse(isReverseListIterator(pyList));
+                assertFalse(isReverseListIterator(pyListIterator));
+                assertFalse(isReverseListIterator(null));
             } finally {
                 exec("del my_list, rev_iter");
             }
@@ -289,15 +279,13 @@ class PythonTypeChecksTest {
         void testFunction() {
             exec("def test_func(): return 42");
 
-            try (PyObject pyFunction = eval("test_func")) {
-                try (PyObject pyInt = pyLong(42);
-                     PyObject pyMethod = eval("dict.get")) {
-
-                    assertTrue(isFunction(pyFunction));
-                    assertFalse(isFunction(pyInt));
-                    assertFalse(isFunction(pyMethod));
-                    assertFalse(isFunction(null));
-                }
+            try (var pyFunction = eval("test_func");
+                 var pyInt = pyLong(42);
+                 var pyMethod = eval("dict.get")) {
+                assertTrue(isFunction(pyFunction));
+                assertFalse(isFunction(pyInt));
+                assertFalse(isFunction(pyMethod));
+                assertFalse(isFunction(null));
             } finally {
                 exec("del test_func");
             }
@@ -313,15 +301,13 @@ class PythonTypeChecksTest {
         void testModule() {
             exec("import sys");
 
-            try (PyObject pyModule = eval("sys")) {
-                try (PyObject pyInt = pyLong(42);
-                     PyObject pyList = pyList(1)) {
-
-                    assertTrue(isModule(pyModule));
-                    assertFalse(isModule(pyInt));
-                    assertFalse(isModule(pyList));
-                    assertFalse(isModule(null));
-                }
+            try (var pyModule = eval("sys");
+                 var pyInt = pyLong(42);
+                 var pyList = pyList(1)) {
+                assertTrue(isModule(pyModule));
+                assertFalse(isModule(pyInt));
+                assertFalse(isModule(pyList));
+                assertFalse(isModule(null));
             } finally {
                 exec("del sys");
             }
@@ -332,9 +318,9 @@ class PythonTypeChecksTest {
         void testType() {
             exec("class MyClass: pass");
 
-            try (PyObject pyClass = eval("MyClass");
-                 PyObject pyInstance = eval("MyClass()");
-                 PyObject pyInt = pyLong(42)) {
+            try (var pyClass = eval("MyClass");
+                 var pyInstance = eval("MyClass()");
+                 var pyInt = pyLong(42)) {
 
                 assertTrue(isType(pyClass));
                 assertFalse(isType(pyInstance));
@@ -360,15 +346,13 @@ class PythonTypeChecksTest {
                         return 42
                 """);
 
-            try (PyObject pyProperty = eval("MyClass.my_prop")) {
-                try (PyObject pyInt = pyLong(42);
-                     PyObject pyMethod = eval("MyClass.__init__")) {
-
-                    assertTrue(isProperty(pyProperty));
-                    assertFalse(isProperty(pyInt));
-                    assertFalse(isProperty(pyMethod));
-                    assertFalse(isProperty(null));
-                }
+            try (var pyProperty = eval("MyClass.my_prop");
+                 var pyInt = pyLong(42);
+                 var pyMethod = eval("MyClass.__init__")) {
+                assertTrue(isProperty(pyProperty));
+                assertFalse(isProperty(pyInt));
+                assertFalse(isProperty(pyMethod));
+                assertFalse(isProperty(null));
             } finally {
                 exec("del MyClass");
             }
@@ -379,15 +363,13 @@ class PythonTypeChecksTest {
         void testSlice() {
             exec("s = slice(5)");
 
-            try (PyObject pySlice = eval("s")) {
-                try (PyObject pyInt = pyLong(42);
-                     PyObject pyList = pyList(1)) {
-
-                    assertTrue(isSlice(pySlice));
-                    assertFalse(isSlice(pyInt));
-                    assertFalse(isSlice(pyList));
-                    assertFalse(isSlice(null));
-                }
+            try (var pySlice = eval("s");
+                 var pyInt = pyLong(42);
+                 var pyList = pyList(1)) {
+                assertTrue(isSlice(pySlice));
+                assertFalse(isSlice(pyInt));
+                assertFalse(isSlice(pyList));
+                assertFalse(isSlice(null));
             } finally {
                 exec("del s");
             }
@@ -414,7 +396,7 @@ class PythonTypeChecksTest {
         @ParameterizedTest
         @MethodSource("provideTypesForCrossChecking")
         @DisplayName("Should correctly distinguish between different types")
-        void testTypeDistinctness(PyObject testObj, String trueType, String[] falseTypes) {
+        void testTypeDistinctness(PyObject testObj, String trueType) {
             switch (trueType) {
                 case "list" -> {
                     assertTrue(isList(testObj));
@@ -436,9 +418,9 @@ class PythonTypeChecksTest {
 
         static Stream<Arguments> provideTypesForCrossChecking() {
             return Stream.of(
-                    Arguments.of(createPyList(), "list", new String[]{"tuple", "dict"}),
-                    Arguments.of(createPyTuple(), "tuple", new String[]{"list", "dict"}),
-                    Arguments.of(createPyDict(), "dict", new String[]{"list", "tuple"})
+                    Arguments.of(createPyList(), "list"),
+                    Arguments.of(createPyTuple(), "tuple"),
+                    Arguments.of(createPyDict(), "dict")
             );
         }
 
@@ -451,14 +433,14 @@ class PythonTypeChecksTest {
         }
 
         private static PyObject createPyDict() {
-            PyObject dict = pyDict();
-            try (PyObject key = pyStr("key");
-                 PyObject value = pyLong(42)) {
-                incRef(key);
-                incRef(value);
-                PyDict_SetItem(dict, key, value);
+            var pyDict = pyDict();
+            try (var pyKey = pyStr("key");
+                 var pyValue = pyLong(42)) {
+                incRef(pyKey);
+                incRef(pyValue);
+                PyDict_SetItem(pyDict, pyKey, pyValue);
             }
-            return dict;
+            return pyDict;
         }
     }
 
@@ -471,7 +453,6 @@ class PythonTypeChecksTest {
         void testNoRefCountChange() {
             try (var obj = pyLong(42)) {
                 long initialRefCount = refCount(obj);
-
                 for (int i = 0; i < 10; i++) {
                     isLong(obj);
                     isDouble(obj);
