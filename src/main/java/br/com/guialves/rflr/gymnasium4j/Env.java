@@ -205,7 +205,7 @@ public final class Env implements IEnv {
         decRef(pyReset);
         decRef(pyEnv);
 
-        exec("if 'env' in globals(): del env");
+        exec("if 'env_%s' in globals(): del env_%s".formatted(varEnvCode, varEnvCode));
 
         if (DEBUG) log.info("After close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
                     refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
