@@ -4,9 +4,7 @@ import io.vavr.CheckedFunction0;
 import io.vavr.CheckedRunnable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.bytedeco.cpython.PyConfig;
 import org.bytedeco.cpython.PyObject;
-import org.bytedeco.cpython.PyPreConfig;
 import org.bytedeco.javacpp.BytePointer;
 
 import java.io.File;

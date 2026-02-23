@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.util.Pair;
@@ -15,8 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Map;
 
-import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
-import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.detectActionSpaceType;
+import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.fillFromNumpy;
@@ -46,7 +44,7 @@ public final class Env implements IEnv {
 
     private ByteBuffer stateBuffer;
     private ByteBuffer imageBuffer;
-    private boolean discreteObservation;
+    private boolean scalarObservation;
 
     Env(String varEnvCode, String envName, String generatedScript, NDManager manager) {
         initPython();
@@ -64,9 +62,8 @@ public final class Env implements IEnv {
         this.pyReset = attr(pyEnv, "reset");
     }
 
-    @Override
-    public boolean discreteObservation() {
-        return discreteObservation;
+    public boolean scalarObservation() {
+        return scalarObservation;
     }
 
     @Override
@@ -77,6 +74,11 @@ public final class Env implements IEnv {
     @Override
     public String observationSpaceStr() {
         return toStr(pyObservationSpace);
+    }
+
+    @Override
+    public ActionSpaceType actionSpaceType() {
+        return actionSpaceType;
     }
 
     @Override
@@ -94,13 +96,13 @@ public final class Env implements IEnv {
             var infoMap = getItemMap(result, 1);
 
             if (!hasAttr(pyState, "shape")) {
-                this.discreteObservation = true;
+                this.scalarObservation = true;
                 long observationValue = toLong(pyState);
                 var state = manager.create(observationValue);
                 log.debug("Discrete observation: {}", observationValue);
                 return new Pair<>(infoMap, state);
             } else {
-                discreteObservation = false;
+                this.scalarObservation = false;
                 if (stateMetadata == null) {
                     stateMetadata = EnvStateMetadata.fromNumpy(pyState);
                     stateBuffer = ByteBuffer
@@ -131,7 +133,7 @@ public final class Env implements IEnv {
         try (var result = callFunction(pyStep, action.pyObj)) {
             NDArray state;
 
-            if (discreteObservation) {
+            if (scalarObservation) {
                 var pyState = getItem(result, 0);
                 long observationValue = toLong(pyState);
                 state = manager.create(observationValue);
