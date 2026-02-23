@@ -10,7 +10,7 @@ class PythonRuntimeTest {
 
     @BeforeAll
     static void setUp() {
-        PythonRuntime.initPython();
+        initPython();
         assertDoesNotThrow(() -> insideGil(() -> exec("x = 1")));
     }
 

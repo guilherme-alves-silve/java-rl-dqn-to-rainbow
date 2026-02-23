@@ -12,7 +12,9 @@ public interface IEnv extends AutoCloseable {
 
     boolean closed();
 
-    boolean discreteObservation();
+    boolean scalarObservation();
+
+    ActionSpaceType actionSpaceType();
 
     String actionSpaceStr();
 

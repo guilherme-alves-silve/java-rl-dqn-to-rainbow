@@ -2,8 +2,8 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
+import lombok.NonNull;
 import lombok.SneakyThrows;
-import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
@@ -35,6 +35,7 @@ public class Gym {
 
         private static final PyMap DEFAULT_MAP = new PyMap();
         private final String varEnvCode;
+        private final List<String> importLibs;
         private final List<IWrapper> wrappers;
         private String envName;
         private PyMap params;
@@ -42,56 +43,62 @@ public class Gym {
 
         private EnvBuilder() {
             this.varEnvCode = UUID.randomUUID().toString().replace("-", "");
+            this.importLibs = new ArrayList<>(1);
+            this.importLibs.add("gymnasium as gym");
             this.wrappers = new ArrayList<>();
             this.params = DEFAULT_MAP;
         }
 
-        public EnvBuilder envName(String envName) {
+        public EnvBuilder envName(@NonNull String envName) {
             this.envName = envName;
             return this;
         }
 
-        public EnvBuilder ndManager(NDManager ndManager) {
+        public EnvBuilder ndManager(@NonNull NDManager ndManager) {
             this.ndManager = ndManager;
             return this;
         }
 
-        public EnvBuilder params(PyMap params) {
+        public EnvBuilder importLib(@NonNull String lib) {
+            this.importLibs.add(lib);
+            return this;
+        }
+
+        public EnvBuilder params(@NonNull PyMap params) {
             this.params = params;
             return this;
         }
 
-        public EnvBuilder add(IWrapper wrapper) {
-            wrappers.add(requireNonNull(wrapper, "wrapper cannot be null!"));
+        public EnvBuilder add(@NonNull IWrapper wrapper) {
+            wrappers.add(wrapper);
             return this;
         }
 
-        public EnvBuilder add(IWrapper wrapper, IWrapper... wrappersArray) {
+        public EnvBuilder add(@NonNull IWrapper wrapper, @NonNull IWrapper... wrappersArray) {
             add(wrapper);
-            Arrays.stream(requireNonNull(wrappersArray, "wrappersArray cannot be null!"))
-                    .forEach(this::add);
+            Arrays.stream(wrappersArray).forEach(this::add);
             return this;
         }
 
         String generatePyEnvScript() {
             var makeCall = generateMakeCall();
-
+            var importLibsPy = generateImportLibsPy();
             if (wrappers.isEmpty()) {
                 return """
-                import gymnasium as gym
+                %s
                 env_%s = %s
-                """.formatted(varEnvCode, makeCall);
+                """.formatted(importLibsPy, varEnvCode, makeCall);
             }
 
-            var importPy = generateImportPy();
+            var importPy = generateImportFromPy();
             var wrappedEnvPy = generateWrappedEnvPy();
 
             return """
-            import gymnasium as gym
+            %s
             %s
             env_%s = %s
             %s
-            """.formatted(importPy, varEnvCode, makeCall, wrappedEnvPy);
+            """.formatted(importLibsPy, importPy, varEnvCode, makeCall, wrappedEnvPy);
         }
 
         private String generateMakeCall() {
@@ -103,15 +110,15 @@ public class Gym {
                     envName, params.toPyKwargs());
         }
 
-        private String generateImportPy() {
-            var builder = new StringBuilder("from gymnasium.wrappers import ");
-            for (int i = 0; i < wrappers.size() - 1; ++i) {
-                builder.append(wrappers.get(i).getClass().getSimpleName())
-                        .append(", ");
-            }
+        private String generateImportLibsPy() {
+            return importLibs.stream()
+                    .collect(Collectors.joining(", ", "import ", ""));
+        }
 
-            return builder.append(wrappers.getLast().getClass().getSimpleName())
-                    .toString();
+        private String generateImportFromPy() {
+            return wrappers.stream()
+                    .map(wrapper -> wrapper.getClass().getSimpleName())
+                    .collect(Collectors.joining(", ", "from gymnasium.wrappers import ", ""));
         }
 
         private String generateWrappedEnvPy() {

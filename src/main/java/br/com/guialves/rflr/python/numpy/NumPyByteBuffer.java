@@ -17,24 +17,21 @@ public class NumPyByteBuffer {
     static {
         initPython();
 
-        var gstate = PyGILState_Ensure();
-        try {
+        BYTE_ORDER = insideGil(() -> {
             exec("import numpy as np");
             exec("_test_arr = np.array([1], dtype=np.float32)");
 
             try (var testArr = eval("_test_arr")) {
                 String byteOrder = attrStr(attr(testArr, "dtype"), "byteorder");
-                BYTE_ORDER = switch (byteOrder) {
+                return switch (byteOrder) {
                     case ">" -> ByteOrder.BIG_ENDIAN;
                     case "<" -> ByteOrder.LITTLE_ENDIAN;
                     default -> ByteOrder.nativeOrder();
                 };
+            } finally {
+                exec("del _test_arr");
             }
-
-            exec("del _test_arr");
-        } finally {
-            PyGILState_Release(gstate);
-        }
+        });
     }
 
     private NumPyByteBuffer() {
