@@ -289,7 +289,7 @@ class ImageFromByteBufferTest {
         void shouldThrowWhenBufferTooSmall() {
             int width = 10;
             int height = 10;
-            ByteBuffer buffer = ByteBuffer.allocate(10); // Too small
+            var buffer = ByteBuffer.allocate(10); // Too small
 
             assertThrows(Exception.class, () ->
                     ImageFromByteBuffer.byteBufferToGrayscaleImage(buffer, width, height)

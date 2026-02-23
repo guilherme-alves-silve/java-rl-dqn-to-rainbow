@@ -50,8 +50,6 @@ public final class PythonRuntime {
             return;
         }
 
-        System.setProperty("org.bytedeco.openblas.load", "mkl");
-
         initialized = Py_Initialize(cachePackages());
         globals = PyModule_GetDict(PyImport_AddModule("__main__"));
 
@@ -149,6 +147,7 @@ public final class PythonRuntime {
     }
 
     public static PyObject eval(String expression) {
+        PyErr_Clear();
         try (var result = PyRun_StringFlags(
                 expression,
                 Py_eval_input,
@@ -370,7 +369,7 @@ public final class PythonRuntime {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
 
         try (var ptr = new BytePointer(bytes)) {
-            PyObject pyByteArray = PyByteArray_FromStringAndSize(ptr, bytes.length);
+            var pyByteArray = PyByteArray_FromStringAndSize(ptr, bytes.length);
             checkError();
             return pyByteArray;   // new reference
         }
