@@ -1,21 +1,23 @@
 package br.com.guialves.rflr.python.numpy;
 
-import lombok.Getter;
+import lombok.NonNull;
+import lombok.experimental.Delegate;
 import org.bytedeco.cpython.PyObject;
 import org.bytedeco.cpython.Py_buffer;
 
 import java.nio.ByteBuffer;
 
-import static org.bytedeco.cpython.global.python.PyBUF_SIMPLE;
-import static org.bytedeco.cpython.global.python.PyBuffer_Release;
-import static org.bytedeco.cpython.global.python.PyObject_GetBuffer;
+import static org.bytedeco.cpython.global.python.*;
 
+/**
+ * Class used to work with zero-copy between Python and Java.
+ */
 public class NumPyBufferView implements AutoCloseable {
     private final Py_buffer view;
-    @Getter
+    @Delegate
     private final ByteBuffer buffer;
 
-    public NumPyBufferView(PyObject ndarray) {
+    public NumPyBufferView(@NonNull PyObject ndarray) {
         this.view = new Py_buffer();
         int rc = PyObject_GetBuffer(ndarray, view, PyBUF_SIMPLE);
         if (rc != 0) {

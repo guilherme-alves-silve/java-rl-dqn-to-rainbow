@@ -37,8 +37,8 @@ class NumPyByteBufferTest {
     void testSpecificArrayByteOrder() {
         exec("""
         import numpy as np
-        arr_little = np.array([1, 2, 3], dtype='<f4')  # Little-endian explícito
-        arr_big = np.array([1, 2, 3], dtype='>f4')     # Big-endian explícito
+        arr_little = np.array([1, 2, 3], dtype='<f4')  # explicit Little-endian
+        arr_big = np.array([1, 2, 3], dtype='>f4')     # explicit Big-endian
         """);
 
         try (var arrLittle = eval("arr_little");
@@ -138,6 +138,90 @@ class NumPyByteBufferTest {
 
             assertEquals(1.0f, buffer.getFloat(0), 0.001);
             assertEquals(2.0f, buffer.getFloat(9999 * 4), 0.001);
+        }
+    }
+
+    @Test
+    void testToIntArray() {
+        exec("""
+        import numpy as np
+        int_arr = np.array([1, 2, 3, 4, 5], dtype=np.int32)
+        """);
+
+        try (var arr = eval("int_arr")) {
+            int[] result = NumPyByteBuffer.toIntArray(arr);
+            assertArrayEquals(new int[]{1, 2, 3, 4, 5}, result);
+        }
+    }
+
+    @Test
+    void testToIntArrayWrongDtype() {
+        exec("""
+        import numpy as np
+        int_arr = np.array([1, 2, 3], dtype=np.int64)
+        """);
+
+        try (var arr = eval("int_arr")) {
+            var exception = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> NumPyByteBuffer.toIntArray(arr)
+            );
+            assertTrue(exception.getMessage().contains("Expected numpy int32 array"));
+        }
+    }
+
+    @Test
+    void testToLongArray() {
+        exec("""
+        import numpy as np
+        long_arr = np.array([10, 20, 30, 40, 50], dtype=np.int64)
+        """);
+
+        try (var arr = eval("long_arr")) {
+            long[] result = NumPyByteBuffer.toLongArray(arr);
+            assertArrayEquals(new long[]{10L, 20L, 30L, 40L, 50L}, result);
+        }
+    }
+
+    @Test
+    void testToLongArrayWrongDtype() {
+        exec("""
+        import numpy as np
+        long_arr = np.array([1, 2, 3], dtype=np.int32)
+        """);
+
+        try (var arr = eval("long_arr")) {
+            var exception = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> NumPyByteBuffer.toLongArray(arr)
+            );
+            assertTrue(exception.getMessage().contains("Expected numpy int64 array"));
+        }
+    }
+
+    @Test
+    void testToIntArrayNegativeValues() {
+        exec("""
+        import numpy as np
+        int_arr = np.array([-1, -2, 0, 2, 1], dtype=np.int32)
+        """);
+
+        try (var arr = eval("int_arr")) {
+            int[] result = NumPyByteBuffer.toIntArray(arr);
+            assertArrayEquals(new int[]{-1, -2, 0, 2, 1}, result);
+        }
+    }
+
+    @Test
+    void testToLongArrayNegativeValues() {
+        exec("""
+        import numpy as np
+        long_arr = np.array([-1, -2, 0, 2, 1], dtype=np.int64)
+        """);
+
+        try (var arr = eval("long_arr")) {
+            long[] result = NumPyByteBuffer.toLongArray(arr);
+            assertArrayEquals(new long[]{-1L, -2L, 0L, 2L, 1L}, result);
         }
     }
 }
