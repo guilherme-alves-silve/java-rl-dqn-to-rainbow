@@ -62,6 +62,7 @@ public final class Env implements IEnv {
         this.pyReset = attr(pyEnv, "reset");
     }
 
+    @Override
     public boolean scalarObservation() {
         return scalarObservation;
     }
