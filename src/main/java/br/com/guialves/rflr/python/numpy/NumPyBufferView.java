@@ -11,6 +11,14 @@ import static org.bytedeco.cpython.global.python.*;
 
 /**
  * Class used to work with zero-copy between Python and Java.
+ * <p>References:
+ * <ul>
+ *   <li>CPython C API – Buffer Protocol:
+ *       <a href="https://docs.python.org/3/c-api/buffer.html">...</a></li>
+ *   <li>PEP 3118 – Revising the Buffer Protocol:
+ *       <a href="https://peps.python.org/pep-3118/">...</a></li>
+ * </ul>
+ * </p>
  */
 public class NumPyBufferView implements AutoCloseable {
     private final Py_buffer view;
@@ -21,11 +29,18 @@ public class NumPyBufferView implements AutoCloseable {
         this.view = new Py_buffer();
         int rc = PyObject_GetBuffer(ndarray, view, PyBUF_SIMPLE);
         if (rc != 0) {
-            throw new IllegalStateException("PyObject_GetBuffer failed");
+            throw new IllegalStateException("PyObject_GetBuffer failed (array not contiguous?), return code: " + rc);
         }
 
         long size = view.len();
         this.buffer = view.buf().capacity(size).asByteBuffer();
+    }
+
+    /**
+     * Used internally!
+     */
+    ByteBuffer buffer() {
+        return buffer;
     }
 
     @Override

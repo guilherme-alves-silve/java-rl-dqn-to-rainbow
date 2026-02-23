@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.gymnasium4j.utils;
 
-import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
 
 import javax.imageio.ImageIO;

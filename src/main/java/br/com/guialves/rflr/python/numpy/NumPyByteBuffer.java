@@ -124,23 +124,15 @@ public class NumPyByteBuffer {
      */
     public static void fillFromNumpy(PyObject ndarray, ByteBuffer buffer) {
         buffer.clear();
-        var view = new Py_buffer();
-        try {
-            int rc = PyObject_GetBuffer(ndarray, view, PyBUF_SIMPLE);
-            if (rc != 0) {
-                throw new IllegalStateException("PyObject_GetBuffer failed (array not contiguous?)");
-            }
-
-            long size = view.len();
+        try (var view = new NumPyBufferView(ndarray)) {
+            int size = view.capacity();
             if (size > buffer.capacity()) {
                 throw new IllegalArgumentException(
                         "Buffer too small: capacity=" + buffer.capacity() + ", required=" + size
                 );
             }
-            var src = view.buf().capacity(size).asByteBuffer();
-            buffer.put(src);
-        } finally {
-            PyBuffer_Release(view);
+
+            buffer.put(view.buffer());
         }
 
         buffer.flip();
