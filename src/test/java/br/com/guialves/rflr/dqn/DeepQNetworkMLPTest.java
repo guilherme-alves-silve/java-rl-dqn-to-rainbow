@@ -60,7 +60,6 @@ class DeepQNetworkMLPTest {
 
         var input = manager.randomUniform(0f, 1f, new Shape(1, obs));
         NDArray originalOutput;
-
         try (DeepQNetworkMLP dqn = new DeepQNetworkMLP(obs, actions, manager)) {
             originalOutput = dqn.forward(input).duplicate();
             dqn.save(tempDir, prefix);

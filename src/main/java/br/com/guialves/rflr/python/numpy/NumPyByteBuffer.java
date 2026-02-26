@@ -125,10 +125,10 @@ public class NumPyByteBuffer {
     public static void fillFromNumpy(PyObject ndarray, ByteBuffer buffer) {
         buffer.clear();
         try (var view = new NumPyBufferView(ndarray)) {
-            int size = view.capacity();
-            if (size > buffer.capacity()) {
+            long len = view.len();
+            if (len > buffer.capacity()) {
                 throw new IllegalArgumentException(
-                        "Buffer too small: capacity=" + buffer.capacity() + ", required=" + size
+                        "Buffer too small: capacity=" + buffer.capacity() + ", required=" + len
                 );
             }
 

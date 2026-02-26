@@ -24,6 +24,7 @@ public class NumPyBufferView implements AutoCloseable {
     private final Py_buffer view;
     @Delegate
     private final ByteBuffer buffer;
+    private final long len;
 
     public NumPyBufferView(@NonNull PyObject ndarray) {
         this.view = new Py_buffer();
@@ -32,8 +33,12 @@ public class NumPyBufferView implements AutoCloseable {
             throw new IllegalStateException("PyObject_GetBuffer failed (array not contiguous?), return code: " + rc);
         }
 
-        long size = view.len();
-        this.buffer = view.buf().capacity(size).asByteBuffer();
+        this.len = view.len();
+        this.buffer = view.buf().capacity(len).asByteBuffer();
+    }
+
+    public long len() {
+        return len;
     }
 
     /**

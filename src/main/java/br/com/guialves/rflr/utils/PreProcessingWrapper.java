@@ -17,6 +17,36 @@ import java.util.Map;
 
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
 
+/**
+ * A preprocessing wrapper for reinforcement learning environments that implements
+ * frame skipping, grayscale conversion, resizing, and frame stacking.
+ *
+ * <p>This wrapper follows the preprocessing pipeline commonly used in Deep Q-Networks (DQN):
+ * <ol>
+ *   <li>Skip a specified number of frames (action repetition)</li>
+ *   <li>Convert RGB frames to grayscale</li>
+ *   <li>Resize frames to a fixed dimension</li>
+ *   <li>Stack multiple frames to capture temporal information</li>
+ * </ol>
+ *
+ * <p>The implementation is based on concepts from:
+ * <a href="https://guilhermealvessilveira.substack.com/p/how-to-never-forget-deep-q-networks">
+ * How to Never Forget Deep Q-Networks</a>
+ *
+ * <p><b>Memory Management:</b>
+ * Unlike Python's reference counting, this implementation uses RAII
+ * ({@linktourl https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization})
+ * pattern with try-with-resources blocks to ensure proper NDArray cleanup.
+ * Arrays that need to survive beyond method scope are explicitly attached to the parent manager.
+ *
+ * <p><b>Image Processing Notes:</b>
+ * The order of operations is important:
+ * <ul>
+ *   <li>Images are processed as HWC (Height, Width, Channels) format for resize operations</li>
+ *   <li>After resizing, arrays are transposed to CHW (Channels, Height, Width) for neural network input</li>
+ *   <li>Frame concatenation happens along the channel dimension (axis 0 after transpose)</li>
+ * </ul>
+ */
 public class PreProcessingWrapper {
 
     private final IEnv env;
@@ -50,8 +80,8 @@ public class PreProcessingWrapper {
             for (int i = 0; i < concatenate; i++) {
                 var skipResult = skipFrames(action, sub);
 
-                try (NDArray grayState = grayscaleFrame(skipResult.state())) {
-                    NDArray resizedState = resizeFrame(grayState);
+                try (var grayState = grayscaleFrame(skipResult.state())) {
+                    var resizedState = resizeFrame(grayState);
                     frames.add(resizedState);
                 }
 
@@ -87,17 +117,15 @@ public class PreProcessingWrapper {
     }
 
     private NDArray grayscaleFrame(NDArray state) {
-        try (NDArray f32    = state.toType(DataType.FLOAT32, false);
-             NDArray mean   = f32.mean(new int[]{2}, true);
-             NDArray transp = mean.transpose(2, 0, 1)) {
-            return transp.toType(DataType.UINT8, false);
+        try (var f32 = state.toType(DataType.FLOAT32, false);
+             var mean = f32.mean(new int[]{2}, true)) {
+            return mean.toType(DataType.UINT8, false);
         }
     }
 
     private NDArray resizeFrame(NDArray state) {
-        try (NDArray expanded = state.expandDims(0);
-             NDArray resized  = NDImageUtils.resize(expanded, resize, resize, interpolation)) {
-            return resized.squeeze(0);
+        try (var resized = NDImageUtils.resize(state, resize, resize, interpolation)) {
+            return resized.transpose(2, 0, 1);
         }
     }
 
@@ -112,6 +140,8 @@ public class PreProcessingWrapper {
             state = NDArrays.concat(frameList, 0);
         }
 
+        frames.forEach(NDArray::close);
+
         double totalReward = rewards.stream()
                 .mapToDouble(Double::doubleValue)
                 .sum();
@@ -123,25 +153,23 @@ public class PreProcessingWrapper {
         var parent = env.manager();
         var resetResult = env.reset();
         var info = resetResult.getKey();
-        try (NDManager sub = parent.newSubManager()) {
-            NDArray rawState = resetResult.getValue();
+        NDArray rawState = resetResult.getValue();
 
-            try (NDArray gray    = grayscaleFrame(rawState);
-                 NDArray resized = resizeFrame(gray)) {
+        try (var gray = grayscaleFrame(rawState);
+             var resized = resizeFrame(gray)) {
 
-                var frames  = new ArrayList<NDArray>();
-                var rewards = new ArrayList<Double>();
+            var frames  = new ArrayList<NDArray>();
+            var rewards = new ArrayList<Double>();
 
-                frames.add(resized.duplicate());
-                rewards.add(0.0);
+            frames.add(resized.duplicate());
+            rewards.add(0.0);
 
-                var result = finishConcatenateFrames(frames, rewards);
-                NDArray state = result.getKey();
+            var result = finishConcatenateFrames(frames, rewards);
+            var state = result.getKey();
 
-                // Promote survivor out of sub before sub closes
-                state.attach(parent);
-                return new Pair<>(state, info);
-            }
+            // Promote survivor out of sub before sub closes
+            state.attach(parent);
+            return new Pair<>(state, info);
         }
     }
 }
