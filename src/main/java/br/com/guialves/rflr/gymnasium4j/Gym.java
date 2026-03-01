@@ -132,10 +132,7 @@ public class Gym {
         }
 
         public Env build() {
-            return new Env(requireNonNull(varEnvCode, "varEnvCode cannot be null!"),
-                    requireNonNull(envName, "envId cannot be null!"),
-                    generatePyEnvScript(),
-                    requireNonNull(ndManager, "cannot be null!"));
+            return new Env(varEnvCode, envName, generatePyEnvScript(), ndManager);
         }
     }
 

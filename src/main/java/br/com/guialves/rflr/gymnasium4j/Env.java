@@ -5,6 +5,7 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
@@ -46,7 +47,10 @@ public final class Env implements IEnv {
     private ByteBuffer imageBuffer;
     private boolean scalarObservation;
 
-    Env(String varEnvCode, String envName, String generatedScript, NDManager manager) {
+    Env(@NonNull String varEnvCode,
+        @NonNull String envName,
+        @NonNull String generatedScript,
+        @NonNull NDManager manager) {
         initPython();
         this.varEnvCode = varEnvCode;
         this.envName = envName;
