@@ -157,6 +157,12 @@ public enum ActionSpaceType {
 
         private boolean closed = false;
 
+        /**
+         * Close this ActionResult and release the underlying Python object reference.
+         * After closing, the object is no longer valid for value extraction.
+         *
+         * @throws IllegalStateException if the ActionResult is already closed
+         */
         @Override
         public void close() {
             if (closed) {
@@ -167,19 +173,26 @@ public enum ActionSpaceType {
             closed = true;
         }
 
-        public boolean isClosed() {
+        /**
+         * Check if this ActionResult has been closed.
+         *
+         * @return true if closed, false otherwise
+         */
+        public boolean closed() {
             return closed;
         }
 
         /**
-         * Check if this object is still valid (has references)
+         * Check if this object is still valid (has references to the underlying Python object).
+         *
+         * @return true if the object is not closed and the Python object is still valid
          */
-        public boolean isValid() {
+        public boolean valid() {
             return !closed && pyObj != null && !pyObj.isNull() && refCount(pyObj) > 0;
         }
 
         /**
-         * Extract the value from the PyObject based on the space type.
+         * Extract the value from the underlying Python object based on the space type.
          * Returns the appropriate Java type:
          * - DISCRETE: Long
          * - BOX (scalar): Double
@@ -188,9 +201,9 @@ public enum ActionSpaceType {
          * - MULTI_BINARY: boolean[]
          * - TEXT: String
          *
-         * @return the extracted value
          * @param <T> the expected return type
-         * @throws IllegalStateException if the ActionResult is closed
+         * @return the extracted value
+         * @throws IllegalStateException if the ActionResult is closed or the Python object is invalid
          * @throws UnsupportedOperationException if extraction is not supported for the space type
          */
         @SuppressWarnings("unchecked")
@@ -217,10 +230,10 @@ public enum ActionSpaceType {
         /**
          * Extract value as a specific type with type checking.
          *
+         * @param <T> the expected type
          * @param clazz the expected class type
-         * @param <T> the type parameter
          * @return the value cast to the expected type
-         * @throws IllegalStateException if closed
+         * @throws IllegalStateException if the ActionResult is closed
          * @throws ClassCastException if the value is not of the expected type
          */
         public <T> T valueAs(Class<T> clazz) {
@@ -236,9 +249,6 @@ public enum ActionSpaceType {
             return clazz.cast(value);
         }
 
-        /**
-         * Extract value for BOX space (can be scalar or array)
-         */
         private Object extractBoxValue(PyObject obj) {
             if (isSequence(obj)) {
                 return NumPyByteBuffer.toDoubleArray(obj);
@@ -247,9 +257,6 @@ public enum ActionSpaceType {
             return PyFloat_AsDouble(obj);
         }
 
-        /**
-         * Extract value for MULTI_DISCRETE space
-         */
         private Object extractMultiDiscreteValue(PyObject obj) {
             if (!isList(obj)) {
                 throw new IllegalStateException("Expected list for MULTI_DISCRETE");
@@ -258,7 +265,7 @@ public enum ActionSpaceType {
             long size = PyList_Size(obj);
 
             if (size > 0) {
-                PyObject first = PyList_GetItem(obj, 0);
+                var first = PyList_GetItem(obj, 0);
                 long value = PyLong_AsLong(first);
 
                 if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
@@ -271,6 +278,9 @@ public enum ActionSpaceType {
 
         /**
          * Get a string representation of the value for debugging.
+         * Returns "[closed]" if the object is closed, or an error message if value extraction fails.
+         *
+         * @return string representation of the value
          */
         public String valueToString() {
             if (closed) {
@@ -300,7 +310,7 @@ public enum ActionSpaceType {
                     "spaceType=" + spaceType +
                     ", value=" + valueToString() +
                     ", closed=" + closed +
-                    ", valid=" + isValid() +
+                    ", valid=" + valid() +
                     '}';
         }
     }

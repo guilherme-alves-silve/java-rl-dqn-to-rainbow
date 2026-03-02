@@ -22,7 +22,7 @@
     <vavr.version>0.11.0</vavr.version>
     <javacpp.version>1.5.10</javacpp.version>
     <python.version>3.12.1</python.version>
-    <assertj.version>3.25.3</assertj.version>
+    <assertj.version>3.27.7</assertj.version>
   </properties>
 
   <dependencyManagement>
@@ -30,7 +30,7 @@
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
-        <version>5.11.0</version>
+        <version>6.0.3</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -136,7 +136,7 @@
   </dependencies>
 
   <build>
-    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (can be moved to parent pom) -->
       <plugins>
         <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
         <plugin>

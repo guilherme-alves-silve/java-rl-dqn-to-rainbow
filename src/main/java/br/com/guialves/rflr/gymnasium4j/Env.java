@@ -5,6 +5,7 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
@@ -46,7 +47,10 @@ public final class Env implements IEnv {
     private ByteBuffer imageBuffer;
     private boolean scalarObservation;
 
-    Env(String varEnvCode, String envName, String generatedScript, NDManager manager) {
+    Env(@NonNull String varEnvCode,
+        @NonNull String envName,
+        @NonNull String generatedScript,
+        @NonNull NDManager manager) {
         initPython();
         this.varEnvCode = varEnvCode;
         this.envName = envName;
@@ -90,7 +94,7 @@ public final class Env implements IEnv {
     }
 
     @Override
-    public Pair<Map<Object, Object>, NDArray> reset() {
+    public Pair<NDArray, Map<Object, Object>> reset() {
         try (var result = callFunction(pyReset)) {
 
             var pyState = getItem(result, 0);
@@ -101,26 +105,26 @@ public final class Env implements IEnv {
                 long observationValue = toLong(pyState);
                 var state = manager.create(observationValue);
                 log.debug("Discrete observation: {}", observationValue);
-                return new Pair<>(infoMap, state);
-            } else {
-                this.scalarObservation = false;
-                if (stateMetadata == null) {
-                    stateMetadata = EnvStateMetadata.fromNumpy(pyState);
-                    stateBuffer = ByteBuffer
-                            .allocate(stateMetadata.size())
-                            .order(ByteOrder.nativeOrder());
-                }
-
-                fillFromNumpy(pyState, stateBuffer);
-
-                var state = manager.create(
-                        stateBuffer,
-                        stateMetadata.djlShape(),
-                        stateMetadata.djlType
-                );
-
-                return new Pair<>(infoMap, state);
+                return new Pair<>(state, infoMap);
             }
+
+            this.scalarObservation = false;
+            if (stateMetadata == null) {
+                stateMetadata = EnvStateMetadata.fromNumpy(pyState);
+                stateBuffer = ByteBuffer
+                        .allocate(stateMetadata.size())
+                        .order(ByteOrder.nativeOrder());
+            }
+
+            fillFromNumpy(pyState, stateBuffer);
+
+            var state = manager.create(
+                    stateBuffer,
+                    stateMetadata.djlShape(),
+                    stateMetadata.djlType
+            );
+
+            return new Pair<>(state, infoMap);
         }
     }
 

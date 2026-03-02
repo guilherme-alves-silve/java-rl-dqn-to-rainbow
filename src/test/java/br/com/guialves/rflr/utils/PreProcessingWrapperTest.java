@@ -59,7 +59,7 @@ class PreProcessingWrapperTest {
         assertNotNull(state);
         assertNotNull(info);
 
-        Shape expectedShape = new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE);
+        var expectedShape = new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE);
         assertEquals(expectedShape, state.getShape());
 
         try (var firstFrame = state.get(0)) {
@@ -82,8 +82,8 @@ class PreProcessingWrapperTest {
         var initialState = resetResult.getKey();
         var action = env.actionSpaceSample();
 
-        EnvStepResult stepResult = wrapper.step(action);
-        NDArray nextState = stepResult.state();
+        var stepResult = wrapper.step(action);
+        var nextState = stepResult.state();
 
         assertNotNull(stepResult);
         assertNotNull(nextState);
@@ -110,14 +110,11 @@ class PreProcessingWrapperTest {
         wrapper.reset();
         var action = env.actionSpaceSample();
 
-        EnvStepResult stepResult = wrapper.step(action);
-
-        double reward = stepResult.reward();
-        assertTrue(reward >= 0 && reward <= SKIP_FRAMES);
-
-        log.info("Accumulated reward after {} skip frames: {}", SKIP_FRAMES, reward);
-
-        stepResult.state().close();
+        try(var stepResult = wrapper.step(action)) {
+            double reward = stepResult.reward();
+            assertTrue(reward >= 0 && reward <= SKIP_FRAMES);
+            log.info("Accumulated reward after {} skip frames: {}", SKIP_FRAMES, reward);
+        }
     }
 
     @Test
@@ -125,17 +122,15 @@ class PreProcessingWrapperTest {
         wrapper.reset();
         var action = env.actionSpaceSample();
 
-        EnvStepResult stepResult = null;
         int steps = 0;
         int maxSteps = 10_000;
-
+        EnvStepResult stepResult = null;
         while (steps < maxSteps) {
             stepResult = wrapper.step(action);
             steps++;
 
-            if (stepResult.done()) {
-                break;
-            }
+            if (stepResult.done()) break;
+            else stepResult.close();
 
             action = env.actionSpaceSample();
         }
@@ -146,30 +141,31 @@ class PreProcessingWrapperTest {
 
         log.info("Episode terminated after {} steps", steps);
 
-        stepResult.state().close();
+        stepResult.close();
     }
 
     @Test
     void shouldMaintainConsistentStateShape() {
         wrapper.reset();
         var action = env.actionSpaceSample();
-        List<Shape> shapes = new ArrayList<>();
+        var shapes = new ArrayList<Shape>();
 
+        EnvStepResult stepResult = null;
         for (int i = 0; i < 10; i++) {
-            EnvStepResult stepResult = wrapper.step(action);
+            stepResult = wrapper.step(action);
             shapes.add(stepResult.state().getShape());
             action = env.actionSpaceSample();
 
-            if (stepResult.done()) {
-                break;
-            }
-            stepResult.state().close();
+            if (stepResult.done()) break;
+            else stepResult.close();
         }
 
-        Shape expectedShape = new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE);
-        for (Shape shape : shapes) {
+        var expectedShape = new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE);
+        for (var shape : shapes) {
             assertEquals(expectedShape, shape);
         }
+
+        stepResult.close();
     }
 
     @Test
@@ -179,17 +175,16 @@ class PreProcessingWrapperTest {
 
         int maxSteps = 10_000;
         EnvStepResult stepResult = null;
-        int steps1 = 0;
+        int steps = 0;
 
-        while (steps1 < maxSteps) {
+        while (steps < maxSteps) {
             stepResult = wrapper.step(action);
-            steps1++;
+            steps++;
 
-            if (stepResult.done()) {
-                break;
-            }
+            if (stepResult.done()) break;
+            else stepResult.close();
+
             action = env.actionSpaceSample();
-            stepResult.state().close();
         }
 
         assertNotNull(stepResult);
@@ -201,15 +196,16 @@ class PreProcessingWrapperTest {
         assertNotNull(newState);
         assertEquals(new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE), newState.getShape());
 
-        log.info("Episode 1 steps: {}, Episode 2 initial state shape: {}", steps1, newState.getShape());
+        log.info("Steps taken from one episode: {}, Episode 2 initial state shape: {}", steps, newState.getShape());
 
         newState.close();
-        stepResult.state().close();
+        stepResult.close();
     }
 
     @Test
     void shouldStepWorkWithDifferentSkipValues() {
         int[] skipValues = {1, 2, 4, 8};
+        var expectedShape = new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE);
 
         for (int skip : skipValues) {
             try (var testManager = NDManager.newBaseManager();
@@ -219,17 +215,15 @@ class PreProcessingWrapperTest {
                 testWrapper.reset();
                 var action = testEnv.actionSpaceSample();
 
-                var stepResult = testWrapper.step(action);
-                var state = stepResult.state();
+                try (var stepResult = testWrapper.step(action)) {
+                    var state = stepResult.state();
+                    assertEquals(expectedShape, state.getShape());
 
-                assertEquals(new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE), state.getShape());
+                    double reward = stepResult.reward();
+                    assertTrue(reward <= skip + 0.1);
 
-                double reward = stepResult.reward();
-                assertTrue(reward <= skip + 0.1);
-
-                log.info("Skip={}, reward={}", skip, reward);
-
-                state.close();
+                    log.info("Skip={}, reward={}", skip, reward);
+                }
             }
         }
     }
@@ -237,8 +231,8 @@ class PreProcessingWrapperTest {
     @Test
     void shouldStepWorkWithDifferentConcatenateValues() {
         int[] concatValues = {1, 2, 4};
-
         for (int concat : concatValues) {
+            var expectedSize = new Shape(concat, RESIZE_SIZE, RESIZE_SIZE);
             try (var testManager = NDManager.newBaseManager();
                  var testEnv = Gym.make(ENV_NAME, testManager)) {
 
@@ -246,20 +240,17 @@ class PreProcessingWrapperTest {
                 testWrapper.reset();
                 var action = testEnv.actionSpaceSample();
 
-                EnvStepResult stepResult = testWrapper.step(action);
-                NDArray state = stepResult.state();
-
-                assertEquals(new Shape(concat, RESIZE_SIZE, RESIZE_SIZE), state.getShape());
-
-                log.info("Concatenate={}, state shape={}", concat, state.getShape());
-
-                state.close();
+                try (var stepResult = testWrapper.step(action)) {
+                    var state = stepResult.state();
+                    assertEquals(expectedSize, state.getShape());
+                    log.info("Concatenate={}, state shape={}", concat, state.getShape());
+                }
             }
         }
     }
 
     @Test
-    void memoryManagementShouldNotLeak() {
+    void shouldMemoryManagementNotLeak() {
         var runtime = Runtime.getRuntime();
 
         System.gc();
@@ -275,15 +266,10 @@ class PreProcessingWrapperTest {
             for (int j = 0; j < 10; j++) {
                 var stepResult = wrapper.step(action);
 
-                if (j % 3 == 0) {
-                    states.add(stepResult.state().duplicate());
-                } else {
-                    stepResult.state().close();
-                }
+                if (j % 3 == 0) states.add(stepResult.state().duplicate());
+                else stepResult.close();
 
-                if (stepResult.done()) {
-                    break;
-                }
+                if (stepResult.done()) break;
                 action = env.actionSpaceSample();
             }
         }
@@ -302,7 +288,7 @@ class PreProcessingWrapperTest {
     }
 
     @Test
-    void performance_ShouldBeReasonable() {
+    void shouldExecuteInViableTime() {
         wrapper.reset();
         var action = env.actionSpaceSample();
 
@@ -310,13 +296,12 @@ class PreProcessingWrapperTest {
         long startTime = System.nanoTime();
 
         for (int i = 0; i < steps; i++) {
-            EnvStepResult stepResult = wrapper.step(action);
-            stepResult.state().close();
-
-            if (stepResult.done()) {
-                wrapper.reset();
+            try (var stepResult = wrapper.step(action)) {
+                if (stepResult.done()) {
+                    wrapper.reset();
+                }
+                action = env.actionSpaceSample();
             }
-            action = env.actionSpaceSample();
         }
 
         long endTime = System.nanoTime();
@@ -330,7 +315,7 @@ class PreProcessingWrapperTest {
     }
 
     @Test
-    void grayscaleConversionShouldWorkCorrectly() {
+    void shouldConvertToGrayscale() {
         var resetResult = wrapper.reset();
         var state = resetResult.getKey();
 
@@ -361,20 +346,21 @@ class PreProcessingWrapperTest {
                 var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, CONCATENATE_FRAMES);
 
                 var resetResult = testWrapper.reset();
-                NDArray state = resetResult.getKey();
+                var state = resetResult.getKey();
                 var action = testEnv.actionSpaceSample();
 
-                EnvStepResult stepResult = testWrapper.step(action);
-                NDArray nextState = stepResult.state();
+                var stepResult = testWrapper.step(action);
+                var nextState = stepResult.state();
 
                 assertNotNull(state);
                 assertNotNull(nextState);
+                assertFalse(nextState.isReleased());
                 assertEquals(state.getShape(), nextState.getShape());
 
                 log.info("Environment: {}, state shape: {}", envName, state.getShape());
 
                 state.close();
-                nextState.close();
+                assertTrue(nextState.isReleased());
             } catch (Exception e) {
                 log.warn("Could not test environment {}: {}", envName, e.getMessage());
             }

@@ -7,16 +7,15 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
-import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 @Slf4j
 public class Gym {
 
     @SneakyThrows
-    public static Env make(String name,
-                           NDManager ndManager) {
+    public static IEnv make(@NonNull String name,
+                            @NonNull NDManager ndManager) {
         return builder()
                 .envName(name)
                 .ndManager(ndManager)
@@ -112,13 +111,13 @@ public class Gym {
 
         private String generateImportLibsPy() {
             return importLibs.stream()
-                    .collect(Collectors.joining(", ", "import ", ""));
+                    .collect(joining(", ", "import ", ""));
         }
 
         private String generateImportFromPy() {
             return wrappers.stream()
                     .map(wrapper -> wrapper.getClass().getSimpleName())
-                    .collect(Collectors.joining(", ", "from gymnasium.wrappers import ", ""));
+                    .collect(joining(", ", "from gymnasium.wrappers import ", ""));
         }
 
         private String generateWrappedEnvPy() {
@@ -132,10 +131,7 @@ public class Gym {
         }
 
         public Env build() {
-            return new Env(requireNonNull(varEnvCode, "varEnvCode cannot be null!"),
-                    requireNonNull(envName, "envId cannot be null!"),
-                    generatePyEnvScript(),
-                    requireNonNull(ndManager, "cannot be null!"));
+            return new Env(varEnvCode, envName, generatePyEnvScript(), ndManager);
         }
     }
 
@@ -158,7 +154,8 @@ public class Gym {
          * @param value parameter value (will be used as-is in Python)
          * @return this builder for chaining
          */
-        public PyMap put(String key, String value) {
+        public PyMap put(@NonNull String key,
+                         @NonNull String value) {
             params.put(key, value);
             return this;
         }
@@ -169,7 +166,8 @@ public class Gym {
          * @param value boolean value (converted to Python True/False)
          * @return this builder for chaining
          */
-        public PyMap put(String key, boolean value) {
+        public PyMap put(@NonNull String key,
+                         boolean value) {
             params.put(key, value ? "True" : "False");
             return this;
         }
@@ -180,7 +178,8 @@ public class Gym {
          * @param value integer value
          * @return this builder for chaining
          */
-        public PyMap put(String key, int value) {
+        public PyMap put(@NonNull String key,
+                         int value) {
             params.put(key, String.valueOf(value));
             return this;
         }
@@ -191,7 +190,8 @@ public class Gym {
          * @param value double value
          * @return this builder for chaining
          */
-        public PyMap put(String key, double value) {
+        public PyMap put(@NonNull String key,
+                         double value) {
             params.put(key, String.valueOf(value));
             return this;
         }
@@ -202,7 +202,8 @@ public class Gym {
          * @param value string value
          * @return this builder for chaining
          */
-        public PyMap putStr(String key, String value) {
+        public PyMap putStr(@NonNull String key,
+                            @NonNull String value) {
             params.put(key, "'" + value + "'");
             return this;
         }
@@ -232,7 +233,7 @@ public class Gym {
             return params.entrySet()
                     .stream()
                     .map(entry -> entry.getKey() + "=" + entry.getValue())
-                    .collect(Collectors.joining(", "));
+                    .collect(joining(", "));
         }
 
         /**
@@ -244,7 +245,7 @@ public class Gym {
             return params.entrySet()
                     .stream()
                     .map(entry -> "'" + entry.getKey() + "': " + entry.getValue())
-                    .collect(Collectors.joining(", ", "{", "}"));
+                    .collect(joining(", ", "{", "}"));
         }
 
         @Override

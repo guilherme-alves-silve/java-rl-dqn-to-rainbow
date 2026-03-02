@@ -39,10 +39,8 @@ class GymTest {
                 render.waitRender();
                 var action = env.actionSpaceSample();
                 stepResult = env.step(action);
-                if (stepResult.term()) {
-                    break;
-                }
-
+                if (stepResult.term()) break;
+                else stepResult.close();
             }
 
             assertNotNull(stepResult);

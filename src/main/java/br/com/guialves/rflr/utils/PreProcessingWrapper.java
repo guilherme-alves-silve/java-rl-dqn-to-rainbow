@@ -10,6 +10,7 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.EnvStepResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
+import lombok.experimental.Delegate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,8 +48,9 @@ import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
  *   <li>Frame concatenation happens along the channel dimension (axis 0 after transpose)</li>
  * </ul>
  */
-public class PreProcessingWrapper {
+public class PreProcessingWrapper implements IEnv {
 
+    @Delegate
     private final IEnv env;
     private final int skip;
     private final int resize;
@@ -67,6 +69,7 @@ public class PreProcessingWrapper {
         this.interpolation = interpolation;
     }
 
+    @Override
     public EnvStepResult step(ActionResult action) {
         var parent = env.manager();
         try (var sub = parent.newSubManager()) {
@@ -149,11 +152,12 @@ public class PreProcessingWrapper {
         return new Pair<>(state, totalReward);
     }
 
+    @Override
     public Pair<NDArray, Map<Object, Object>> reset() {
         var parent = env.manager();
         var resetResult = env.reset();
-        var info = resetResult.getKey();
-        NDArray rawState = resetResult.getValue();
+        var rawState = resetResult.getKey();
+        var info = resetResult.getValue();
 
         try (var gray = grayscaleFrame(rawState);
              var resized = resizeFrame(gray)) {

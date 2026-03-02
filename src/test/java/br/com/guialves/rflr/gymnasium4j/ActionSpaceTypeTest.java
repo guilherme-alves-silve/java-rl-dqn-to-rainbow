@@ -31,8 +31,8 @@ class ActionSpaceTypeTest {
             try (var action = DISCRETE.get(5)) {
                 assertNotNull(action);
                 assertEquals(DISCRETE, action.spaceType());
-                assertFalse(action.isClosed());
-                assertTrue(action.isValid());
+                assertFalse(action.closed());
+                assertTrue(action.valid());
             }
         }
 
@@ -42,7 +42,7 @@ class ActionSpaceTypeTest {
             try (var action = DISCRETE.get(100L)) {
                 assertNotNull(action);
                 assertEquals(DISCRETE, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -62,7 +62,7 @@ class ActionSpaceTypeTest {
         @DisplayName("Should handle zero value")
         void testDiscreteZero() {
             try (var action = DISCRETE.get(0)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -70,7 +70,7 @@ class ActionSpaceTypeTest {
         @DisplayName("Should handle negative value")
         void testDiscreteNegative() {
             try (var action = DISCRETE.get(-5)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
     }
@@ -85,7 +85,7 @@ class ActionSpaceTypeTest {
             try (var action = BOX.get(0.5)) {
                 assertNotNull(action);
                 assertEquals(BOX, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -96,7 +96,7 @@ class ActionSpaceTypeTest {
             try (var action = BOX.get(values)) {
                 assertNotNull(action);
                 assertEquals(BOX, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -107,7 +107,7 @@ class ActionSpaceTypeTest {
             try (var action = BOX.get(values)) {
                 assertNotNull(action);
                 assertEquals(BOX, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -116,7 +116,7 @@ class ActionSpaceTypeTest {
         void testBoxEmptyArray() {
             try (var action = BOX.get(new double[]{})) {
                 assertNotNull(action);
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -124,7 +124,7 @@ class ActionSpaceTypeTest {
         @DisplayName("Should handle single element array")
         void testBoxSingleElementArray() {
             try (var action = BOX.get(new double[]{1.5})) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -133,7 +133,7 @@ class ActionSpaceTypeTest {
         void testBoxExtremeValues() {
             double[] values = {Double.MAX_VALUE, Double.MIN_VALUE, 0.0, -1.0};
             try (var action = BOX.get(values)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -155,7 +155,7 @@ class ActionSpaceTypeTest {
             try (var action = MULTI_DISCRETE.get(values)) {
                 assertNotNull(action);
                 assertEquals(MULTI_DISCRETE, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -166,7 +166,7 @@ class ActionSpaceTypeTest {
             try (var action = MULTI_DISCRETE.get(values)) {
                 assertNotNull(action);
                 assertEquals(MULTI_DISCRETE, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -175,7 +175,7 @@ class ActionSpaceTypeTest {
         void testMultiDiscreteEmptyArray() {
             try (var action = MULTI_DISCRETE.get(new int[]{})) {
                 assertNotNull(action);
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -184,7 +184,7 @@ class ActionSpaceTypeTest {
         void testMultiDiscreteNegativeValues() {
             int[] values = {-1, 0, 1, -5};
             try (var action = MULTI_DISCRETE.get(values)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -213,7 +213,7 @@ class ActionSpaceTypeTest {
             try (var action = MULTI_BINARY.get(values)) {
                 assertNotNull(action);
                 assertEquals(MULTI_BINARY, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -224,7 +224,7 @@ class ActionSpaceTypeTest {
             try (var action = MULTI_BINARY.get(values)) {
                 assertNotNull(action);
                 assertEquals(MULTI_BINARY, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -233,7 +233,7 @@ class ActionSpaceTypeTest {
         void testMultiBinaryEmptyArray() {
             try (var action = MULTI_BINARY.get(new boolean[]{})) {
                 assertNotNull(action);
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -242,7 +242,7 @@ class ActionSpaceTypeTest {
         void testMultiBinaryAllTrue() {
             boolean[] values = {true, true, true};
             try (var action = MULTI_BINARY.get(values)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -251,7 +251,7 @@ class ActionSpaceTypeTest {
         void testMultiBinaryAllFalse() {
             boolean[] values = {false, false, false};
             try (var action = MULTI_BINARY.get(values)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -272,7 +272,7 @@ class ActionSpaceTypeTest {
             try (var action = TEXT.get("Hello, World!")) {
                 assertNotNull(action);
                 assertEquals(TEXT, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -281,7 +281,7 @@ class ActionSpaceTypeTest {
         void testTextEmptyString() {
             try (var action = TEXT.get("")) {
                 assertNotNull(action);
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -289,7 +289,7 @@ class ActionSpaceTypeTest {
         @DisplayName("Should handle unicode characters")
         void testTextUnicode() {
             try (var action = TEXT.get("Hello 世界 🌍")) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -298,7 +298,7 @@ class ActionSpaceTypeTest {
         void testTextLongString() {
             String longText = "a".repeat(10000);
             try (var action = TEXT.get(longText)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -431,13 +431,13 @@ class ActionSpaceTypeTest {
         void testActionResultClose() {
             var action = DISCRETE.get(5);
 
-            assertFalse(action.isClosed());
-            assertTrue(action.isValid());
+            assertFalse(action.closed());
+            assertTrue(action.valid());
 
             action.close();
 
-            assertTrue(action.isClosed());
-            assertFalse(action.isValid());
+            assertTrue(action.closed());
+            assertFalse(action.valid());
         }
 
         @Test
@@ -454,7 +454,7 @@ class ActionSpaceTypeTest {
         void testActionResultTryWithResources() {
             assertDoesNotThrow(() -> {
                 try (var action = DISCRETE.get(5)) {
-                    assertTrue(action.isValid());
+                    assertTrue(action.valid());
                 }
             });
         }
@@ -475,7 +475,7 @@ class ActionSpaceTypeTest {
             try (var action = DISCRETE.convert(pyObj)) {
                 assertNotNull(action);
                 assertEquals(DISCRETE, action.spaceType());
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -483,11 +483,11 @@ class ActionSpaceTypeTest {
         @DisplayName("Should become invalid after close")
         void testActionResultInvalidAfterClose() {
             var action = DISCRETE.get(10);
-            assertTrue(action.isValid());
+            assertTrue(action.valid());
 
             action.close();
 
-            assertFalse(action.isValid());
+            assertFalse(action.valid());
         }
     }
 
@@ -504,7 +504,7 @@ class ActionSpaceTypeTest {
             }
 
             try (var action = MULTI_DISCRETE.get(largeArray)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -520,7 +520,7 @@ class ActionSpaceTypeTest {
             };
 
             try (var action = BOX.get(specialValues)) {
-                assertTrue(action.isValid());
+                assertTrue(action.valid());
             }
         }
 
@@ -538,7 +538,7 @@ class ActionSpaceTypeTest {
             assertDoesNotThrow(() -> {
                 for (int i = 0; i < 1000; i++) {
                     try (var action = DISCRETE.get(i)) {
-                        assertTrue(action.isValid());
+                        assertTrue(action.valid());
                     }
                 }
             });
@@ -551,9 +551,9 @@ class ActionSpaceTypeTest {
                  var action2 = BOX.get(2.5);
                  var action3 = TEXT.get("test")) {
 
-                assertTrue(action1.isValid());
-                assertTrue(action2.isValid());
-                assertTrue(action3.isValid());
+                assertTrue(action1.valid());
+                assertTrue(action2.valid());
+                assertTrue(action3.valid());
 
                 assertEquals(DISCRETE, action1.spaceType());
                 assertEquals(BOX, action2.spaceType());
@@ -584,10 +584,10 @@ class ActionSpaceTypeTest {
             assertDoesNotThrow(() -> {
                 try (var action1 = DISCRETE.get(1)) {
                     try (var action2 = BOX.get(2.0)) {
-                        assertTrue(action1.isValid());
-                        assertTrue(action2.isValid());
+                        assertTrue(action1.valid());
+                        assertTrue(action2.valid());
                     }
-                    assertTrue(action1.isValid());
+                    assertTrue(action1.valid());
                 }
             });
         }
