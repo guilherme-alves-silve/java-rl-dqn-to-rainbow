@@ -426,7 +426,7 @@ public class PyObjectCleanupPlugin implements Plugin {
             }
             
             // Sort slots in reverse order (cleanup newest first)
-            List<Integer> slots = new ArrayList<>(pyObjectSlots.keySet());
+            var slots = new ArrayList<Integer>(pyObjectSlots.keySet());
             slots.sort(Collections.reverseOrder());
             
             for (Integer slot : slots) {

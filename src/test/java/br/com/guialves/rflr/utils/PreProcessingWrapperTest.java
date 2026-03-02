@@ -148,7 +148,7 @@ class PreProcessingWrapperTest {
     void shouldMaintainConsistentStateShape() {
         wrapper.reset();
         var action = env.actionSpaceSample();
-        List<Shape> shapes = new ArrayList<>();
+        var shapes = new ArrayList<Shape>();
 
         EnvStepResult stepResult = null;
         for (int i = 0; i < 10; i++) {
@@ -161,7 +161,7 @@ class PreProcessingWrapperTest {
         }
 
         var expectedShape = new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE);
-        for (Shape shape : shapes) {
+        for (var shape : shapes) {
             assertEquals(expectedShape, shape);
         }
 
@@ -175,11 +175,11 @@ class PreProcessingWrapperTest {
 
         int maxSteps = 10_000;
         EnvStepResult stepResult = null;
-        int steps1 = 0;
+        int steps = 0;
 
-        while (steps1 < maxSteps) {
+        while (steps < maxSteps) {
             stepResult = wrapper.step(action);
-            steps1++;
+            steps++;
 
             if (stepResult.done()) break;
             else stepResult.close();
@@ -196,7 +196,7 @@ class PreProcessingWrapperTest {
         assertNotNull(newState);
         assertEquals(new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE), newState.getShape());
 
-        log.info("Episode 1 steps: {}, Episode 2 initial state shape: {}", steps1, newState.getShape());
+        log.info("Steps taken from one episode: {}, Episode 2 initial state shape: {}", steps, newState.getShape());
 
         newState.close();
         stepResult.close();
@@ -215,9 +215,8 @@ class PreProcessingWrapperTest {
                 testWrapper.reset();
                 var action = testEnv.actionSpaceSample();
 
-                var stepResult = testWrapper.step(action);
-                try (var state = stepResult.state()) {
-
+                try (var stepResult = testWrapper.step(action)) {
+                    var state = stepResult.state();
                     assertEquals(expectedShape, state.getShape());
 
                     double reward = stepResult.reward();
