@@ -157,6 +157,12 @@ public enum ActionSpaceType {
 
         private boolean closed = false;
 
+        /**
+         * Close this ActionResult and release the underlying Python object reference.
+         * After closing, the object is no longer valid for value extraction.
+         *
+         * @throws IllegalStateException if the ActionResult is already closed
+         */
         @Override
         public void close() {
             if (closed) {
@@ -167,14 +173,39 @@ public enum ActionSpaceType {
             closed = true;
         }
 
+        /**
+         * Check if this ActionResult has been closed.
+         *
+         * @return true if closed, false otherwise
+         */
         public boolean closed() {
             return closed;
         }
 
+        /**
+         * Check if this object is still valid (has references to the underlying Python object).
+         *
+         * @return true if the object is not closed and the Python object is still valid
+         */
         public boolean valid() {
             return !closed && pyObj != null && !pyObj.isNull() && refCount(pyObj) > 0;
         }
 
+        /**
+         * Extract the value from the underlying Python object based on the space type.
+         * Returns the appropriate Java type:
+         * - DISCRETE: Long
+         * - BOX (scalar): Double
+         * - BOX (array): double[]
+         * - MULTI_DISCRETE: int[] or long[]
+         * - MULTI_BINARY: boolean[]
+         * - TEXT: String
+         *
+         * @param <T> the expected return type
+         * @return the extracted value
+         * @throws IllegalStateException if the ActionResult is closed or the Python object is invalid
+         * @throws UnsupportedOperationException if extraction is not supported for the space type
+         */
         @SuppressWarnings("unchecked")
         public <T> T value() {
             if (closed) {
@@ -196,6 +227,15 @@ public enum ActionSpaceType {
             };
         }
 
+        /**
+         * Extract value as a specific type with type checking.
+         *
+         * @param <T> the expected type
+         * @param clazz the expected class type
+         * @return the value cast to the expected type
+         * @throws IllegalStateException if the ActionResult is closed
+         * @throws ClassCastException if the value is not of the expected type
+         */
         public <T> T valueAs(Class<T> clazz) {
             Object value = value();
             if (value == null) {
@@ -236,6 +276,12 @@ public enum ActionSpaceType {
             return toLongArray(obj);
         }
 
+        /**
+         * Get a string representation of the value for debugging.
+         * Returns "[closed]" if the object is closed, or an error message if value extraction fails.
+         *
+         * @return string representation of the value
+         */
         public String valueToString() {
             if (closed) {
                 return "[closed]";
