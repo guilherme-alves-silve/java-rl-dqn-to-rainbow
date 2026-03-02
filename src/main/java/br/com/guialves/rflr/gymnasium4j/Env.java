@@ -106,25 +106,25 @@ public final class Env implements IEnv {
                 var state = manager.create(observationValue);
                 log.debug("Discrete observation: {}", observationValue);
                 return new Pair<>(state, infoMap);
-            } else {
-                this.scalarObservation = false;
-                if (stateMetadata == null) {
-                    stateMetadata = EnvStateMetadata.fromNumpy(pyState);
-                    stateBuffer = ByteBuffer
-                            .allocate(stateMetadata.size())
-                            .order(ByteOrder.nativeOrder());
-                }
-
-                fillFromNumpy(pyState, stateBuffer);
-
-                var state = manager.create(
-                        stateBuffer,
-                        stateMetadata.djlShape(),
-                        stateMetadata.djlType
-                );
-
-                return new Pair<>(state, infoMap);
             }
+
+            this.scalarObservation = false;
+            if (stateMetadata == null) {
+                stateMetadata = EnvStateMetadata.fromNumpy(pyState);
+                stateBuffer = ByteBuffer
+                        .allocate(stateMetadata.size())
+                        .order(ByteOrder.nativeOrder());
+            }
+
+            fillFromNumpy(pyState, stateBuffer);
+
+            var state = manager.create(
+                    stateBuffer,
+                    stateMetadata.djlShape(),
+                    stateMetadata.djlType
+            );
+
+            return new Pair<>(state, infoMap);
         }
     }
 

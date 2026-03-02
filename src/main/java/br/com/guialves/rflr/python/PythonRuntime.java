@@ -190,7 +190,7 @@ public final class PythonRuntime {
 
     public static PyObject attr(PyObject obj, String attr) {
         var result = PyObject_GetAttrString(obj, attr);
-        if (result == null || result.isNull()) {
+        if (isPyNull(result)) {
             PyErr_Print();
             throw new IllegalArgumentException("Attribute not found: " + attr);
         }

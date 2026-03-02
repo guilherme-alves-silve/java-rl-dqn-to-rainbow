@@ -167,32 +167,14 @@ public enum ActionSpaceType {
             closed = true;
         }
 
-        public boolean isClosed() {
+        public boolean closed() {
             return closed;
         }
 
-        /**
-         * Check if this object is still valid (has references)
-         */
-        public boolean isValid() {
+        public boolean valid() {
             return !closed && pyObj != null && !pyObj.isNull() && refCount(pyObj) > 0;
         }
 
-        /**
-         * Extract the value from the PyObject based on the space type.
-         * Returns the appropriate Java type:
-         * - DISCRETE: Long
-         * - BOX (scalar): Double
-         * - BOX (array): double[]
-         * - MULTI_DISCRETE: int[] or long[]
-         * - MULTI_BINARY: boolean[]
-         * - TEXT: String
-         *
-         * @return the extracted value
-         * @param <T> the expected return type
-         * @throws IllegalStateException if the ActionResult is closed
-         * @throws UnsupportedOperationException if extraction is not supported for the space type
-         */
         @SuppressWarnings("unchecked")
         public <T> T value() {
             if (closed) {
@@ -214,15 +196,6 @@ public enum ActionSpaceType {
             };
         }
 
-        /**
-         * Extract value as a specific type with type checking.
-         *
-         * @param clazz the expected class type
-         * @param <T> the type parameter
-         * @return the value cast to the expected type
-         * @throws IllegalStateException if closed
-         * @throws ClassCastException if the value is not of the expected type
-         */
         public <T> T valueAs(Class<T> clazz) {
             Object value = value();
             if (value == null) {
@@ -236,9 +209,6 @@ public enum ActionSpaceType {
             return clazz.cast(value);
         }
 
-        /**
-         * Extract value for BOX space (can be scalar or array)
-         */
         private Object extractBoxValue(PyObject obj) {
             if (isSequence(obj)) {
                 return NumPyByteBuffer.toDoubleArray(obj);
@@ -247,9 +217,6 @@ public enum ActionSpaceType {
             return PyFloat_AsDouble(obj);
         }
 
-        /**
-         * Extract value for MULTI_DISCRETE space
-         */
         private Object extractMultiDiscreteValue(PyObject obj) {
             if (!isList(obj)) {
                 throw new IllegalStateException("Expected list for MULTI_DISCRETE");
@@ -258,7 +225,7 @@ public enum ActionSpaceType {
             long size = PyList_Size(obj);
 
             if (size > 0) {
-                PyObject first = PyList_GetItem(obj, 0);
+                var first = PyList_GetItem(obj, 0);
                 long value = PyLong_AsLong(first);
 
                 if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
@@ -269,9 +236,6 @@ public enum ActionSpaceType {
             return toLongArray(obj);
         }
 
-        /**
-         * Get a string representation of the value for debugging.
-         */
         public String valueToString() {
             if (closed) {
                 return "[closed]";
@@ -300,7 +264,7 @@ public enum ActionSpaceType {
                     "spaceType=" + spaceType +
                     ", value=" + valueToString() +
                     ", closed=" + closed +
-                    ", valid=" + isValid() +
+                    ", valid=" + valid() +
                     '}';
         }
     }
