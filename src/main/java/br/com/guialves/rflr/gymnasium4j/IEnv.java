@@ -21,7 +21,7 @@ public interface IEnv extends AutoCloseable {
 
     ActionSpaceType.ActionResult actionSpaceSample();
 
-    Pair<Map<Object, Object>, NDArray> reset();
+    Pair<NDArray, Map<Object, Object>> reset();
 
     EnvStepResult step(ActionSpaceType.ActionResult action);
 

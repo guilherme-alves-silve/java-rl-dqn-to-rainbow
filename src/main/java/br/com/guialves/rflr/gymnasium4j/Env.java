@@ -94,7 +94,7 @@ public final class Env implements IEnv {
     }
 
     @Override
-    public Pair<Map<Object, Object>, NDArray> reset() {
+    public Pair<NDArray, Map<Object, Object>> reset() {
         try (var result = callFunction(pyReset)) {
 
             var pyState = getItem(result, 0);
@@ -105,7 +105,7 @@ public final class Env implements IEnv {
                 long observationValue = toLong(pyState);
                 var state = manager.create(observationValue);
                 log.debug("Discrete observation: {}", observationValue);
-                return new Pair<>(infoMap, state);
+                return new Pair<>(state, infoMap);
             } else {
                 this.scalarObservation = false;
                 if (stateMetadata == null) {
@@ -123,7 +123,7 @@ public final class Env implements IEnv {
                         stateMetadata.djlType
                 );
 
-                return new Pair<>(infoMap, state);
+                return new Pair<>(state, infoMap);
             }
         }
     }

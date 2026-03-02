@@ -14,8 +14,8 @@ import static java.util.stream.Collectors.joining;
 public class Gym {
 
     @SneakyThrows
-    public static IEnv make(String name,
-                            NDManager ndManager) {
+    public static IEnv make(@NonNull String name,
+                            @NonNull NDManager ndManager) {
         return builder()
                 .envName(name)
                 .ndManager(ndManager)
