@@ -19,6 +19,7 @@ import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.fillFromNumpy;
+import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.onHeapBufferNumpy;
 
 @Slf4j
 @Accessors(fluent = true)
@@ -95,6 +96,9 @@ public final class Env implements IEnv {
 
     @Override
     public Pair<NDArray, Map<Object, Object>> reset() {
+        this.stateMetadata = null;
+        this.stateBuffer = null;
+
         try (var result = callFunction(pyReset)) {
 
             var pyState = getItem(result, 0);
@@ -109,18 +113,14 @@ public final class Env implements IEnv {
             }
 
             this.scalarObservation = false;
-            if (stateMetadata == null) {
-                stateMetadata = EnvStateMetadata.fromNumpy(pyState);
-                stateBuffer = ByteBuffer
-                        .allocate(stateMetadata.size())
-                        .order(ByteOrder.nativeOrder());
-            }
+            this.stateMetadata = EnvStateMetadata.fromNumpy(pyState);
+            this.stateBuffer = onHeapBufferNumpy(stateMetadata.size());
 
             fillFromNumpy(pyState, stateBuffer);
 
             var state = manager.create(
                     stateBuffer,
-                    stateMetadata.djlShape(),
+                    stateMetadata.djlShape,
                     stateMetadata.djlType
             );
 
