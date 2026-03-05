@@ -22,7 +22,7 @@ public final class PythonDataStructures {
         if (!isTuple(obj)) {
             throw new IllegalArgumentException("Expected PyTuple");
         }
-        PyObject item = PyTuple_GetItem(obj, pos);
+        var item = PyTuple_GetItem(obj, pos);
         if (item == null) checkError();
         return item; // borrowed reference
     }
