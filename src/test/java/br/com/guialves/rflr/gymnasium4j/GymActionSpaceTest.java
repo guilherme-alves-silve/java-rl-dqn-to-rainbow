@@ -33,12 +33,17 @@ class GymActionSpaceTest {
         @DisplayName("CartPole-v1 should have Discrete(2) action space")
         void testCartPoleActionSpace() {
             try (var env = Gym.make("CartPole-v1", ndManager)) {
+                env.reset();
                 log.info("CartPole action space: {}", env.actionSpaceStr());
 
                 assertTrue(env.actionSpaceStr().contains("Discrete(2)"));
 
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(DISCRETE, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     Long value = action.value();
                     assertNotNull(value);
@@ -64,12 +69,17 @@ class GymActionSpaceTest {
         @DisplayName("MountainCar-v0 should have Discrete(3) action space")
         void testMountainCarActionSpace() {
             try (var env = Gym.make("MountainCar-v0", ndManager)) {
+                env.reset();
                 log.info("MountainCar action space: {}", env.actionSpaceStr());
 
                 assertTrue(env.actionSpaceStr().contains("Discrete(3)"));
 
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(DISCRETE, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     Long value = action.value();
                     assertNotNull(value);
@@ -84,12 +94,17 @@ class GymActionSpaceTest {
         @DisplayName("Acrobot-v1 should have Discrete(3) action space")
         void testAcrobotActionSpace() {
             try (var env = Gym.make("Acrobot-v1", ndManager)) {
+                env.reset();
                 log.info("Acrobot action space: {}", env.actionSpaceStr());
 
                 assertTrue(env.actionSpaceStr().contains("Discrete(3)"));
 
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(DISCRETE, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     Long value = action.value();
                     assertNotNull(value);
@@ -107,12 +122,17 @@ class GymActionSpaceTest {
         @DisplayName("Pendulum-v1 should have Box(1,) action space")
         void testPendulumActionSpace() {
             try (var env = Gym.make("Pendulum-v1", ndManager)) {
+                env.reset();
                 log.info("Pendulum action space: {}", env.actionSpaceStr());
 
                 assertTrue(env.actionSpaceStr().contains("Box"));
 
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(BOX, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     Object value = action.value();
                     assertNotNull(value);
@@ -143,11 +163,15 @@ class GymActionSpaceTest {
         void testMountainCarContinuousActionSpace() {
             try (var env = Gym.make("MountainCarContinuous-v0", ndManager)) {
                 log.info("MountainCarContinuous action space: {}", env.actionSpaceStr());
-
+                env.reset();
                 assertTrue(env.actionSpaceStr().contains("Box"));
 
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(BOX, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     Object value = action.value();
                     assertNotNull(value);
@@ -169,11 +193,16 @@ class GymActionSpaceTest {
         void testLunarLanderContinuousActionSpace() {
             try (var env = Gym.make("LunarLanderContinuous-v3", ndManager)) {
                 log.info("LunarLanderContinuous action space: {}", env.actionSpaceStr());
+                env.reset();
 
                 assertTrue(env.actionSpaceStr().contains("Box"));
 
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(BOX, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     double[] value = action.value();
                     assertNotNull(value);
@@ -208,6 +237,7 @@ class GymActionSpaceTest {
                     var result = env.step(action);
                     assertNotNull(result);
                     assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     log.info("Step with action 0 - reward: {}, done: {}",
                             result.reward(), result.done());
@@ -237,9 +267,10 @@ class GymActionSpaceTest {
                         var result = env.step(action);
                         assertNotNull(result);
                         assertNotNull(result.state());
+                        assertFalse(result.state().isReleased());
 
                         log.info("Step with action {} - reward: {}",
-                                actionValue, result.reward());
+                                 actionValue, result.reward());
                     }
 
                     env.reset();
@@ -263,6 +294,8 @@ class GymActionSpaceTest {
 
                         var result = env.step(action);
                         assertNotNull(result);
+                        assertNotNull(result.state());
+                        assertFalse(result.state().isReleased());
 
                         log.info("Step {} - action: {}, reward: {}, done: {}",
                                 i, actionValue, result.reward(), result.done());
@@ -289,6 +322,8 @@ class GymActionSpaceTest {
 
                     var result = env.step(action);
                     assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     Long valueAfter = action.value();
                     assertEquals(expectedAction, valueAfter);
@@ -338,12 +373,16 @@ class GymActionSpaceTest {
                     assertEquals(0L, action.<Long>value());
                     var result = env.step(action);
                     assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
                 }
 
                 try (var action = DISCRETE.get(1)) {
                     assertEquals(1L, action.<Long>value());
                     var result = env.step(action);
                     assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
                 }
             }
         }
@@ -359,6 +398,8 @@ class GymActionSpaceTest {
                     assertEquals(-2.0, value[0], 0.001);
                     var result = env.step(action);
                     assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
                 }
 
                 env.reset();
@@ -368,6 +409,8 @@ class GymActionSpaceTest {
                     assertEquals(2.0, value[0], 0.001);
                     var result = env.step(action);
                     assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
                 }
             }
         }
@@ -383,6 +426,8 @@ class GymActionSpaceTest {
                     assertEquals(0L, action.<Long>value());
                     var result = env.step(action);
                     assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
                 }
             }
 
@@ -394,6 +439,8 @@ class GymActionSpaceTest {
                     assertEquals(0.0, value[0], 0.001);
                     var result = env.step(action);
                     assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
                 }
             }
         }
@@ -457,11 +504,15 @@ class GymActionSpaceTest {
         void testFrozenLakeActionSpace() {
             try (var env = Gym.make("FrozenLake-v1", ndManager)) {
                 log.info("FrozenLake action space: {}", env.actionSpaceStr());
-
+                env.reset();
                 assertTrue(env.actionSpaceStr().contains("Discrete(4)"));
 
                 try (var action = env.actionSpaceSample()) {
                     assertEquals(DISCRETE, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
 
                     Long value = action.value();
                     assertNotNull(value);
