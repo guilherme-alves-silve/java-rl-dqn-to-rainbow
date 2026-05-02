@@ -9,44 +9,44 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.Random;
 
-class SumSegmentTreeTest {
+public class SumSegmentTreeTest {
 
     private static final float DELTA = 1e-5f;
 
-    private SumSegmentTree tree5;   // [1, 2, 3, 4, 5]
-    private SumSegmentTree tree8;   // [1, 2, 3, 4, 5, 6, 7, 8]
+    // [1, 2, 3, 4, 5] -> sum = 15
+    private SumSegmentTree tree5;
+    // [1, 2, 3, 4, 5, 6, 7, 8] -> sum = 36
+    private SumSegmentTree tree8;
+
+    private static SumSegmentTree fromArray(float... values) {
+        var tree = new SumSegmentTree(values.length, 0f);
+        for (int i = 0; i < values.length; i++) tree.update(i, values[i]);
+        return tree;
+    }
 
     @BeforeEach
     void setUp() {
-        tree5 = new SumSegmentTree(new float[]{1, 2, 3, 4, 5});
-        tree8 = new SumSegmentTree(new float[]{1, 2, 3, 4, 5, 6, 7, 8});
+        tree5 = fromArray(1, 2, 3, 4, 5);
+        tree8 = fromArray(1, 2, 3, 4, 5, 6, 7, 8);
     }
 
     @Test
-    void testConstructorDefaultRange() {
-        assertNotNull(tree5);
-        assertEquals(5, tree5.size());
-        assertEquals(15f, tree5.rangeSum(0, 4), DELTA);
+    void testConstructorSizeAndInitValue() {
+        var tree = new SumSegmentTree(5, 2f);
+        assertEquals(5, tree.size());
+        assertEquals(10f, tree.sum(), DELTA); // 5 * 2 = 10
     }
 
     @Test
-    void testConstructorExplicitRange() {
-        float[] array = {10, 20, 30, 40, 50};
-        var tree = new SumSegmentTree(1, 3, array);
-        // covers indices 1..3 → sum = 20+30+40 = 90
-        assertEquals(90f, tree.rangeSum(1, 3), DELTA);
-    }
-
-    @Test
-    void testConstructorExplicitRangeThrowsWhenEndOutOfBounds() {
-        float[] array = {1, 2, 3};
-        assertThrows(IllegalArgumentException.class,
-                () -> new SumSegmentTree(0, 5, array));
+    void testConstructorZeroInitValue() {
+        var tree = new SumSegmentTree(4, 0f);
+        assertEquals(4, tree.size());
+        assertEquals(0f, tree.sum(), DELTA);
     }
 
     @Test
     void testConstructorSingleElement() {
-        var tree = new SumSegmentTree(new float[]{10f});
+        var tree = new SumSegmentTree(1, 10f);
         assertEquals(1, tree.size());
         assertEquals(10f, tree.rangeSum(0, 0), DELTA);
     }
@@ -186,7 +186,7 @@ class SumSegmentTreeTest {
     @Test
     void testPrefixSumDefinitionConsistency() {
         float[] array = {3, 1, 4, 1, 5};
-        var tree = new SumSegmentTree(array);
+        var tree = fromArray(array);
 
         float running = 0;
         for (int i = 0; i < array.length; i++) {
@@ -198,7 +198,7 @@ class SumSegmentTreeTest {
     @Test
     void testPrefixSumAfterMultipleUpdates() {
         float[] array = {1, 2, 3, 4, 5};
-        var tree = new SumSegmentTree(array);
+        var tree = fromArray(array);
 
         tree.update(0, 10f);
         tree.update(3, 20f);
@@ -214,93 +214,16 @@ class SumSegmentTreeTest {
 
     @Test
     void testPrefixSumEquivalentToNumpyCumsum() {
-        // prefixSum(k) == np.cumsum(array)[k]
-        float[] array = {5, 3, 8, 2, 7};
-        var tree = new SumSegmentTree(array);
-
+        var tree = fromArray(5, 3, 8, 2, 7);
         float[] cumsum = {5, 8, 16, 18, 25};
-        for (int i = 0; i < cumsum.length; i++) {
+        for (int i = 0; i < cumsum.length; i++)
             assertEquals(cumsum[i], tree.prefixSum(i), DELTA);
-        }
-    }
-
-    @Test
-    void testSampleIndexByValueInRangeAlwaysReturnsValidIndex() {
-        var tree = new SumSegmentTree(new float[]{1, 2, 3, 4, 5});
-        int n = tree.size();
-        float total = tree.sum();
-
-        for (int i = 0; i < 1000; i++) {
-            int idx = tree.sampleIndexByValueInRange(0f, total);
-            assertTrue(idx >= 0 && idx < n,
-                    "idx=" + idx + " fora do intervalo [0," + n + ")");
-        }
-    }
-
-    @Test
-    void testSampleIndexByValueInRangeDistributionBias() {
-        // idx=4 tem prioridade 80 de 85 total → deve dominar amostras
-        var tree = new SumSegmentTree(new float[]{1, 1, 1, 1, 80});
-        float total = tree.sum();
-
-        int countLast = 0;
-        int trials = 5000;
-        for (int i = 0; i < trials; i++) {
-            if (tree.sampleIndexByValueInRange(0f, total) == 4) countLast++;
-        }
-
-        // Espera ~94% de hits no idx=4; aceita acima de 85% (margem conservadora)
-        assertTrue(countLast > trials * 0.85,
-                "idx=4 apareceu apenas " + countLast + "/" + trials + " vezes");
-    }
-
-    @Test
-    void testSampleIndexByValueInRangeAfterUpdate() {
-        // Após zerar prioridades de 0..3, apenas idx=4 deve ser amostrado
-        var tree = new SumSegmentTree(new float[]{5, 5, 5, 5, 1});
-        tree.update(0, 0f);
-        tree.update(1, 0f);
-        tree.update(2, 0f);
-        tree.update(3, 0f);
-
-        float total = tree.sum();
-        for (int i = 0; i < 200; i++) {
-            // qualquer sample em (0, total] deve cair em idx=4
-            int idx = tree.sampleIndexByValueInRange(0f, total);
-            assertEquals(4, idx);
-        }
-    }
-
-    @Test
-    void testLowerBoundInvariantRandomized() {
-        // Para qualquer valor k em (0, total], o índice i retornado deve satisfazer:
-        //   prefixSum(i)   >= k
-        //   prefixSum(i-1) <  k  (se i > 0)
-        var rng = new Random(42);
-
-        for (int t = 0; t < 300; t++) {
-            int n = 1 + rng.nextInt(200);
-            float[] array = new float[n];
-            for (int i = 0; i < n; i++) array[i] = rng.nextInt(10);
-
-            var tree = new SumSegmentTree(array);
-            float total = tree.sum();
-            if (total == 0) continue;
-
-            for (int q = 0; q < 50; q++) {
-                float sample = rng.nextFloat() * total;
-                int idx = tree.sampleIndexByValueInRange(0f, total);
-
-                assertTrue(idx >= 0 && idx < n);
-                assertTrue(tree.prefixSum(idx) >= sample);
-            }
-        }
     }
 
     @Test
     void testUniformArray() {
-        // Array uniform array [2, 2, 2, 2] → prefix sums [2, 4, 6, 8]
-        var tree = new SumSegmentTree(new float[]{2, 2, 2, 2});
+        // [2, 2, 2, 2] -> prefix sums [2, 4, 6, 8]
+        var tree = fromArray(2, 2, 2, 2);
         for (int i = 0; i < 50; i++) {
             assertEquals(0, tree.sampleIndexByValueInRange(DELTA, 2.0f));
             assertEquals(1, tree.sampleIndexByValueInRange(2.0f + DELTA, 4.0f));
@@ -310,21 +233,123 @@ class SumSegmentTreeTest {
     }
 
     @Test
+    void testNonUniformArray() {
+        // [1, 3, 2, 4] -> prefix sums [1, 4, 6, 10]
+        var tree = fromArray(1, 3, 2, 4);
+        for (int i = 0; i < 50; i++) {
+            assertEquals(0, tree.sampleIndexByValueInRange(DELTA,        1.0f));
+            assertEquals(1, tree.sampleIndexByValueInRange(1.0f + DELTA, 4.0f));
+            assertEquals(2, tree.sampleIndexByValueInRange(4.0f + DELTA, 6.0f));
+            assertEquals(3, tree.sampleIndexByValueInRange(6.0f + DELTA, 10.0f));
+        }
+    }
+
+    @Test
+    void testSampleAfterUpdateSlotShifts() {
+        // [1, 3, 2, 4] -> update(1, 7f) -> prefix [1, 8, 10, 14]
+        var tree = fromArray(1, 3, 2, 4);
+        tree.update(1, 7f);
+
+        for (int i = 0; i < 50; i++) {
+            assertEquals(1, tree.sampleIndexByValueInRange(1.0f + DELTA, 8.0f));
+            assertEquals(2, tree.sampleIndexByValueInRange(8.0f + DELTA, 10.0f));
+        }
+    }
+
+    @Test
+    void testDominantPriorityAlwaysSameIndex() {
+        // [0.1, 0.1, 99.8, 0.1] -> idx=2 occupy (0.2, 100.0]
+        var tree = fromArray(0.1f, 0.1f, 99.8f, 0.1f);
+        for (int i = 0; i < 50; i++)
+            assertEquals(2, tree.sampleIndexByValueInRange(0.2f + DELTA, 100.0f));
+    }
+
+    @Test
+    void testSingleElementAlwaysIdx0() {
+        var tree = new SumSegmentTree(1, 42f);
+        for (int i = 0; i < 50; i++)
+            assertEquals(0, tree.sampleIndexByValueInRange(DELTA, 42f));
+    }
+
+    @Test
+    void testSampleIndexByValueInRangeAlwaysReturnsValidIndex() {
+        var tree = fromArray(1, 2, 3, 4, 5);
+        int n = tree.size();
+        float total = tree.sum();
+
+        for (int i = 0; i < 1000; i++) {
+            int idx = tree.sampleIndexByValueInRange(DELTA, total);
+            assertTrue(idx >= 0 && idx < n,
+                    "idx=" + idx + " fora do intervalo [0," + n + ")");
+        }
+    }
+
+    @Test
+    void testSampleIndexByValueInRangeDistributionBias() {
+        // idx=4 has priority 80/85 -> it must dominate all samples
+        var tree = fromArray(1, 1, 1, 1, 80);
+        float total = tree.sum();
+
+        int countLast = 0;
+        int trials = 5000;
+        for (int i = 0; i < trials; i++)
+            if (tree.sampleIndexByValueInRange(DELTA, total) == 4) countLast++;
+
+        assertTrue(countLast > trials * 0.85,
+                "idx=4 appeared only " + countLast + "/" + trials + " times");
+    }
+
+    @Test
+    void testSampleAfterZeroingPriorities() {
+        var tree = fromArray(5, 5, 5, 5, 1);
+        tree.update(0, 0f);
+        tree.update(1, 0f);
+        tree.update(2, 0f);
+        tree.update(3, 0f);
+
+        float total = tree.sum();
+        for (int i = 0; i < 200; i++)
+            assertEquals(4, tree.sampleIndexByValueInRange(DELTA, total));
+    }
+
+    @Test
+    void testInitValuePopulatesAllSlots() {
+        var tree = new SumSegmentTree(4, 3f);
+        // prefix sums: [3, 6, 9, 12]
+        for (int i = 0; i < 50; i++) {
+            assertEquals(0, tree.sampleIndexByValueInRange(DELTA,        3.0f));
+            assertEquals(1, tree.sampleIndexByValueInRange(3.0f + DELTA, 6.0f));
+            assertEquals(2, tree.sampleIndexByValueInRange(6.0f + DELTA, 9.0f));
+            assertEquals(3, tree.sampleIndexByValueInRange(9.0f + DELTA, 12.0f));
+        }
+    }
+
+    @Test
+    void testFloatPriorities() {
+        var tree = fromArray(0.5f, 1.5f, 0.25f, 2.75f);
+        assertEquals(5.0f,  tree.sum(),          DELTA);
+        assertEquals(2.0f,  tree.rangeSum(0, 1), DELTA);
+        assertEquals(2.25f, tree.prefixSum(2),   DELTA);
+    }
+
+    @Test
     void testLargeArray() {
         int n = 100;
-        float[] array = new float[n];
-        for (int i = 0; i < n; i++) array[i] = i + 1;
-
-        var tree = new SumSegmentTree(array);
-        assertEquals(5050f, tree.rangeSum(0, 99), DELTA);
+        var tree = new SumSegmentTree(n, 0f);
+        float expected = 0;
+        for (int i = 0; i < n; i++) {
+            tree.update(i, i + 1f);
+            expected += i + 1f;
+        }
+        assertEquals(expected, tree.rangeSum(0, 99), DELTA);
 
         tree.update(50, 1000f);
-        assertEquals(5050f - 51f + 1000f, tree.rangeSum(0, 99), DELTA);
+        assertEquals(expected - 51f + 1000f, tree.rangeSum(0, 99), DELTA);
     }
 
     @Test
     void testOddSizeArray() {
-        var tree = new SumSegmentTree(new float[]{10, 20, 30, 40, 50});
+        var tree = fromArray(10, 20, 30, 40, 50);
         assertEquals(60f,  tree.rangeSum(0, 2), DELTA);
         assertEquals(90f,  tree.rangeSum(1, 3), DELTA);
         assertEquals(120f, tree.rangeSum(2, 4), DELTA);
@@ -333,7 +358,7 @@ class SumSegmentTreeTest {
 
     @Test
     void testArrayWithZeros() {
-        var tree = new SumSegmentTree(new float[]{0, 5, 0, 3, 0, 7});
+        var tree = fromArray(0, 5, 0, 3, 0, 7);
         assertEquals(0f,  tree.rangeSum(0, 0), DELTA);
         assertEquals(5f,  tree.rangeSum(1, 1), DELTA);
         assertEquals(8f,  tree.rangeSum(1, 3), DELTA);
@@ -341,33 +366,29 @@ class SumSegmentTreeTest {
     }
 
     @Test
-    void testFloatPriorities() {
-        // PER usa floats fracionários; garante que somas fracionárias são preservadas
-        var tree = new SumSegmentTree(new float[]{0.5f, 1.5f, 0.25f, 2.75f});
-        assertEquals(5.0f, tree.sum(), DELTA);
-        assertEquals(2.0f, tree.rangeSum(0, 1), DELTA);
-        assertEquals(2.25f, tree.prefixSum(2), DELTA);
-    }
-
-    @Test
     void testRandomizedRangeSum() {
         var rng = new Random(5);
 
-        for (int t = 0; t < 500; t++) {
+        for (int time = 0; time < 500; time++) {
             int n = 1 + rng.nextInt(200);
             float[] array = new float[n];
-            for (int i = 0; i < n; i++) array[i] = rng.nextInt(100);
+            var tree = new SumSegmentTree(n, 0f);
 
-            var tree = new SumSegmentTree(array);
+            for (int i = 0; i < n; i++) {
+                array[i] = rng.nextInt(100);
+                tree.update(i, array[i]);
+            }
 
             for (int q = 0; q < 50; q++) {
                 if (rng.nextBoolean()) {
-                    int a = rng.nextInt(n), b = rng.nextInt(n);
-                    int l = Math.min(a, b), r = Math.max(a, b);
+                    int a = rng.nextInt(n);
+                    int b = rng.nextInt(n);
+                    int start = Math.min(a, b);
+                    int end = Math.max(a, b);
 
-                    float expected = 0;
-                    for (int i = l; i <= r; i++) expected += array[i];
-                    assertEquals(expected, tree.rangeSum(l, r), DELTA);
+                    float exp = 0;
+                    for (int i = start; i <= end; i++) exp += array[i];
+                    assertEquals(exp, tree.rangeSum(start, end), DELTA);
                 } else {
                     int idx = rng.nextInt(n);
                     float val = rng.nextInt(100);
