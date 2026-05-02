@@ -13,6 +13,10 @@ public class SumSegmentTree implements ISumSegmentTree {
     private final Node root;
     private final ThreadLocalRandom random;
 
+    public SumSegmentTree(int size) {
+        this(size, 0.0f);
+    }
+
     public SumSegmentTree(int size, float initValue) {
         this.size = size;
         this.root = new Node(0, size - 1, initValue);
