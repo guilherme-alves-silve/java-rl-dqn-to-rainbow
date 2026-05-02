@@ -9,17 +9,33 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.Random;
 
-public class SumSegmentTreeTest {
+class SumSegmentTreeTest extends SumSegmentTreeContractTest {
+    @Override
+    ISumSegmentTree create(int size, float initValue) {
+        return new SumSegmentTree(size, initValue);
+    }
+}
+
+class SumSegmentTreeFlatTest extends SumSegmentTreeContractTest {
+    @Override
+    ISumSegmentTree create(int size, float initValue) {
+        return new SumSegmentTreeFlat(size, initValue);
+    }
+}
+
+abstract class SumSegmentTreeContractTest {
 
     private static final float DELTA = 1e-5f;
 
     // [1, 2, 3, 4, 5] -> sum = 15
-    private SumSegmentTree tree5;
+    private ISumSegmentTree tree5;
     // [1, 2, 3, 4, 5, 6, 7, 8] -> sum = 36
-    private SumSegmentTree tree8;
+    private ISumSegmentTree tree8;
 
-    private static SumSegmentTree fromArray(float... values) {
-        var tree = new SumSegmentTree(values.length, 0f);
+    abstract ISumSegmentTree create(int size, float initValue);
+
+    private ISumSegmentTree fromArray(float... values) {
+        var tree = create(values.length, 0f);
         for (int i = 0; i < values.length; i++) tree.update(i, values[i]);
         return tree;
     }
@@ -30,26 +46,34 @@ public class SumSegmentTreeTest {
         tree8 = fromArray(1, 2, 3, 4, 5, 6, 7, 8);
     }
 
+    // =========================================================
+    // Constructor
+    // =========================================================
+
     @Test
     void testConstructorSizeAndInitValue() {
-        var tree = new SumSegmentTree(5, 2f);
+        var tree = create(5, 2f);
         assertEquals(5, tree.size());
         assertEquals(10f, tree.sum(), DELTA); // 5 * 2 = 10
     }
 
     @Test
     void testConstructorZeroInitValue() {
-        var tree = new SumSegmentTree(4, 0f);
+        var tree = create(4, 0f);
         assertEquals(4, tree.size());
         assertEquals(0f, tree.sum(), DELTA);
     }
 
     @Test
     void testConstructorSingleElement() {
-        var tree = new SumSegmentTree(1, 10f);
+        var tree = create(1, 10f);
         assertEquals(1, tree.size());
         assertEquals(10f, tree.rangeSum(0, 0), DELTA);
     }
+
+    // =========================================================
+    // sum()
+    // =========================================================
 
     @Test
     void testSumReturnsTotal() {
@@ -62,6 +86,10 @@ public class SumSegmentTreeTest {
         tree5.update(2, 10f);
         assertEquals(22f, tree5.sum(), DELTA);
     }
+
+    // =========================================================
+    // update()
+    // =========================================================
 
     @Test
     void testUpdateMiddleElement() {
@@ -106,6 +134,10 @@ public class SumSegmentTreeTest {
         assertDoesNotThrow(() -> tree5.update(10, 10f));
         assertEquals(15f, tree5.sum(), DELTA);
     }
+
+    // =========================================================
+    // rangeSum()
+    // =========================================================
 
     @Test
     void testRangeSumFullArray() {
@@ -183,6 +215,10 @@ public class SumSegmentTreeTest {
         assertEquals(expected, tree8.rangeSum(left, right), DELTA);
     }
 
+    // =========================================================
+    // prefixSum()
+    // =========================================================
+
     @Test
     void testPrefixSumDefinitionConsistency() {
         float[] array = {3, 1, 4, 1, 5};
@@ -220,12 +256,16 @@ public class SumSegmentTreeTest {
             assertEquals(cumsum[i], tree.prefixSum(i), DELTA);
     }
 
+    // =========================================================
+    // sampleIndexByValueInRange() — deterministic via narrow range
+    // =========================================================
+
     @Test
     void testUniformArray() {
         // [2, 2, 2, 2] -> prefix sums [2, 4, 6, 8]
         var tree = fromArray(2, 2, 2, 2);
         for (int i = 0; i < 50; i++) {
-            assertEquals(0, tree.sampleIndexByValueInRange(DELTA, 2.0f));
+            assertEquals(0, tree.sampleIndexByValueInRange(DELTA,        2.0f));
             assertEquals(1, tree.sampleIndexByValueInRange(2.0f + DELTA, 4.0f));
             assertEquals(2, tree.sampleIndexByValueInRange(4.0f + DELTA, 6.0f));
             assertEquals(3, tree.sampleIndexByValueInRange(6.0f + DELTA, 8.0f));
@@ -258,7 +298,7 @@ public class SumSegmentTreeTest {
 
     @Test
     void testDominantPriorityAlwaysSameIndex() {
-        // [0.1, 0.1, 99.8, 0.1] -> idx=2 occupy (0.2, 100.0]
+        // [0.1, 0.1, 99.8, 0.1] -> idx=2 occupies (0.2, 100.0]
         var tree = fromArray(0.1f, 0.1f, 99.8f, 0.1f);
         for (int i = 0; i < 50; i++)
             assertEquals(2, tree.sampleIndexByValueInRange(0.2f + DELTA, 100.0f));
@@ -266,7 +306,7 @@ public class SumSegmentTreeTest {
 
     @Test
     void testSingleElementAlwaysIdx0() {
-        var tree = new SumSegmentTree(1, 42f);
+        var tree = create(1, 42f);
         for (int i = 0; i < 50; i++)
             assertEquals(0, tree.sampleIndexByValueInRange(DELTA, 42f));
     }
@@ -280,7 +320,7 @@ public class SumSegmentTreeTest {
         for (int i = 0; i < 1000; i++) {
             int idx = tree.sampleIndexByValueInRange(DELTA, total);
             assertTrue(idx >= 0 && idx < n,
-                    "idx=" + idx + " fora do intervalo [0," + n + ")");
+                    "idx=" + idx + " outside interval [0," + n + ")");
         }
     }
 
@@ -314,8 +354,8 @@ public class SumSegmentTreeTest {
 
     @Test
     void testInitValuePopulatesAllSlots() {
-        var tree = new SumSegmentTree(4, 3f);
-        // prefix sums: [3, 6, 9, 12]
+        // all slots start with initValue=3 -> uniform prefix sums [3, 6, 9, 12]
+        var tree = create(4, 3f);
         for (int i = 0; i < 50; i++) {
             assertEquals(0, tree.sampleIndexByValueInRange(DELTA,        3.0f));
             assertEquals(1, tree.sampleIndexByValueInRange(3.0f + DELTA, 6.0f));
@@ -323,6 +363,10 @@ public class SumSegmentTreeTest {
             assertEquals(3, tree.sampleIndexByValueInRange(9.0f + DELTA, 12.0f));
         }
     }
+
+    // =========================================================
+    // Miscellaneous
+    // =========================================================
 
     @Test
     void testFloatPriorities() {
@@ -335,7 +379,7 @@ public class SumSegmentTreeTest {
     @Test
     void testLargeArray() {
         int n = 100;
-        var tree = new SumSegmentTree(n, 0f);
+        var tree = create(n, 0f);
         float expected = 0;
         for (int i = 0; i < n; i++) {
             tree.update(i, i + 1f);
@@ -372,7 +416,7 @@ public class SumSegmentTreeTest {
         for (int time = 0; time < 500; time++) {
             int n = 1 + rng.nextInt(200);
             float[] array = new float[n];
-            var tree = new SumSegmentTree(n, 0f);
+            var tree = create(n, 0f);
 
             for (int i = 0; i < n; i++) {
                 array[i] = rng.nextInt(100);
