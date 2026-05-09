@@ -8,13 +8,29 @@ This project bridges the Java ecosystem and Python's [Gymnasium](https://gymnasi
 
 The series progresses in three articles:
 
-1. **Part 1 (this project)** — Gymnasium integration via JavaCPP + DQN baseline
-2. **Part 2** — Incremental algorithm upgrades from DQN to full Rainbow DQN
+1. **Part 1** — Gymnasium integration via JavaCPP + DQN baseline
+2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
 3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN
 
-Related articles:
+### Related articles:
 - [Video Games and Reinforcement Learning](https://guilhermealvessilveira.substack.com/p/video-games-and-reinforcement-learning)
 - [How to Never Forget Deep Q-Networks: Memory Palaces Meet Reinforcement Learning](https://guilhermealvessilveira.substack.com/p/how-to-never-forget-deep-q-networks)
+
+### Related courses and projects:
+- [Rainbow is all you need](https://github.com/Curt-Park/rainbow-is-all-you-need)
+- [Advanced Reinforcement Learning in Python: cutting-edge DQNs](https://www.udemy.com/course/advanced-deep-qnetworks)
+
+### Related Papers (same as "Rainbow is all you need" project)
+
+01. [V. Mnih et al., "Human-level control through deep reinforcement learning." Nature, 518
+    (7540):529–533, 2015.](https://storage.googleapis.com/deepmind-media/dqn/DQNNaturePaper.pdf)
+02. [van Hasselt et al., "Deep Reinforcement Learning with Double Q-learning." arXiv preprint arXiv:1509.06461, 2015.](https://arxiv.org/pdf/1509.06461.pdf)
+03. [T. Schaul et al., "Prioritized Experience Replay." arXiv preprint arXiv:1511.05952, 2015.](https://arxiv.org/pdf/1511.05952.pdf)
+04. [Z. Wang et al., "Dueling Network Architectures for Deep Reinforcement Learning." arXiv preprint arXiv:1511.06581, 2015.](https://arxiv.org/pdf/1511.06581.pdf)
+05. [M. Fortunato et al., "Noisy Networks for Exploration." arXiv preprint arXiv:1706.10295, 2017.](https://arxiv.org/pdf/1706.10295.pdf)
+06. [M. G. Bellemare et al., "A Distributional Perspective on Reinforcement Learning." arXiv preprint arXiv:1707.06887, 2017.](https://arxiv.org/pdf/1707.06887.pdf)
+07. [R. S. Sutton, "Learning to predict by the methods of temporal differences." Machine learning, 3(1):9–44, 1988.](http://incompleteideas.net/papers/sutton-88-with-erratum.pdf)
+08. [M. Hessel et al., "Rainbow: Combining Improvements in Deep Reinforcement Learning." arXiv preprint arXiv:1710.02298, 2017.](https://arxiv.org/pdf/1710.02298.pdf)
 
 ## Technologies
 
