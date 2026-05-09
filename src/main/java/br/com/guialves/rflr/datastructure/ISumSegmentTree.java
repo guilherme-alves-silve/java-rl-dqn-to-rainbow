@@ -1,5 +1,8 @@
 package br.com.guialves.rflr.datastructure;
 
+/**
+ * @author Guilherme Alves Silveira
+ */
 public interface ISumSegmentTree {
     int size();
 

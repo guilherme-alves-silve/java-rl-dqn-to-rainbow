@@ -4,6 +4,7 @@ package br.com.guialves.rflr.datastructure;
  * Implementation based on the tutorial "AlgorithmsThread 3: Segment Trees" and "Rainbow in All You Need":
  *  <a href="https://www.youtube.com/watch?v=QvgpIX4_vyA&t=70s">...</a>
  *  <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/03_per.py">...</a>
+ * @author Guilherme Alves Silveira
  */
 public class MinSegmentTree {
 
