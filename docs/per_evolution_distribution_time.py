@@ -1,6 +1,6 @@
 """
 author: Guilherme Alves Silveira
-generated with the help: Kimi K.2, DeepSeek and ChatGPT
+generated with AI tools (some adjustments were made)
 """
 
 import numpy as np
