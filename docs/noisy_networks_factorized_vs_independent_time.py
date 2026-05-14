@@ -74,7 +74,7 @@ ax2.set_xticks(sizes)
 ax2.set_xticklabels(sizes)
 
 plt.tight_layout()
-plt.savefig('noisy_nets_execution_time.png', dpi=150, bbox_inches='tight')
+plt.savefig('graphics/noisy_nets_execution_time.jpg', dpi=150, bbox_inches='tight')
 plt.show()
 
 # Print numerical results

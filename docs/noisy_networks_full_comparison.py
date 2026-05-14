@@ -86,5 +86,5 @@ for row, size in enumerate(sizes):
     ax6.set_ylim(-2, 2)
 
 plt.tight_layout(rect=[0, 0, 1, 0.97])
-plt.savefig('noisy_nets_full_comparison.jpg', dpi=150, bbox_inches='tight')
+plt.savefig('graphics/noisy_nets_full_comparison.jpg', dpi=150, bbox_inches='tight')
 plt.show()

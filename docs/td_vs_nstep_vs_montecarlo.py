@@ -57,7 +57,7 @@ for x, y in zip(methods, returns):
 plt.tight_layout()
 
 plt.savefig(
-    'td_nstep_montecarlo.jpg',
+    'graphics/td_nstep_montecarlo.jpg',
     dpi=150,
     bbox_inches='tight'
 )

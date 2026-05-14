@@ -1,3 +1,8 @@
+"""
+author: Guilherme Alves Silveira
+generated with AI tools (some adjustments were made)
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -68,5 +73,5 @@ for row, num_atoms in enumerate(atoms_list):
              bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
 plt.tight_layout(rect=[0, 0, 1, 0.97])
-plt.savefig('distributional_dqn_atoms.jpg', dpi=150, bbox_inches='tight')
+plt.savefig('graphics/distributional_dqn_atoms.jpg', dpi=150, bbox_inches='tight')
 plt.show()

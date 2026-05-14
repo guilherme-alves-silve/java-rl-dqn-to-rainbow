@@ -142,5 +142,5 @@ ax2.annotate('', xy=(8.2, ly+0.4), xytext=(7.2, ly+0.4),
 ax2.text(8.2, ly-0.2, 'Differentiation', ha='center', va='center', fontsize=9, color=RED)
 
 plt.tight_layout(rect=[0, 0.06, 1, 1])
-plt.savefig('noisy_nets_backprop_explain.jpg', dpi=150, bbox_inches='tight')
+plt.savefig('graphics/noisy_nets_backprop_explain.jpg', dpi=150, bbox_inches='tight')
 print("Done")

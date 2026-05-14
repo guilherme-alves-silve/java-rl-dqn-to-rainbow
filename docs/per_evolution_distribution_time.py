@@ -525,13 +525,13 @@ print("Saving animation as GIF...")
 try:
 
     anim.save(
-        'annealing_animation_corrected.gif',
+        'graphics/annealing_animation_corrected.gif',
         writer='pillow',
         fps=20,
         dpi=100
     )
 
-    print("Animation saved as 'annealing_animation_corrected.gif'")
+    print("Animation saved as 'annealing_animation_corrected.gif' in folder ./graphics")
 
 except Exception as e:
 
