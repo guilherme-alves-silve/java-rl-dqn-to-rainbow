@@ -1,0 +1,241 @@
+
+<h2 class="sr-only">Interactive diagram of SumSegmentTree: structure and operations update, rangeSum and sampleIndexByValue</h2>
+
+<style>
+  .op-btn { border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: background .15s; background: #fff; border: 0.5px solid #bbb; color: #444; font-family: inherit; }
+  .op-btn.active { background: #1a1a1a !important; color: #fff !important; border-color: #1a1a1a !important; }
+  .op-btn:hover:not(.active) { background: #f5f5f5; }
+  .desc-box { font-size: 13px; color: #555; line-height: 1.6; margin: 0 0 8px; padding: 10px 14px; border-left: 2px solid #1a1a1a; background: #fafafa; font-family: inherit; }
+  code { font-family: 'Courier New', monospace; font-size: 12px; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; }
+
+  /* Node colors — hardcoded for white bg */
+  .n-purple rect { fill: #EEEDFE; stroke: #7F77DD; }
+  .n-purple text { fill: #3C3489; }
+  .n-teal rect   { fill: #E1F5EE; stroke: #1D9E75; }
+  .n-teal text   { fill: #085041; }
+  .n-amber rect  { fill: #FAEEDA; stroke: #BA7517; }
+  .n-amber text  { fill: #633806; }
+  .n-coral rect  { fill: #FAECE7; stroke: #D85A30; }
+  .n-coral text  { fill: #4A1B0C; }
+  .n-gray rect   { fill: #F1EFE8; stroke: #B4B2A9; }
+  .n-gray text   { fill: #444441; }
+
+  .edge { stroke: #C8C6BE; stroke-width: 0.5px; fill: none; }
+  .edge-active { stroke: #BA7517; stroke-width: 2px; fill: none; }
+  .edge-back   { stroke: #D85A30; stroke-width: 1.5px; fill: none; stroke-dasharray: 4 3; }
+  .lbl { font-size: 12px; fill: #777; font-family: inherit; }
+  .lbl-bold { font-size: 13px; font-weight: 500; fill: #1a1a1a; font-family: inherit; }
+</style>
+
+<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+  <button class="op-btn active" onclick="show('struct')">Structure</button>
+  <button class="op-btn" onclick="show('update')">update(idx, value)</button>
+  <button class="op-btn" onclick="show('range')">rangeSum(start, end)</button>
+  <button class="op-btn" onclick="show('sample')">sampleIndexByValue</button>
+</div>
+
+<!-- STRUCTURE -->
+<div id="panel-struct">
+  <p class="desc-box">Binary tree of recursive nodes. Each node stores <code>sum</code> = sum of leaves in interval <code>[leftMost, rightMost]</code>. Built in O(n). Example with size=4.</p>
+  <svg width="100%" viewBox="0 0 680 310" role="img">
+    <title>SumSegmentTree structure with size=4</title>
+    <desc>Tree with root [0,3] and two levels of children</desc>
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <g class="n-purple"><rect x="240" y="20" width="200" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="340" y="41" text-anchor="middle">root [0, 3]</text>
+      <text class="lbl" x="340" y="59" text-anchor="middle">sum = p₀+p₁+p₂+p₃</text></g>
+
+    <g class="n-teal"><rect x="75" y="120" width="185" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="167" y="141" text-anchor="middle">left [0, 1]</text>
+      <text class="lbl" x="167" y="159" text-anchor="middle">sum = p₀+p₁</text></g>
+
+    <g class="n-teal"><rect x="420" y="120" width="185" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="512" y="141" text-anchor="middle">right [2, 3]</text>
+      <text class="lbl" x="512" y="159" text-anchor="middle">sum = p₂+p₃</text></g>
+
+    <g class="n-gray"><rect x="25" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="80" y="246" text-anchor="middle">[0, 0]</text>
+      <text class="lbl" x="80" y="264" text-anchor="middle">sum = p₀</text></g>
+
+    <g class="n-gray"><rect x="160" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="215" y="246" text-anchor="middle">[1, 1]</text>
+      <text class="lbl" x="215" y="264" text-anchor="middle">sum = p₁</text></g>
+
+    <g class="n-gray"><rect x="390" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="445" y="246" text-anchor="middle">[2, 2]</text>
+      <text class="lbl" x="445" y="264" text-anchor="middle">sum = p₂</text></g>
+
+    <g class="n-gray"><rect x="525" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="580" y="246" text-anchor="middle">[3, 3]</text>
+      <text class="lbl" x="580" y="264" text-anchor="middle">sum = p₃</text></g>
+
+    <line class="edge" x1="298" y1="70" x2="210" y2="120" marker-end="url(#arr)"/>
+    <line class="edge" x1="382" y1="70" x2="468" y2="120" marker-end="url(#arr)"/>
+    <line class="edge" x1="135" y1="170" x2="105" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="198" y1="170" x2="218" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="468" y1="170" x2="448" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="556" y1="170" x2="576" y2="225" marker-end="url(#arr)"/>
+
+    <text class="lbl" x="340" y="300" text-anchor="middle">node.sum = node.left.sum + node.right.sum (propagated bottom-up)</text>
+  </svg>
+</div>
+
+<!-- UPDATE -->
+<div id="panel-update" style="display:none">
+  <p class="desc-box"><code>update(idx=2, value=0.8)</code> — descends via mid=(l+r)/2: idx≤mid → left, else right. Updates the leaf, then propagates the sum back up (bottom-up).</p>
+  <svg width="100%" viewBox="0 0 680 310" role="img">
+    <title>update(idx=2, value=0.8)</title>
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <g class="n-amber"><rect x="240" y="20" width="200" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="340" y="41" text-anchor="middle">root [0, 3]</text>
+      <text class="lbl" x="340" y="59" text-anchor="middle">↑ sum recalculated</text></g>
+
+    <g class="n-gray"><rect x="75" y="120" width="185" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="167" y="141" text-anchor="middle">left [0, 1]</text>
+      <text class="lbl" x="167" y="159" text-anchor="middle">not visited</text></g>
+
+    <g class="n-amber"><rect x="420" y="120" width="185" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="512" y="141" text-anchor="middle">right [2, 3]</text>
+      <text class="lbl" x="512" y="159" text-anchor="middle">↑ sum recalculated</text></g>
+
+    <g class="n-gray"><rect x="25" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="80" y="246" text-anchor="middle">[0, 0]</text>
+      <text class="lbl" x="80" y="264" text-anchor="middle">not visited</text></g>
+
+    <g class="n-gray"><rect x="160" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="215" y="246" text-anchor="middle">[1, 1]</text>
+      <text class="lbl" x="215" y="264" text-anchor="middle">not visited</text></g>
+
+    <g class="n-coral"><rect x="390" y="225" width="120" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="450" y="246" text-anchor="middle">[2, 2] ✓ target</text>
+      <text class="lbl" x="450" y="264" text-anchor="middle">sum = 0.8</text></g>
+
+    <g class="n-gray"><rect x="530" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="585" y="246" text-anchor="middle">[3, 3]</text>
+      <text class="lbl" x="585" y="264" text-anchor="middle">not visited</text></g>
+
+    <!-- structural edges (muted) -->
+    <line class="edge" x1="298" y1="70" x2="210" y2="120" marker-end="url(#arr)"/>
+    <line class="edge" x1="135" y1="170" x2="105" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="198" y1="170" x2="218" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="556" y1="170" x2="576" y2="225" marker-end="url(#arr)"/>
+
+    <!-- descent path -->
+    <line class="edge-active" x1="382" y1="70" x2="468" y2="120" marker-end="url(#arr)"/>
+    <line class="edge-active" x1="468" y1="170" x2="450" y2="225" marker-end="url(#arr)"/>
+
+    <!-- bottom-up propagation -->
+    <path class="edge-back" d="M458 225 C490 195 515 190 515 170" marker-end="url(#arr)"/>
+    <path class="edge-back" d="M520 120 C524 88 370 88 362 70" marker-end="url(#arr)"/>
+
+    <text class="lbl" x="340" y="300" text-anchor="middle">amber = descent path O(log n) · dashed = bottom-up propagation</text>
+  </svg>
+</div>
+
+<!-- RANGE SUM -->
+<div id="panel-range" style="display:none">
+  <p class="desc-box"><code>rangeSum(start=1, end=3)</code> — 3 cases per node: out of range → 0; fully covered → return sum; partial → recurse into children.</p>
+  <svg width="100%" viewBox="0 0 680 310" role="img">
+    <title>rangeSum(start=1, end=3)</title>
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <g class="n-amber"><rect x="240" y="20" width="200" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="340" y="41" text-anchor="middle">root [0, 3]</text>
+      <text class="lbl" x="340" y="59" text-anchor="middle">partial → recurse</text></g>
+
+    <g class="n-amber"><rect x="75" y="120" width="185" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="167" y="141" text-anchor="middle">left [0, 1]</text>
+      <text class="lbl" x="167" y="159" text-anchor="middle">partial → recurse</text></g>
+
+    <g class="n-teal"><rect x="420" y="120" width="185" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="512" y="141" text-anchor="middle">right [2, 3] ✓</text>
+      <text class="lbl" x="512" y="159" text-anchor="middle">fully covered → return sum</text></g>
+
+    <g class="n-gray"><rect x="25" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="80" y="246" text-anchor="middle">[0, 0]</text>
+      <text class="lbl" x="80" y="264" text-anchor="middle">out of range → 0</text></g>
+
+    <g class="n-teal"><rect x="160" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="215" y="246" text-anchor="middle">[1, 1] ✓</text>
+      <text class="lbl" x="215" y="264" text-anchor="middle">covered → p₁</text></g>
+
+    <g class="n-gray"><rect x="390" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="445" y="246" text-anchor="middle">[2, 2]</text>
+      <text class="lbl" x="445" y="264" text-anchor="middle">not visited</text></g>
+
+    <g class="n-gray"><rect x="525" y="225" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="580" y="246" text-anchor="middle">[3, 3]</text>
+      <text class="lbl" x="580" y="264" text-anchor="middle">not visited</text></g>
+
+    <line class="edge" x1="298" y1="70" x2="210" y2="120" marker-end="url(#arr)"/>
+    <line class="edge" x1="382" y1="70" x2="468" y2="120" marker-end="url(#arr)"/>
+    <line class="edge" x1="135" y1="170" x2="105" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="198" y1="170" x2="218" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="468" y1="170" x2="448" y2="225" marker-end="url(#arr)"/>
+    <line class="edge" x1="556" y1="170" x2="576" y2="225" marker-end="url(#arr)"/>
+
+    <text class="lbl" x="340" y="300" text-anchor="middle">teal = returns sum directly · gray = out of range (returns 0) · O(log n)</text>
+  </svg>
+</div>
+
+<!-- SAMPLE -->
+<div id="panel-sample" style="display:none">
+  <p class="desc-box"><code>sampleIndexByValue(sample=0.55)</code> — navigates the tree using cumulative sums. If sample ≤ left.sum → go left; else go right subtracting left.sum. Core of proportional PER sampling.</p>
+  <svg width="100%" viewBox="0 0 680 310" role="img">
+    <title>sampleIndexByValue with 4 leaves of uniform priority 0.25</title>
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <g class="n-purple"><rect x="230" y="20" width="220" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="340" y="41" text-anchor="middle">root [0, 3]</text>
+      <text class="lbl" x="340" y="59" text-anchor="middle">sum=1.0 · sample=0.55</text></g>
+
+    <g class="n-gray"><rect x="60" y="120" width="215" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="167" y="141" text-anchor="middle">left [0, 1]</text>
+      <text class="lbl" x="167" y="159" text-anchor="middle">sum=0.5 · 0.55 &gt; 0.5 → right</text></g>
+
+    <g class="n-amber"><rect x="410" y="120" width="210" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="515" y="141" text-anchor="middle">right [2, 3]</text>
+      <text class="lbl" x="515" y="159" text-anchor="middle">sample = 0.55−0.5 = 0.05</text></g>
+
+    <g class="n-gray"><rect x="20" y="230" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="75" y="251" text-anchor="middle">[0, 0]</text>
+      <text class="lbl" x="75" y="269" text-anchor="middle">not visited</text></g>
+
+    <g class="n-gray"><rect x="155" y="230" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="210" y="251" text-anchor="middle">[1, 1]</text>
+      <text class="lbl" x="210" y="269" text-anchor="middle">not visited</text></g>
+
+    <g class="n-coral"><rect x="390" y="230" width="130" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="455" y="251" text-anchor="middle">[2, 2] → idx 2</text>
+      <text class="lbl" x="455" y="269" text-anchor="middle">0.05 ≤ left.sum=0.25</text></g>
+
+    <g class="n-gray"><rect x="545" y="230" width="110" height="50" rx="8" stroke-width="0.5"/>
+      <text class="lbl-bold" x="600" y="251" text-anchor="middle">[3, 3]</text>
+      <text class="lbl" x="600" y="269" text-anchor="middle">not visited</text></g>
+
+    <!-- structural edges -->
+    <line class="edge" x1="296" y1="70" x2="220" y2="120" marker-end="url(#arr)"/>
+    <line class="edge" x1="115" y1="170" x2="88" y2="230" marker-end="url(#arr)"/>
+    <line class="edge" x1="200" y1="170" x2="210" y2="230" marker-end="url(#arr)"/>
+    <line class="edge" x1="590" y1="170" x2="598" y2="230" marker-end="url(#arr)"/>
+
+    <!-- active descent -->
+    <line class="edge-active" x1="384" y1="70" x2="466" y2="120" marker-end="url(#arr)"/>
+    <line class="edge-active" x1="476" y1="170" x2="455" y2="230" marker-end="url(#arr)"/>
+
+    <text class="lbl" x="340" y="300" text-anchor="middle">sampleIndexByValue returns the leaf index — basis of proportional PER · O(log n)</text>
+  </svg>
+</div>
+
+<script>
+const btns = document.querySelectorAll('.op-btn');
+const panels = ['struct','update','range','sample'];
+function show(id) {
+  panels.forEach((p, i) => {
+    document.getElementById('panel-'+p).style.display = p===id ? 'block' : 'none';
+    btns[i].classList.toggle('active', p===id);
+  });
+}
+</script>
