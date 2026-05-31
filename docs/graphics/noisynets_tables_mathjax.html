@@ -1,0 +1,179 @@
+
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']] },
+  startup: { typeset: false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; }
+  .wrap { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: #1a1a1a; background: #fff; max-width: 680px; display: flex; flex-direction: column; gap: 2rem; padding: 16px; }
+  .block { display: flex; flex-direction: column; gap: 8px; }
+  .caption { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #888; padding-left: 4px; }
+  .formula-pill { display: inline-block; background: #EEEDFE; color: #3C3489; font-size: 14px; padding: 7px 16px; border-radius: 999px; font-weight: 500; }
+  .tbl-wrap { border-radius: 12px; overflow: hidden; border: 1px solid #E8E6E0; box-shadow: 0 1px 3px rgba(0,0,0,.06); padding: 3px; background: #fff; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; border-radius: 10px; overflow: hidden; }
+  thead tr { background: #F7F6F2; }
+  thead th { padding: 11px 16px; font-weight: 600; font-size: 12px; letter-spacing: .04em; color: #555; text-align: left; border-bottom: 1px solid #E8E6E0; }
+  thead th:first-child { border-radius: 8px 0 0 0; }
+  thead th:last-child  { border-radius: 0 8px 0 0; }
+  tbody tr { background: #fff; transition: background .12s; }
+  tbody tr:hover { background: #FAFAF8; }
+  tbody tr:not(:last-child) td { border-bottom: 1px solid #F0EEE9; }
+  tbody tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+  tbody tr:last-child td:last-child  { border-radius: 0 0 8px 0; }
+  tbody td { padding: 11px 16px; }
+  .center { text-align: center; }
+  .neu { color: #555; }
+  .badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+  .badge-pos    { background: #E1F5EE; color: #085041; }
+  .badge-neg    { background: #FAECE7; color: #4A1B0C; }
+  .badge-neu    { background: #F1EFE8; color: #444441; }
+  .note { font-size: 12px; color: #888; font-style: italic; padding-left: 4px; }
+  .eff-row-hi td { background: #EEEDFE !important; color: #26215C; font-weight: 600; }
+  .mjx-chtml { font-size: 1em !important; }
+</style>
+
+<div class="wrap">
+
+  <!-- STEP 0 -->
+  <div class="block">
+    <div class="caption">Step 0 — raw samples drawn · p=2 inputs, q=2 outputs → only 4 scalars total</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Vector</th><th>Role</th><th>Scalar 1</th><th>Scalar 2</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-neu">$\epsilon^{in}$</span></td>
+          <td class="neu">input noise</td>
+          <td><span class="badge badge-pos">$1$</span></td>
+          <td><span class="badge badge-neg">$-4$</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-neu">$\epsilon^{out}$</span></td>
+          <td class="neu">output noise</td>
+          <td><span class="badge badge-pos">$9$</span></td>
+          <td><span class="badge badge-neg">$-1$</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="block">
+    <div class="caption">Step 1 — apply f(x) to each scalar</div>
+    <div style="margin-bottom:6px"><span class="formula-pill">$f(x) = \text{sgn}(x)\,\sqrt{|x|}$</span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>$x$</th><th>$\text{sgn}(x)$</th><th>$\sqrt{|x|}$</th><th>$f(x)$</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>$1$</td>
+          <td class="neu">$+1$</td>
+          <td class="neu">$\sqrt{1} = 1.0$</td>
+          <td><span class="badge badge-pos">$+1.0$</span></td>
+        </tr>
+        <tr>
+          <td>$-4$</td>
+          <td class="neu">$-1$</td>
+          <td class="neu">$\sqrt{4} = 2.0$</td>
+          <td><span class="badge badge-neg">$-2.0$</span></td>
+        </tr>
+        <tr>
+          <td>$9$</td>
+          <td class="neu">$+1$</td>
+          <td class="neu">$\sqrt{9} = 3.0$</td>
+          <td><span class="badge badge-pos">$+3.0$</span></td>
+        </tr>
+        <tr>
+          <td>$-1$</td>
+          <td class="neu">$-1$</td>
+          <td class="neu">$\sqrt{1} = 1.0$</td>
+          <td><span class="badge badge-neg">$-1.0$</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+    <div class="note">$f(\epsilon^{in}) = [+1.0,\,-2.0]$ &nbsp;·&nbsp; $f(\epsilon^{out}) = [+3.0,\,-1.0]$</div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="block">
+    <div class="caption">Step 2 — weight noise via outer product</div>
+    <div style="margin-bottom:6px"><span class="formula-pill">$\epsilon^w = f(\epsilon^{out}) \otimes f(\epsilon^{in})^T$</span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th></th>
+        <th class="center">$f(\epsilon^{in}_1) = +1.0$</th>
+        <th class="center">$f(\epsilon^{in}_2) = -2.0$</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="neu">$f(\epsilon^{out}_1) = +3.0$</td>
+          <td class="center"><span class="badge badge-pos">$3.0 \times 1.0 = +3$</span></td>
+          <td class="center"><span class="badge badge-neg">$3.0 \times (-2.0) = -6$</span></td>
+        </tr>
+        <tr>
+          <td class="neu">$f(\epsilon^{out}_2) = -1.0$</td>
+          <td class="center"><span class="badge badge-neg">$(-1.0) \times 1.0 = -1$</span></td>
+          <td class="center"><span class="badge badge-pos">$(-1.0) \times (-2.0) = +2$</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+    <div class="note">$\epsilon^w = \bigl[\,[+3,\,-6],\,[-1,\,+2]\,\bigr]$ — 4 weight noise values from 4 sampled scalars</div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="block">
+    <div class="caption">Step 3 — bias noise (reuses $f(\epsilon^{out})$, no extra samples)</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Output unit</th><th>$f(\epsilon^{out})$</th><th>$\epsilon^b$</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="neu">$j = 1$</td>
+          <td class="neu">$f(9) = +3.0$</td>
+          <td><span class="badge badge-pos">$+3.0$</span></td>
+        </tr>
+        <tr>
+          <td class="neu">$j = 2$</td>
+          <td class="neu">$f(-1) = -1.0$</td>
+          <td><span class="badge badge-neg">$-1.0$</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+    <div class="note">$\epsilon^b = [+3.0,\,-1.0]$ — already computed in step 1, free of charge</div>
+  </div>
+
+  <!-- EFFICIENCY -->
+  <div class="block">
+    <div class="caption">Efficiency — samples drawn vs. noise values generated</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Layer size</th><th>Samples drawn $(p + q)$</th><th>Weight noise values $(p \times q)$</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="neu">$p=2,\; q=2$</td>
+          <td class="neu">$4$</td>
+          <td class="neu">$4$</td>
+        </tr>
+        <tr class="eff-row-hi">
+          <td>$p=256,\; q=512$</td>
+          <td>$768$</td>
+          <td>$131{,}072$</td>
+        </tr>
+        <tr>
+          <td class="neu">$p=512,\; q=1024$</td>
+          <td class="neu">$1{,}536$</td>
+          <td class="neu">$524{,}288$</td>
+        </tr>
+      </tbody>
+    </table></div>
+    <div class="note">The outer product turns $p+q$ samples into $p \times q$ noise values — no extra sampling cost.</div>
+  </div>
+
+</div>
+
+<script>
+  document.fonts.ready.then(() => {
+    MathJax.startup.promise.then(() => MathJax.typesetPromise());
+  });
+</script>

@@ -1,0 +1,113 @@
+
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']] },
+  startup: { typeset: false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; }
+  .wrap { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: #1a1a1a; background: #fff; max-width: 680px; display: flex; flex-direction: column; gap: 2rem; padding: 16px; }
+  .block { display: flex; flex-direction: column; gap: 8px; }
+  .caption { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #888; padding-left: 4px; }
+  .formula-pill { display: inline-block; background: #EEEDFE; color: #3C3489; font-size: 14px; padding: 7px 16px; border-radius: 999px; font-weight: 500; }
+  .tbl-wrap { border-radius: 12px; overflow: hidden; border: 1px solid #E8E6E0; box-shadow: 0 1px 3px rgba(0,0,0,.06); padding: 3px; background: #fff; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; border-radius: 10px; overflow: hidden; }
+  thead tr { background: #F7F6F2; }
+  thead th { padding: 11px 16px; font-weight: 600; font-size: 12px; letter-spacing: .04em; color: #555; text-align: left; border-bottom: 1px solid #E8E6E0; }
+  thead th:first-child { border-radius: 8px 0 0 0; }
+  thead th:last-child  { border-radius: 0 8px 0 0; }
+  tbody tr { background: #fff; transition: background .12s; }
+  tbody tr:hover { background: #FAFAF8; }
+  tbody tr:not(:last-child) td { border-bottom: 1px solid #F0EEE9; }
+  tbody tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+  tbody tr:last-child td:last-child  { border-radius: 0 0 8px 0; }
+  tbody td { padding: 11px 16px; }
+  .center { text-align: center; }
+  .neu { color: #555; }
+  .badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+  .badge-pos { background: #E1F5EE; color: #085041; }
+  .badge-neg { background: #FAECE7; color: #4A1B0C; }
+  .badge-neu { background: #F1EFE8; color: #444441; }
+  .badge-purple { background: #EEEDFE; color: #26215C; }
+  .note { font-size: 12px; color: #888; font-style: italic; padding-left: 4px; }
+</style>
+
+<div class="wrap">
+
+  <!-- TABLE 1: Environment outcomes -->
+  <div class="block">
+    <div class="caption">Environment outcomes</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>Outcome</th>
+        <th>Probability</th>
+        <th>Return</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>Treasure</td>
+          <td class="neu">$0.5$</td>
+          <td><span class="badge badge-pos">$+100$</span></td>
+        </tr>
+        <tr>
+          <td>Trap</td>
+          <td class="neu">$0.5$</td>
+          <td><span class="badge badge-neg">$-100$</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- TABLE 2: DQN -->
+  <div class="block">
+    <div class="caption">DQN — collapses distribution to a scalar</div>
+    <div style="margin-bottom:6px"><span class="formula-pill">$Q(s,a) = 0.5 \times (+100) + 0.5 \times (-100) = 0$</span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>State-action</th>
+        <th>Stored value</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="neu">$Q(s, a)$</td>
+          <td><span class="badge badge-neu">$0$</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+    <div class="note">The catastrophic downside and massive upside disappear into the average.</div>
+  </div>
+
+  <!-- TABLE 3: C51 -->
+  <div class="block">
+    <div class="caption">C51 — preserves the full return distribution</div>
+    <div style="margin-bottom:6px"><span class="formula-pill">$Z(s,a) = 0.5\,\delta_{-100} + 0.5\,\delta_{+100}$</span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>Atom / outcome</th>
+        <th>Probability</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-neg">$-100$</span></td>
+          <td class="neu">$0.5$</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-pos">$+100$</span></td>
+          <td class="neu">$0.5$</td>
+        </tr>
+      </tbody>
+    </table></div>
+    <div class="note">$\mathbb{E}[Z(s,a)] = 0$ — same mean as DQN, but uncertainty, risk, and variance are fully preserved.</div>
+  </div>
+
+</div>
+
+<script>
+  document.fonts.ready.then(() => {
+    MathJax.startup.promise.then(() => MathJax.typesetPromise());
+  });
+</script>
