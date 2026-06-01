@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PER — Importance Sampling Weights</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 3rem 1.5rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .container { width: 100%; max-width: 780px; }
+  .header { margin-bottom: 2.5rem; }
+
+  .eyebrow {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    color: #9a7a3a;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::after {
+    content: '';
+    flex: 1;
+    height: 0.5px;
+    background: linear-gradient(to right, #c8a96e50, transparent);
+  }
+
+  .title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    font-weight: 400;
+    color: #1a1a22;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+  }
+  .title em { font-style: italic; color: #9a7a3a; }
+
+  .subtitle {
+    font-size: 11px;
+    color: #999999;
+    letter-spacing: 0.03em;
+    line-height: 1.7;
+  }
+
+  .params {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .param-chip {
+    background: #f7f7f4;
+    border: 0.5px solid #e0e0da;
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: #999999;
+    letter-spacing: 0.05em;
+  }
+  .param-chip span { color: #9a7a3a; font-weight: 500; }
+
+  .table-wrap {
+    border: 0.5px solid #e8e8e4;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead tr {
+    background: #f9f9f6;
+    border-bottom: 0.5px solid #e8e8e4;
+  }
+
+  th {
+    padding: 14px 20px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: #bbbbbb;
+    text-align: right;
+  }
+  th:first-child { text-align: left; color: #999999; }
+  th .formula {
+    display: block;
+    font-size: 9px;
+    color: #cccccc;
+    margin-top: 2px;
+    letter-spacing: 0.05em;
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  tbody tr {
+    border-bottom: 0.5px solid #f2f2ee;
+    transition: background 0.12s ease;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+
+  td {
+    padding: 15px 20px;
+    font-size: 13px;
+    color: #555560;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  td:first-child { text-align: left; }
+
+  .transition-label { display: flex; align-items: center; gap: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .label-text { font-size: 14px; font-weight: 500; color: #1a1a22; }
+  .label-sub { font-size: 10px; color: #cccccc; margin-top: 1px; }
+
+  .bar-cell { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-direction: row-reverse; }
+  .bar-track { width: 72px; height: 3px; background: #f0f0ec; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+  .bar-fill { height: 100%; border-radius: 2px; }
+
+  .val { color: #444450; }
+
+  .row-a .dot { background: #d94f4f; }
+  .row-a .bar-fill { background: #d94f4f; }
+  .row-a .w-norm { color: #d94f4f; font-weight: 500; }
+
+  .row-b .dot { background: #c07a3a; }
+  .row-b .bar-fill { background: #c07a3a; }
+  .row-b .w-norm { color: #c07a3a; font-weight: 500; }
+
+  .row-c .dot { background: #5e9e6a; }
+  .row-c .bar-fill { background: #5e9e6a; }
+  .row-c .w-norm { color: #5e9e6a; font-weight: 500; }
+
+  .row-d .dot { background: #4a8ec0; }
+  .row-d .bar-fill { background: #4a8ec0; }
+  .row-d .w-norm { color: #4a8ec0; font-weight: 500; }
+
+  .arrow-red  { color: #d94f4f; font-size: 10px; margin-left: 3px; }
+  .arrow-blue { color: #4a8ec0; font-size: 10px; margin-left: 3px; }
+
+  .legend { display: flex; gap: 18px; margin-top: 1.1rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #aaaaaa; }
+  .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .footnote { margin-top: 1.1rem; display: flex; flex-wrap: wrap; gap: 16px; }
+  .fn-block { font-size: 10.5px; color: #bbbbbb; line-height: 1.7; letter-spacing: 0.01em; }
+  .fn-block strong { color: #999999; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="eyebrow">Rainbow DQN · PER</div>
+    <h1 class="title">Importance Sampling <em>Correction</em></h1>
+    <p class="subtitle">How IS weights counteract the bias introduced by priority-based sampling.<br>Higher sampling probability → smaller gradient weight.</p>
+  </div>
+
+  <div class="params">
+    <div class="param-chip">N = <span>4</span></div>
+    <div class="param-chip">α = <span>1</span></div>
+    <div class="param-chip">β = <span>1</span></div>
+    <div class="param-chip">Σ|δ| = <span>15.0</span></div>
+    <div class="param-chip">max(wⱼ) = <span>3.571</span></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Transition</th>
+          <th>|δᵢ|<span class="formula">TD error</span></th>
+          <th>P(i)<span class="formula">|δᵢ| / Σ|δ|</span></th>
+          <th>wᵢ<span class="formula">(N · P(i))⁻¹</span></th>
+          <th>w̄ᵢ<span class="formula">wᵢ / max(wⱼ)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-a">
+          <td>
+            <div class="transition-label">
+              <div class="dot"></div>
+              <div><div class="label-text">A</div><div class="label-sub">highest error</div></div>
+            </div>
+          </td>
+          <td><span class="val">8.000</span></td>
+          <td>
+            <div class="bar-cell">
+              <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
+              <span class="val">0.533<span class="arrow-red">↑</span></span>
+            </div>
+          </td>
+          <td><span class="val">0.469</span></td>
+          <td><span class="w-norm">0.131<span class="arrow-red">↓</span></span></td>
+        </tr>
+        <tr class="row-b">
+          <td>
+            <div class="transition-label">
+              <div class="dot"></div>
+              <div><div class="label-text">B</div></div>
+            </div>
+          </td>
+          <td><span class="val">4.000</span></td>
+          <td>
+            <div class="bar-cell">
+              <div class="bar-track"><div class="bar-fill" style="width:50%"></div></div>
+              <span class="val">0.267</span>
+            </div>
+          </td>
+          <td><span class="val">0.938</span></td>
+          <td><span class="w-norm">0.263</span></td>
+        </tr>
+        <tr class="row-c">
+          <td>
+            <div class="transition-label">
+              <div class="dot"></div>
+              <div><div class="label-text">C</div></div>
+            </div>
+          </td>
+          <td><span class="val">2.000</span></td>
+          <td>
+            <div class="bar-cell">
+              <div class="bar-track"><div class="bar-fill" style="width:25%"></div></div>
+              <span class="val">0.133</span>
+            </div>
+          </td>
+          <td><span class="val">1.875</span></td>
+          <td><span class="w-norm">0.525</span></td>
+        </tr>
+        <tr class="row-d">
+          <td>
+            <div class="transition-label">
+              <div class="dot"></div>
+              <div><div class="label-text">D</div><div class="label-sub">lowest error</div></div>
+            </div>
+          </td>
+          <td><span class="val">1.000</span></td>
+          <td>
+            <div class="bar-cell">
+              <div class="bar-track"><div class="bar-fill" style="width:12.5%"></div></div>
+              <span class="val">0.067<span class="arrow-blue">↓</span></span>
+            </div>
+          </td>
+          <td><span class="val">3.571</span></td>
+          <td><span class="w-norm">1.000<span class="arrow-blue">↑</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#d94f4f"></div>over-sampled</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#4a8ec0"></div>under-sampled</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#c07a3a"></div>intermediate</div>
+  </div>
+
+  <div class="footnote">
+    <div class="fn-block"><strong>P(i)</strong> bar scaled relative to max P(i) = 0.533</div>
+    <div class="fn-block"><strong>w̄ᵢ = 1.0</strong> always belongs to the lowest P(i) — normalization caps the IS correction, preventing gradient amplification</div>
+    <div class="fn-block"><strong>wᵢ &gt; 0</strong> always — IS corrects magnitude only, never gradient direction</div>
+  </div>
+</div>
+</body>
+</html>

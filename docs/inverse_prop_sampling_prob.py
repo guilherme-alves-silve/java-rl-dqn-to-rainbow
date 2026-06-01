@@ -1,6 +1,6 @@
 """
 author: Guilherme Alves Silveira
-generated with the help: ChatGPT
+generated with AI tools (some adjustments were made)
 """
 
 import numpy as np
@@ -176,7 +176,7 @@ print("=" * 60)
 plt.tight_layout()
 
 plt.savefig(
-    'per_is_inverse_relationship.jpg',
+    'graphics/per_is_inverse_relationship.jpg',
     dpi=150,
     bbox_inches='tight'
 )
