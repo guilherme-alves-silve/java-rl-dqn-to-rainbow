@@ -336,7 +336,7 @@ label(ax, 5, y_form - 0.70,
       f"512 × ({N_ATOMS}×{N_ACTIONS})  +  {N_ATOMS}×{N_ACTIONS}  =  {c51_params:,}",
       fontsize=8.8, color="#633806", weight="500")
 label(ax, 5, y_form - 1.12,
-      f"= {N_ACTIONS}× more params than DQN final layer",
+      f"= {N_ATOMS}× more params than DQN final layer",
       fontsize=8, color=C_MUTED)
 label(ax, 5, y_form - 1.55,
       "Q emerges: E[Z] = Σ z_i · p_i", fontsize=8.5,

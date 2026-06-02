@@ -68,7 +68,6 @@
     border-radius: 4px;
     padding: 4px 12px;
     font-size: 11px;
-    color: #999999;
     letter-spacing: 0.05em;
   }
   .param-chip span { color: #9a7a3a; font-weight: 500; }
@@ -94,14 +93,12 @@
     font-weight: 500;
     letter-spacing: 0.11em;
     text-transform: uppercase;
-    color: #bbbbbb;
     text-align: right;
   }
-  th:first-child { text-align: left; color: #999999; }
+  th:first-child { text-align: left; }
   th .formula {
     display: block;
     font-size: 9px;
-    color: #cccccc;
     margin-top: 2px;
     letter-spacing: 0.05em;
     font-style: italic;
@@ -118,7 +115,6 @@
   td {
     padding: 15px 20px;
     font-size: 13px;
-    color: #555560;
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
@@ -126,8 +122,8 @@
 
   .transition-label { display: flex; align-items: center; gap: 12px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .label-text { font-size: 14px; font-weight: 500; color: #1a1a22; }
-  .label-sub { font-size: 10px; color: #cccccc; margin-top: 1px; }
+  .label-text { font-size: 14px; font-weight: 500; }
+  .label-sub { font-size: 10px; margin-top: 1px; }
 
   .bar-cell { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-direction: row-reverse; }
   .bar-track { width: 72px; height: 3px; background: #f0f0ec; border-radius: 2px; overflow: hidden; flex-shrink: 0; }
@@ -155,12 +151,12 @@
   .arrow-blue { color: #4a8ec0; font-size: 10px; margin-left: 3px; }
 
   .legend { display: flex; gap: 18px; margin-top: 1.1rem; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #aaaaaa; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
   .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
 
   .footnote { margin-top: 1.1rem; display: flex; flex-wrap: wrap; gap: 16px; }
-  .fn-block { font-size: 10.5px; color: #bbbbbb; line-height: 1.7; letter-spacing: 0.01em; }
-  .fn-block strong { color: #999999; font-weight: 500; }
+  .fn-block { font-size: 10.5px; line-height: 1.7; letter-spacing: 0.01em; }
+  .fn-block strong { font-weight: 500; }
 </style>
 </head>
 <body>
@@ -176,7 +172,7 @@
     <div class="param-chip">α = <span>1</span></div>
     <div class="param-chip">β = <span>1</span></div>
     <div class="param-chip">Σ|δ| = <span>15.0</span></div>
-    <div class="param-chip">max(wⱼ) = <span>3.571</span></div>
+    <div class="param-chip">max(wⱼ) = <span>3.750</span></div>
   </div>
 
   <div class="table-wrap">
@@ -206,7 +202,7 @@
             </div>
           </td>
           <td><span class="val">0.469</span></td>
-          <td><span class="w-norm">0.131<span class="arrow-red">↓</span></span></td>
+          <td><span class="w-norm">0.125<span class="arrow-red">↓</span></span></td>
         </tr>
         <tr class="row-b">
           <td>
@@ -223,7 +219,7 @@
             </div>
           </td>
           <td><span class="val">0.938</span></td>
-          <td><span class="w-norm">0.263</span></td>
+          <td><span class="w-norm">0.250</span></td>
         </tr>
         <tr class="row-c">
           <td>
@@ -240,7 +236,7 @@
             </div>
           </td>
           <td><span class="val">1.875</span></td>
-          <td><span class="w-norm">0.525</span></td>
+          <td><span class="w-norm">0.500</span></td>
         </tr>
         <tr class="row-d">
           <td>
@@ -256,7 +252,7 @@
               <span class="val">0.067<span class="arrow-blue">↓</span></span>
             </div>
           </td>
-          <td><span class="val">3.571</span></td>
+          <td><span class="val">3.750</span></td>
           <td><span class="w-norm">1.000<span class="arrow-blue">↑</span></span></td>
         </tr>
       </tbody>
