@@ -52,7 +52,7 @@ def fmt_prob(p_min: float, p_max: float, p: float) -> str:
 
 
 sampling_prob = [0.1, 0.01, 0.05, 0.001, 0.005, 0.0001, 0.0005, 0.00001, 0.00005]
-sampling_prob.sort(reverse=True)
+sampling_prob.sort()
 p_min = min(sampling_prob)
 p_max = max(sampling_prob)
 
@@ -74,4 +74,3 @@ ax.set_ylabel("$\\frac{w_i}{\\max_j(w_j)}$")
 plt.grid()
 
 plt.savefig('graphics/comparison_vals_max_is_weights.jpg', dpi=150, bbox_inches='tight')
-plt.show()
