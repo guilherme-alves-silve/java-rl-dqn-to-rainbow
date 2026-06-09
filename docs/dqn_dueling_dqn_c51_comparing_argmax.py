@@ -27,14 +27,18 @@ dqn_q = np.array([1.2, 2.8, 1.7, 0.9, 1.5, 2.1])
 # ---------------------------------------------------------
 # Dueling DQN
 #
-# Q(s,a) = V(s) + A(s,a)
+# Original paper:
+# Q(s,a) = V(s) + A(s,a) - mean_a A(s,a)
+#
+# Alternative formulation sometimes used:
+# Q(s,a) = V(s) + A(s,a) - max_a A(s,a)
 #
 # V(s) = 2.0
 # ---------------------------------------------------------
 
 V = 2.0
 advantages = np.array([-0.6, 0.8, -0.2, -1.1, -0.4, 0.3])
-dueling_q = V + advantages
+dueling_q = V + (advantages - advantages.mean())
 
 # ---------------------------------------------------------
 # C51
@@ -64,11 +68,12 @@ c51_q = np.array([np.sum(z * c51_distributions[a]) for a in actions])
 
 # ---------------------------------------------------------
 # Figure layout:
-# Row 0: DQN (col 0) | Dueling DQN (col 1) | shape info (col 2)
-# Row 1: C51 all 6 actions as grouped bar (spans full width)
+# Row 0: DQN (col 0) | Dueling DQN (col 1) | empty (col 2)
+# Row 1: C51 distribution grouped bar (spans full width)
+# Row 2: C51 E[Z] Q-values (spans full width)
 # ---------------------------------------------------------
 
-fig = plt.figure(figsize=(18, 11))
+fig = plt.figure(figsize=(18, 15))
 
 x = np.arange(len(actions))
 
@@ -76,27 +81,27 @@ x = np.arange(len(actions))
 # DQN
 # =========================================================
 
-ax1 = plt.subplot2grid((2, 3), (0, 0))
-bars = ax1.bar(x, dqn_q, color="#4C72B0", width=0.6)
+ax1 = plt.subplot2grid((3, 2), (0, 0))
+ax1.bar(x, dqn_q, color="#4C72B0", width=0.6)
 best_dqn = np.argmax(dqn_q)
 
 for i, q in enumerate(dqn_q):
     label = f"{q:.2f}"
     if i == best_dqn:
         label += "\n★"
-    ax1.text(i, q + 0.05, label, ha='center', fontsize=8)
+    ax1.text(i, q + 0.05, label, ha='center', fontsize=9)
 
-ax1.set_title("DQN — Direct Q-values\nOutput shape: (6,)", fontsize=15)
+ax1.set_title("DQN — Direct Q-values\nOutput shape: (6,)", fontsize=13)
 ax1.set_ylabel("Q(s,a)")
 ax1.set_xticks(x)
-ax1.set_xticklabels(actions, rotation=30, ha='right', fontsize=8)
+ax1.set_xticklabels(actions, rotation=30, ha='right', fontsize=9)
 ax1.set_ylim(0, 3.8)
 
 # =========================================================
 # Dueling DQN
 # =========================================================
 
-ax2 = plt.subplot2grid((2, 3), (0, 1))
+ax2 = plt.subplot2grid((3, 2), (0, 1))
 ax2.bar(x, dueling_q, color="#DD8452", width=0.6)
 best_dueling = np.argmax(dueling_q)
 
@@ -104,22 +109,21 @@ for i, q in enumerate(dueling_q):
     label = f"A={advantages[i]:+.1f}\nQ={q:.2f}"
     if i == best_dueling:
         label += "\n★"
-    ax2.text(i, q + 0.05, label, ha='center', fontsize=8)
+    ax2.text(i, q + 0.05, label, ha='center', fontsize=9)
 
-ax2.set_title(f"Dueling DQN — V(s)={V:.1f} + Advantage\nOutput shape: (6,)", fontsize=15)
+ax2.set_title(f"Dueling DQN — V(s)={V:.1f} + Advantage\nOutput shape: (6,)", fontsize=13)
 ax2.set_ylabel("Q(s,a)")
 ax2.set_xticks(x)
-ax2.set_xticklabels(actions, rotation=30, ha='right', fontsize=8)
+ax2.set_xticklabels(actions, rotation=30, ha='right', fontsize=9)
 ax2.set_ylim(0, 3.8)
 
 # =========================================================
 # C51 — grouped bar: all 6 actions, 8 atoms each
 # =========================================================
 
-ax4 = plt.subplot2grid((2, 3), (1, 0), colspan=3)
+ax3 = plt.subplot2grid((3, 2), (1, 0), colspan=2)
 
 n_atoms = len(z)
-n_actions = len(actions)
 group_width = 0.8
 bar_width = group_width / n_atoms
 
@@ -128,44 +132,70 @@ colors = plt.cm.tab10(np.linspace(0, 0.6, n_atoms))
 for atom_idx in range(n_atoms):
     offsets = x + (atom_idx - n_atoms / 2 + 0.5) * bar_width
     probs = [c51_distributions[a][atom_idx] for a in actions]
-    ax4.bar(offsets, probs, width=bar_width,
+    ax3.bar(offsets, probs, width=bar_width,
             color=colors[atom_idx],
             label=f"$z_{atom_idx}$={z[atom_idx]:.1f}")
 
+ax3.set_title(
+    "C51 — Categorical Distribution per Action\n"
+    "Output shape: (6, 8)  —  8 atoms shown; standard C51 uses 51",
+    fontsize=13
+)
+ax3.set_ylabel("Probability")
+ax3.set_xticks(x)
+ax3.set_xticklabels(actions, fontsize=10)
+ax3.set_ylim(0, 0.45)
+ax3.legend(title="Atoms $z_i$", loc='upper right', fontsize=8, ncol=4)
+
+# Arrow annotation from C51 distribution to E[Z] panel
+fig.text(
+    0.5, 0.315,
+    "↓   $\\mathbb{E}[Z] = \\sum_i z_i \\cdot p_i$   (computed at inference only — no backprop)   ↓",
+    ha='center', fontsize=12,
+    bbox=dict(boxstyle="round,pad=0.4", facecolor="#FFF3CD", edgecolor="#CCAA00")
+)
+
+# =========================================================
+# C51 E[Z] — resulting Q-values after expected value
+# =========================================================
+
+ax4 = plt.subplot2grid((3, 2), (2, 0), colspan=2)
+
+bar_colors = ["#2ecc71" if i == np.argmax(c51_q) else "#55A868"
+              for i in range(len(actions))]
+
+bars = ax4.bar(x, c51_q, color=bar_colors, width=0.5)
 best_c51 = np.argmax(c51_q)
 
-for i, a in enumerate(actions):
-    q = c51_q[i]
-    label = f"Q={q:.2f}"
+for i, q in enumerate(c51_q):
+    label = f"{q:.3f}"
     if i == best_c51:
-        label += " ★"
-    ax4.text(i, 0.33, label, ha='center', fontsize=8,
-             bbox=dict(boxstyle="round,pad=0.2",
-                       facecolor="white", alpha=0.7))
+        label += "\n★ SELECTED"
+    ax4.text(i, q + 0.03, label, ha='center', fontsize=10,
+             fontweight='bold' if i == best_c51 else 'normal')
 
 ax4.set_title(
-    "C51 — Categorical Distribution per Action\n"
-    "Output shape: (6, 8)  →  after $\\mathbb{E}[Z] = \\sum z_i p_i$: (6,)  [inference only]",
-    fontsize=15
+    "C51 — Q-values after $\\mathbb{E}[Z(s,a)] = \\sum_i z_i \\cdot p_i$\n"
+    "Output shape: (6,)  —  used for action selection (argmax)",
+    fontsize=13
 )
-ax4.set_ylabel("Probability")
+ax4.set_ylabel("Q(s,a) = E[Z]")
 ax4.set_xticks(x)
 ax4.set_xticklabels(actions, fontsize=10)
-ax4.set_ylim(0, 0.45)
-ax4.legend(title="Atoms $z_i$", loc='upper right',
-           fontsize=7, ncol=4)
+ax4.set_ylim(min(c51_q) - 0.5, max(c51_q) + 0.5)
+ax4.axhline(0, color='gray', linewidth=0.8, linestyle='--')
 
 # ---------------------------------------------------------
 # Global title
 # ---------------------------------------------------------
 
 plt.suptitle(
-    "DQN vs Dueling DQN vs C51",
-    fontsize=17
+    "DQN vs Dueling DQN vs C51\nDifferent Representations of Action Values",
+    fontsize=16
 )
 
 plt.tight_layout()
-plt.subplots_adjust(wspace=0.3, hspace=0.5)
+plt.subplots_adjust(wspace=0.3, hspace=0.55)
 
 OUT = "./graphics/dqn_dueling_dqn_c51_comparing_argmax.jpg"
 plt.savefig(OUT, dpi=160, bbox_inches="tight",
