@@ -1,5 +1,5 @@
 package br.com.guialves.rflr.utils;
 
-public class ReplayBuffer {
+public class ExperienceReplayBuffer {
 
 }

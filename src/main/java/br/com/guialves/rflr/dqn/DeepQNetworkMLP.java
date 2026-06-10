@@ -10,6 +10,7 @@ import ai.djl.nn.Activation;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
+import br.com.guialves.rflr.utils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,8 +24,10 @@ import java.nio.file.Path;
  * <a href="https://d2l.djl.ai/chapter_multilayer-perceptrons/mlp-djl.html">...</a>
  */
 @Slf4j
-public class DeepQNetworkMLP implements AutoCloseable {
+public class DeepQNetworkMLP implements IDeepQNetwork {
 
+    private final int observations;
+    private final int actions;
     private final Model model;
     private final SequentialBlock net;
     private final ParameterStore parameterStore;
@@ -42,6 +45,8 @@ public class DeepQNetworkMLP implements AutoCloseable {
                            Path modelPath,
                            String prefix,
                            NDManager manager) {
+        this.observations = observations;
+        this.actions = actions;
         this.model = Model.newInstance("dqn_mlp");
         this.net = new SequentialBlock();
         net.add(Linear.builder().setUnits(128).optBias(true).build())
@@ -62,17 +67,32 @@ public class DeepQNetworkMLP implements AutoCloseable {
         }
     }
 
+    @Override
     public NDList forward(NDList input) {
         return net.forward(parameterStore, input, training);
     }
 
+    @Override
     public NDArray forward(NDArray input) {
         return forward(new NDList(input)).singletonOrThrow();
     }
 
+    @Override
     @SneakyThrows
     public void save(Path modelPath, String newModelName) {
         this.model.save(modelPath, newModelName);
+    }
+
+    @Override
+    public IDeepQNetwork clone() {
+        var cloned = new DeepQNetworkMLP(observations, actions, this.model.getNDManager());
+        DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
+        return cloned;
+    }
+
+    @Override
+    public NDManager manager() {
+        return this.model.getNDManager();
     }
 
     @Override
