@@ -1,6 +1,7 @@
 # [Connecting Java Reinforcement Learning to Python Gymnasium](https://guilhermealvessilveira.substack.com/p/connecting-java-reinforcement-learning)
 
 > The first step toward an autonomous car — Part 1 of 3
+> Building the core for the autonomous car — Part 2 of 3
 
 ## Overview
 
@@ -8,7 +9,7 @@ This project bridges the Java ecosystem and Python's [Gymnasium](https://gymnasi
 
 The series progresses in three articles:
 
-1. **Part 1** — Gymnasium integration via JavaCPP + DQN baseline
+1. **Part 1** — Gymnasium integration via JavaCPP
 2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
 3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN
 

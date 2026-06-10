@@ -20,46 +20,44 @@ p_death = np.exp(-0.5 * ((atoms - mu_death) / sigma_death) ** 2)
 p_death /= p_death.sum()
 
 fig, axes = plt.subplots(1, 2, figsize=(13, 4.5), sharey=False)
-fig.patch.set_facecolor('#0f0f1a')
+fig.patch.set_facecolor('white')
 
-colors = {'jump': '#00e5ff', 'death': '#ff4757'}
-bg = '#0f0f1a'
-panel = '#1a1a2e'
+colors = {'jump': '#1e88e5', 'death': '#e53935'}  # Cores mais suaves
 
 for ax in axes:
-    ax.set_facecolor(panel)
+    ax.set_facecolor('white')
     for spine in ax.spines.values():
-        spine.set_edgecolor('#333355')
+        spine.set_edgecolor('#cccccc')
 
 # --- Left: Jumping the pit ---
 ax1 = axes[0]
 ax1.bar(atoms, p_jump, width=(V_MAX - V_MIN) / (N - 1) * 0.85,
         color=colors['jump'], alpha=0.85, zorder=3)
-ax1.axvline(np.dot(atoms, p_jump), color='white', lw=1.5,
+ax1.axvline(np.dot(atoms, p_jump), color='black', lw=1.5,
             linestyle='--', alpha=0.7, label=f'E[Z] = {np.dot(atoms, p_jump):.1f}')
-ax1.set_title('Jumping the pit', color='white', fontsize=13, fontweight='bold', pad=10)
-ax1.set_xlabel('Return $z_i$', color='#aaaacc', fontsize=11)
-ax1.set_ylabel('Probability $p_i$', color='#aaaacc', fontsize=11)
-ax1.tick_params(colors='#aaaacc')
-ax1.legend(framealpha=0, labelcolor='white', fontsize=10)
+ax1.set_title('Jumping the pit', color='black', fontsize=13, fontweight='bold', pad=10)
+ax1.set_xlabel('Return $z_i$', color='#333333', fontsize=11)
+ax1.set_ylabel('Probability $p_i$', color='#333333', fontsize=11)
+ax1.tick_params(colors='#333333')
+ax1.legend(framealpha=0.8, labelcolor='black', fontsize=10)
 ax1.set_xlim(V_MIN - 0.5, V_MAX + 0.5)
-ax1.grid(axis='y', color='#333355', linewidth=0.6, zorder=0)
+ax1.grid(axis='y', color='#dddddd', linewidth=0.6, zorder=0)
 
 # --- Right: Walking into the pit ---
 ax2 = axes[1]
 ax2.bar(atoms, p_death, width=(V_MAX - V_MIN) / (N - 1) * 0.85,
         color=colors['death'], alpha=0.85, zorder=3)
-ax2.axvline(np.dot(atoms, p_death), color='white', lw=1.5,
+ax2.axvline(np.dot(atoms, p_death), color='black', lw=1.5,
             linestyle='--', alpha=0.7, label=f'E[Z] = {np.dot(atoms, p_death):.1f}')
-ax2.set_title('Walking into the pit', color='white', fontsize=13, fontweight='bold', pad=10)
-ax2.set_xlabel('Return $z_i$', color='#aaaacc', fontsize=11)
-ax2.set_ylabel('Probability $p_i$', color='#aaaacc', fontsize=11)
-ax2.tick_params(colors='#aaaacc')
-ax2.legend(framealpha=0, labelcolor='white', fontsize=10)
+ax2.set_title('Walking into the pit', color='black', fontsize=13, fontweight='bold', pad=10)
+ax2.set_xlabel('Return $z_i$', color='#333333', fontsize=11)
+ax2.set_ylabel('Probability $p_i$', color='#333333', fontsize=11)
+ax2.tick_params(colors='#333333')
+ax2.legend(framealpha=0.8, labelcolor='black', fontsize=10)
 ax2.set_xlim(V_MIN - 0.5, V_MAX + 0.5)
-ax2.grid(axis='y', color='#333355', linewidth=0.6, zorder=0)
+ax2.grid(axis='y', color='#dddddd', linewidth=0.6, zorder=0)
 
-fig.suptitle('C51 — Return Distributions per Action', color='white',
+fig.suptitle('C51 — Return Distributions per Action', color='black',
              fontsize=14, fontweight='bold', y=1.02)
 
 plt.tight_layout()
