@@ -12,6 +12,7 @@ import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.convolutional.Conv2d;
 import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
+import br.com.guialves.rflr.utils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,8 +20,13 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 @Slf4j
-public class DeepQNetworkCNN implements AutoCloseable {
+public class DeepQNetworkCNN implements IDeepQNetwork {
 
+    private final int channels;
+    private final int size;
+    private final int actions;
+    private final Path modelPath;
+    private final String prefix;
     private final Model model;
     private final SequentialBlock net;
     private final ParameterStore parameterStore;
@@ -40,7 +46,11 @@ public class DeepQNetworkCNN implements AutoCloseable {
                            Path modelPath,
                            String prefix,
                            NDManager manager) {
-
+        this.channels = channels;
+        this.size = size;
+        this.actions = actions;
+        this.modelPath = modelPath;
+        this.prefix = prefix;
         this.model = Model.newInstance("dqn_cnn");
         this.net = new SequentialBlock();
 
@@ -84,16 +94,33 @@ public class DeepQNetworkCNN implements AutoCloseable {
         }
     }
 
+    @Override
     public NDList forward(NDList input) {
         return net.forward(parameterStore, input, training);
     }
 
+    @Override
     public NDArray forward(NDArray input) {
         return forward(new NDList(input)).singletonOrThrow();
     }
 
-    public void save(Path path, String prefix) throws IOException {
+    @Override
+    public NDManager manager() {
+        return this.model.getNDManager();
+    }
+
+    @Override
+    @SneakyThrows
+    public void save(Path path, String prefix) {
         model.save(path, prefix);
+    }
+
+    @Override
+    public IDeepQNetwork clone() {
+        var cloned = new DeepQNetworkCNN(channels, size, actions,
+                                         modelPath, prefix, this.model.getNDManager());
+        DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
+        return cloned;
     }
 
     @Override

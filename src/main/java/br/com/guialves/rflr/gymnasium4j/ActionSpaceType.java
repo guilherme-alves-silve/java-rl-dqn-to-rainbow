@@ -146,7 +146,6 @@ public enum ActionSpaceType {
         throw new UnsupportedOperationException("get(boolean[]) for \"%s\" is not supported!".formatted(this.name()));
     }
 
-    @RequiredArgsConstructor
     @Accessors(fluent = true)
     public static class ActionResult implements AutoCloseable {
 
@@ -156,6 +155,11 @@ public enum ActionSpaceType {
         final ActionSpaceType spaceType;
 
         private boolean closed = false;
+
+        ActionResult(PyObject pyObj, ActionSpaceType spaceType) {
+            this.pyObj = pyObj;
+            this.spaceType = spaceType;
+        }
 
         /**
          * Close this ActionResult and release the underlying Python object reference.
