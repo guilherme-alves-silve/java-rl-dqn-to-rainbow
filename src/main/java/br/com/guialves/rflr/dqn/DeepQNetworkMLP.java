@@ -7,6 +7,7 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
+import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
@@ -81,6 +82,11 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
     @SneakyThrows
     public void save(Path modelPath, String newModelName) {
         this.model.save(modelPath, newModelName);
+    }
+
+    @Override
+    public Block getBlock() {
+        return model.getBlock();
     }
 
     @Override

@@ -2,6 +2,7 @@
 
 > The first step toward an autonomous car — Part 1 of 3
 > Building the core for the autonomous car — Part 2 of 3
+> Rainbow-DQN driving the autonomous car in the CARLA simulator — Part 3 of 3
 
 ## Overview
 
@@ -11,6 +12,14 @@ The series progresses in three articles:
 
 1. **Part 1** — Gymnasium integration via JavaCPP
 2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
+- [ ] DQN
+- [ ] Double DQN
+- [ ] PER
+- [ ] Dueling DQN
+- [ ] n-Step
+- [ ] Noisy Networks
+- [ ] C51
+- [ ] Rainbow
 3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN
 
 ### Related articles:

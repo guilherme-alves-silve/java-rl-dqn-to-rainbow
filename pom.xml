@@ -39,6 +39,13 @@
 
   <dependencies>
 
+    <!-- https://github.com/ctongfei/progressbar -->
+    <dependency>
+      <groupId>me.tongfei</groupId>
+      <artifactId>progressbar</artifactId>
+      <version>0.10.2</version>
+    </dependency>
+
     <dependency>
       <groupId>org.bytedeco</groupId>
       <artifactId>javacv-platform</artifactId>

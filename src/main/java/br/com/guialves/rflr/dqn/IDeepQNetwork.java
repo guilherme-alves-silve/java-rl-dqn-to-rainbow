@@ -3,6 +3,7 @@ package br.com.guialves.rflr.dqn;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import ai.djl.nn.Block;
 import lombok.SneakyThrows;
 
 import java.nio.file.Path;
@@ -19,4 +20,6 @@ public interface IDeepQNetwork extends AutoCloseable {
     void save(Path modelPath, String newModelName);
 
     IDeepQNetwork clone();
+
+    Block getBlock();
 }
