@@ -1,11 +1,9 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
-import ai.djl.util.Pair;
 
 import java.awt.image.BufferedImage;
-import java.util.Map;
+import java.util.Collections;
 
 public interface IEnv extends AutoCloseable {
 
@@ -21,7 +19,7 @@ public interface IEnv extends AutoCloseable {
 
     ActionSpaceType.ActionResult actionSpaceSample();
 
-    Pair<NDArray, Map<Object, Object>> reset();
+    EnvResetResult reset();
 
     EnvStepResult step(ActionSpaceType.ActionResult action);
 

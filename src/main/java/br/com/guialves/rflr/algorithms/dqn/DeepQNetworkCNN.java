@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.dqn;
+package br.com.guialves.rflr.algorithms.dqn;
 
 import ai.djl.Model;
 import ai.djl.ndarray.NDArray;
