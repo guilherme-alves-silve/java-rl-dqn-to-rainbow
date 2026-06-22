@@ -7,9 +7,15 @@ public record Experience(NDArray state,
                          ActionResult action,
                          double reward,
                          NDArray nextState,
-                         boolean done) {
+                         boolean done) implements AutoCloseable {
 
     public <T> T actionAs(Class<T> clazz) {
         return action.valueAs(clazz);
+    }
+
+    @Override
+    public void close() {
+        state.close();
+        nextState.close();
     }
 }
