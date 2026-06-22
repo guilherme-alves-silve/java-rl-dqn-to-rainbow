@@ -11,6 +11,7 @@ import br.com.guialves.rflr.gymnasium4j.OptimizerUtils;
 import br.com.guialves.rflr.utils.DJLUtils;
 import br.com.guialves.rflr.utils.Experience;
 import br.com.guialves.rflr.utils.ExperienceReplayBuffer;
+import br.com.guialves.rflr.utils.PlotTrackers;
 import me.tongfei.progressbar.ProgressBar;
 
 import java.util.ArrayList;
@@ -39,11 +40,12 @@ public class AgentDQN {
     private final Optimizer optimizer;
     private final IDeepQNetwork onlineNet;
     private final IDeepQNetwork targetNet;
+    private final PlotTrackers plotTrackers;
 
-    public AgentDQN(int episodes, int totalFrames,  float epsilon,
+    public AgentDQN(int episodes, int totalFrames, float epsilon,
                     int updateQTargetAtTimeN, float learningRate, float minEpsilon, float epsilonDecay,
                     float gamma, IEnv env, Shape inputShape, Shape outputShape,
-                    Optimizer optimizer, Supplier<IDeepQNetwork> networkFactory) {
+                    Optimizer optimizer, Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         this.episodes = episodes;
         this.totalFrames = totalFrames;
         this.epsilon = epsilon;
@@ -55,6 +57,7 @@ public class AgentDQN {
         this.inputShape = inputShape;
         this.outputShape = outputShape;
         this.onlineNet = networkFactory.get();
+        this.plotTrackers = plotTrackers;
         this.targetNet = onlineNet.clone();
         this.learningRate = learningRate;
         this.optimizer = optimizer;
@@ -78,7 +81,10 @@ public class AgentDQN {
             while (frames < framesLimit) {
                 var stateAndInfoMap = env.reset();
                 var state = stateAndInfoMap.state();
-                var meanEpisodeRewards = new ArrayList<>();
+                var episodeRewards = new ArrayList<>();
+                float episodeLossSum = 0f;
+                int episodeSteps = 0;
+
                 while (frames < framesLimit) {
 
                     var action = greedyActionSelect(state);
@@ -91,13 +97,19 @@ public class AgentDQN {
 
                     replayBuffer.store(exp);
 
-                    trainQOnline(batchSize, replayBuffer, lossFunc);
+                    var lossItem = trainQOnline(batchSize, replayBuffer, lossFunc);
+                    if (!Float.isNaN(lossItem)) {
+                        episodeLossSum += lossItem;
+                        ++episodeSteps;
+                    }
 
                     updateTargetNetworkAtN(frames);
 
-                    meanEpisodeRewards.add(reward);
+                    episodeRewards.add(reward);
                     if (done) {
                         ++episodes;
+                        float avgLoss = episodeSteps > 0 ? episodeLossSum / episodeSteps : 0;
+                        plotTrackers.add(epsilon, episodeRewards, avgLoss);
                         break;
                     }
 
@@ -106,6 +118,7 @@ public class AgentDQN {
                 }
                 epsilon = reduceEpsilon(epsilon);
                 pg.stepTo(frames);
+                plotTrackers.setTrackersMessage(pg, frames);
             }
         }
     }
@@ -120,8 +133,8 @@ public class AgentDQN {
      * @param replayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
-    private void trainQOnline(int batchSize, ExperienceReplayBuffer replayBuffer, Loss lossFunc) {
-        if (replayBuffer.size() < batchSize) return;
+    private float trainQOnline(int batchSize, ExperienceReplayBuffer replayBuffer, Loss lossFunc) {
+        if (replayBuffer.size() < batchSize) return Float.NaN;
 
         try(var samples = replayBuffer.sample(batchSize)) {
             var states = samples.states();
@@ -144,11 +157,14 @@ public class AgentDQN {
             var targetQValue = rewards.add(discountNextQValue.mul(mask));
             targetQValue = targetQValue.stopGradient();
 
+            float lossItem;
             try (var gc = gradCol()) {
                 var lossVal = lossFunc.evaluate(new NDList(qValue), new NDList(targetQValue));
                 gc.backward(lossVal);
+                lossItem = lossVal.stopGradient().mean().getFloat(0);
             }
             OptimizerUtils.trainStep(onlineNet.getBlock(), optimizer);
+            return lossItem;
         }
     }
 
