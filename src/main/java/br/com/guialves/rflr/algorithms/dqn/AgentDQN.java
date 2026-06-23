@@ -2,69 +2,73 @@ package br.com.guialves.rflr.algorithms.dqn;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
-import ai.djl.ndarray.types.Shape;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
+import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.gymnasium4j.OptimizerUtils;
+import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
 import br.com.guialves.rflr.utils.DJLUtils;
 import br.com.guialves.rflr.utils.Experience;
 import br.com.guialves.rflr.utils.ExperienceReplayBuffer;
 import br.com.guialves.rflr.utils.PlotTrackers;
 import me.tongfei.progressbar.ProgressBar;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
-import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.DISCRETE;
 import static br.com.guialves.rflr.gymnasium4j.EngineUtils.gradCol;
 import static java.util.Objects.requireNonNull;
 
 public class AgentDQN {
 
+    public static final int DEFAULT_FRAME_SKIP = 1;
     private final int[] the2ndAxis = new int[] {1};
+    private final ActionSpaceType actionSpaceType;
 
+    private boolean test;
     private int episodes;
-    private int totalFrames;
     private float epsilon;
+
+    private final EnvRenderWindow envRender;
     private final int updateQTargetAtTimeN;
-    private final float learningRate;
     private final float minEpsilon;
     private final float epsilonDecay;
     private final float gamma;
     private final IEnv env;
-    private final Shape inputShape;
-    private final Shape outputShape;
     private final Optimizer optimizer;
     private final IDeepQNetwork onlineNet;
     private final IDeepQNetwork targetNet;
     private final PlotTrackers plotTrackers;
 
-    public AgentDQN(int episodes, int totalFrames, float epsilon,
-                    int updateQTargetAtTimeN, float learningRate, float minEpsilon, float epsilonDecay,
-                    float gamma, IEnv env, Shape inputShape, Shape outputShape,
-                    Optimizer optimizer, Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
-        this.episodes = episodes;
-        this.totalFrames = totalFrames;
+    public AgentDQN(float epsilon, int updateQTargetAtTimeN,
+                    float minEpsilon, float epsilonDecay,
+                    float gamma, IEnv env, Optimizer optimizer,
+                    Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+        this.test = false;
+        this.envRender = new EnvRenderWindow();
         this.epsilon = epsilon;
         this.updateQTargetAtTimeN = updateQTargetAtTimeN;
         this.minEpsilon = minEpsilon;
         this.epsilonDecay = epsilonDecay;
         this.gamma = gamma;
         this.env = env;
-        this.inputShape = inputShape;
-        this.outputShape = outputShape;
         this.onlineNet = networkFactory.get();
         this.plotTrackers = plotTrackers;
         this.targetNet = onlineNet.clone();
-        this.learningRate = learningRate;
         this.optimizer = optimizer;
+        this.actionSpaceType = env.actionSpaceType();
     }
 
-    public void train(int batchSize, long framesLimit, ExperienceReplayBuffer replayBuffer, Loss lossFunc) {
-        train(batchSize, framesLimit, replayBuffer, lossFunc);
+    public void train(int batchSize,
+                      long framesLimit,
+                      ExperienceReplayBuffer replayBuffer,
+                      Loss lossFunc) {
+        train(batchSize, framesLimit, DEFAULT_FRAME_SKIP, replayBuffer, lossFunc);
     }
 
     public void train(int batchSize,
@@ -75,6 +79,9 @@ public class AgentDQN {
 
         requireNonNull(replayBuffer, "replayBuffer cannot be null!");
         requireNonNull(replayBuffer, "loss cannot be null!");
+
+        this.test = false;
+        this.episodes = 0;
 
         try (var pg = new ProgressBar("training DQN...", framesLimit)) {
             int frames = 0;
@@ -87,7 +94,7 @@ public class AgentDQN {
 
                 while (frames < framesLimit) {
 
-                    var action = greedyActionSelect(state);
+                    var action = selectAction(state);
 
                     var stepResult = env.step(action);
                     var reward = stepResult.reward();
@@ -121,6 +128,10 @@ public class AgentDQN {
                 plotTrackers.setTrackersMessage(pg, frames);
             }
         }
+    }
+
+    public int episodes() {
+        return episodes;
     }
 
     /**
@@ -174,18 +185,63 @@ public class AgentDQN {
         }
     }
 
-    public ActionSpaceType.ActionResult greedyActionSelect(NDArray state) {
-        var rand = ThreadLocalRandom.current().nextFloat();
-        if (rand < epsilon) {
-            return env.actionSpaceSample();
+    public ActionSpaceType.ActionResult selectAction(NDArray state) {
+        if (!test) {
+            var rand = ThreadLocalRandom.current().nextFloat();
+            if (rand < epsilon) {
+                return env.actionSpaceSample();
+            }
         }
 
-        var output = onlineNet.forward(state);
-        output.stopGradient();
-        return DISCRETE.get(output.argMax().getInt(0));
+        try(var output = onlineNet.forward(state).stopGradient().argMax(1)) {
+            return actionSpaceType.get(output.getInt(0));
+        }
     }
 
     public float reduceEpsilon(float epsilon) {
         return Math.max(minEpsilon, epsilon * epsilonDecay);
+    }
+
+    public void save(Path modelPath, String newModelName) {
+        this.onlineNet.save(modelPath, newModelName);
+    }
+
+    public double run() {
+        return run(1, true).getLast();
+    }
+
+    public double run(boolean render) {
+        return run(1, render).getLast();
+    }
+
+    /**
+     *
+     * @return totalRewardPerTry
+     */
+    public List<Double> run(int maxTries, boolean render) {
+        this.test = true;
+
+        var totalRewardPerTry = new ArrayList<Double>(maxTries);
+        for (int tries = 0; tries < maxTries; ++tries) {
+            if (!(env.reset() instanceof EnvResetResult(var state, var _)))
+                throw new IllegalStateException();
+
+            double totalReward = 0d;
+            boolean done;
+            do {
+                if (render) envRender.displayAndWait(env.render());
+                var action = selectAction(state);
+                var stepResult = env.step(action);
+                var reward = stepResult.reward();
+                var nextState = stepResult.state();
+                done = stepResult.done();
+                state = nextState;
+                totalReward += reward;
+            } while (!done);
+
+            totalRewardPerTry.add(totalReward);
+        }
+
+        return totalRewardPerTry;
     }
 }

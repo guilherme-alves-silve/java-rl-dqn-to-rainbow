@@ -112,6 +112,33 @@ class GymActionSpaceTest {
                 }
             }
         }
+
+        /**
+         * Reference:
+         *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
+         */
+        @Test
+        @DisplayName("LunarLander-v3 should have Discrete(4) action space")
+        void testLunarLanderActionSpace() {
+            try (var env = Gym.make("LunarLander-v3", ndManager)) {
+                env.reset();
+                log.info("LunarLander action space: {}", env.actionSpaceStr());
+
+                assertTrue(env.actionSpaceStr().contains("Discrete(4)"));
+
+                try (var action = env.actionSpaceSample()) {
+                    assertEquals(DISCRETE, action.spaceType());
+                    var result = env.step(action);
+                    assertNotNull(result);
+                    assertNotNull(result.state());
+                    assertFalse(result.state().isReleased());
+
+                    Long value = action.value();
+                    assertNotNull(value);
+                    assertTrue(value >= 0 && value <= 3);
+                }
+            }
+        }
     }
 
     @Nested
