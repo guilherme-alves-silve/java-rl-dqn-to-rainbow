@@ -17,12 +17,12 @@ public class PlotTrackers {
         this.meanEpisodeLoss = new ArrayList<>();
     }
 
-    public void setTrackersMessage(ProgressBar pg, int frames) {
+    public void setTrackersMessage(ProgressBar pbar, int frames) {
         if (!episodeEpsilons.isEmpty() &&
                 !meanEpisodeRewards.isEmpty() &&
                 !meanEpisodeLoss.isEmpty()) {
-            pg.setExtraMessage(String.format(
-                    "ε=%.4f 🪙=%.4f 📉=%.4f 🖼️=%d",
+            pbar.setExtraMessage(String.format(
+                    "ε=%.4f 🪙=%.4f 📉=%.4f 🖼️=%-6d",
                     episodeEpsilons.getLast(),
                     meanEpisodeRewards.getLast(),
                     meanEpisodeLoss.getLast(),

@@ -40,6 +40,10 @@ public class ExperienceReplayBuffer {
         this(capacity, manager, sampler, Device.cpu());
     }
 
+    public ExperienceReplayBuffer(int capacity, NDManager manager, Device device) {
+        this(capacity, manager, new ExperienceSampler(), device);
+    }
+
     public ExperienceReplayBuffer(int capacity,
                                   NDManager manager,
                                   ExperienceSampler sampler,
@@ -54,6 +58,7 @@ public class ExperienceReplayBuffer {
     }
 
     public void store(Experience exp) {
+
         exp.state().attach(manager);
         exp.nextState().attach(manager);
 
@@ -79,11 +84,11 @@ public class ExperienceReplayBuffer {
         var states = toList(batch, exp -> exp.state().expandDims(0))
                 .toDevice(device, false);
         var actions = manager.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
-                .expandDims(1).toDevice(device, false);;
+                .expandDims(1).toDevice(device, false);
         var rewards = manager.create(stream(batch).mapToDouble(Experience::reward).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
         var nextStates = toList(batch, exp -> exp.nextState().expandDims(0))
-                .toDevice(device, false);;
+                .toDevice(device, false);
         var dones = manager.create(stream(batch).mapToDouble(exp -> exp.done()? 1 : 0).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
 

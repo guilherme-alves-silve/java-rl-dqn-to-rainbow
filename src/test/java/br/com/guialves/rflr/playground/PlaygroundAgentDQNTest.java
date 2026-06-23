@@ -60,13 +60,14 @@ public class PlaygroundAgentDQNTest {
                     plotTrackers
             );
 
-            int batchSize = 8;
+            int batchSize = 128;
             int framesLimit = 100_000;
-            var replayBuffer = new ExperienceReplayBuffer(10_000, manager);
+            var replayBuffer = new ExperienceReplayBuffer(10_000, manager, device);
             var lossFunc = Loss.l2Loss();
             agentDQN.train(batchSize, framesLimit, replayBuffer, lossFunc);
             if (saveModel) agentDQN.save(path, "LunarLander-v3_" + System.currentTimeMillis() + ".pt");
             double totalReward = agentDQN.run();
+            IO.println("Replay Buffer size:" + replayBuffer.size());
             IO.println("Total episodes: " + agentDQN.episodes());
             IO.println("Total reward: " + totalReward);
         }

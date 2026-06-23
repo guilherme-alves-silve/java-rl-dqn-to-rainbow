@@ -85,7 +85,12 @@ public class AgentDQN {
         this.test = false;
         this.episodes = 0;
 
-        try (var pg = new ProgressBar("training DQN...", framesLimit)) {
+        var pbar = ProgressBar.builder()
+                .setTaskName("training DQN")
+                .setInitialMax(framesLimit)
+                .setMaxRenderedLength(100)
+                .build();
+        try (pbar) {
             int frames = 0;
             while (frames < framesLimit) {
                 var stateAndInfoMap = env.reset();
@@ -102,7 +107,8 @@ public class AgentDQN {
                     var reward = stepResult.reward();
                     var nextState = stepResult.state();
                     var done = stepResult.done();
-                    var exp = new Experience(state, action, reward, nextState, done);
+                    var exp = new Experience(state.duplicate(), action, reward,
+                            nextState.duplicate(), done);
                     replayBuffer.store(exp);
 
                     var lossItem = trainQOnline(batchSize, replayBuffer, lossFunc);
@@ -122,13 +128,15 @@ public class AgentDQN {
                         break;
                     }
 
+                    state.close();
                     state = nextState;
+
+                    pbar.stepTo(frames);
                 }
 
                 epsilon = reduceEpsilon(epsilon);
-                pg.stepTo(frames);
-                plotTrackers.setTrackersMessage(pg, frames);
             }
+            plotTrackers.setTrackersMessage(pbar, frames);
         }
 
         plotTrackers.showAllMetrics();
