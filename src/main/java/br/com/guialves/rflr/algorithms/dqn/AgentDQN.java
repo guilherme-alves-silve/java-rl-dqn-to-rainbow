@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.algorithms.dqn;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.training.loss.Loss;
@@ -12,7 +13,7 @@ import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
 import br.com.guialves.rflr.utils.DJLUtils;
 import br.com.guialves.rflr.utils.Experience;
 import br.com.guialves.rflr.utils.ExperienceReplayBuffer;
-import br.com.guialves.rflr.utils.PlotTrackers;
+import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import me.tongfei.progressbar.ProgressBar;
 
 import java.nio.file.Path;
@@ -34,12 +35,12 @@ public class AgentDQN {
     private int episodes;
     private float epsilon;
 
-    private final EnvRenderWindow envRender;
     private final int updateQTargetAtTimeN;
     private final float minEpsilon;
     private final float epsilonDecay;
     private final float gamma;
     private final IEnv env;
+    private final Device device;
     private final Optimizer optimizer;
     private final IDeepQNetwork onlineNet;
     private final IDeepQNetwork targetNet;
@@ -47,19 +48,20 @@ public class AgentDQN {
 
     public AgentDQN(float epsilon, int updateQTargetAtTimeN,
                     float minEpsilon, float epsilonDecay,
-                    float gamma, IEnv env, Optimizer optimizer,
+                    float gamma, IEnv env, Device device, Optimizer optimizer,
                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         this.test = false;
-        this.envRender = new EnvRenderWindow();
         this.epsilon = epsilon;
         this.updateQTargetAtTimeN = updateQTargetAtTimeN;
         this.minEpsilon = minEpsilon;
         this.epsilonDecay = epsilonDecay;
         this.gamma = gamma;
         this.env = env;
+        this.device = device;
         this.onlineNet = networkFactory.get();
         this.plotTrackers = plotTrackers;
         this.targetNet = onlineNet.clone();
+        DJLUtils.freeze(this.targetNet.getBlock());
         this.optimizer = optimizer;
         this.actionSpaceType = env.actionSpaceType();
     }
@@ -101,7 +103,6 @@ public class AgentDQN {
                     var nextState = stepResult.state();
                     var done = stepResult.done();
                     var exp = new Experience(state, action, reward, nextState, done);
-
                     replayBuffer.store(exp);
 
                     var lossItem = trainQOnline(batchSize, replayBuffer, lossFunc);
@@ -110,6 +111,7 @@ public class AgentDQN {
                         ++episodeSteps;
                     }
 
+                    frames += framesSkip;
                     updateTargetNetworkAtN(frames);
 
                     episodeRewards.add(reward);
@@ -121,13 +123,15 @@ public class AgentDQN {
                     }
 
                     state = nextState;
-                    frames += framesSkip;
                 }
+
                 epsilon = reduceEpsilon(epsilon);
                 pg.stepTo(frames);
                 plotTrackers.setTrackersMessage(pg, frames);
             }
         }
+
+        plotTrackers.showAllMetrics();
     }
 
     public int episodes() {
@@ -154,25 +158,24 @@ public class AgentDQN {
             var nextStates = samples.nextStates();
             var dones = samples.dones();
 
-            // y_hat = q_online(s, a)
-            var qValue = onlineNet.forward(states);
             // max q_target(s', a')
             var maxNextQValue = targetNet.forward(nextStates)
-                    .max(the2ndAxis)
-                    .gather(actions.expandDims(1), 1);
+                    .max(the2ndAxis, true);
             // gamma * max q_target(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)
             var mask = dones.neg().add(1);
             // y = r + gamma * max q_target(s', a') * (1 - done)
-            var targetQValue = rewards.add(discountNextQValue.mul(mask));
-            targetQValue = targetQValue.stopGradient();
+            var targetQValue = rewards.add(discountNextQValue.mul(mask))
+                    .stopGradient();
 
             float lossItem;
             try (var gc = gradCol()) {
+                // y_hat = q_online(s, a)
+                var qValue = onlineNet.forward(states).gather(actions, 1);
                 var lossVal = lossFunc.evaluate(new NDList(qValue), new NDList(targetQValue));
                 gc.backward(lossVal);
-                lossItem = lossVal.stopGradient().mean().getFloat(0);
+                lossItem = lossVal.stopGradient().mean().getFloat();
             }
             OptimizerUtils.trainStep(onlineNet.getBlock(), optimizer);
             return lossItem;
@@ -193,8 +196,8 @@ public class AgentDQN {
             }
         }
 
-        try(var output = onlineNet.forward(state).stopGradient().argMax(1)) {
-            return actionSpaceType.get(output.getInt(0));
+        try(var output = onlineNet.forward(state.expandDims(0)).stopGradient().argMax(1)) {
+            return actionSpaceType.get(output.getLong(0));
         }
     }
 
@@ -222,24 +225,26 @@ public class AgentDQN {
         this.test = true;
 
         var totalRewardPerTry = new ArrayList<Double>(maxTries);
-        for (int tries = 0; tries < maxTries; ++tries) {
-            if (!(env.reset() instanceof EnvResetResult(var state, var _)))
-                throw new IllegalStateException();
+        try (var envRender = new EnvRenderWindow()) {
+            for (int tries = 0; tries < maxTries; ++tries) {
+                if (!(env.reset() instanceof EnvResetResult(var state, var _)))
+                    throw new IllegalStateException();
 
-            double totalReward = 0d;
-            boolean done;
-            do {
-                if (render) envRender.displayAndWait(env.render());
-                var action = selectAction(state);
-                var stepResult = env.step(action);
-                var reward = stepResult.reward();
-                var nextState = stepResult.state();
-                done = stepResult.done();
-                state = nextState;
-                totalReward += reward;
-            } while (!done);
+                double totalReward = 0d;
+                boolean done;
+                do {
+                    if (render) envRender.displayAndWait(env.render());
+                    var action = selectAction(state);
+                    var stepResult = env.step(action);
+                    var reward = stepResult.reward();
+                    var nextState = stepResult.state();
+                    done = stepResult.done();
+                    state = nextState;
+                    totalReward += reward;
+                } while (!done);
 
-            totalRewardPerTry.add(totalReward);
+                totalRewardPerTry.add(totalReward);
+            }
         }
 
         return totalRewardPerTry;

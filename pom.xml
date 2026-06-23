@@ -23,6 +23,8 @@
     <javacpp.version>1.5.10</javacpp.version>
     <python.version>3.12.1</python.version>
     <assertj.version>3.27.7</assertj.version>
+    <progressbar.version>0.10.2</progressbar.version>
+    <tablesaw.version>0.44.4</tablesaw.version>
   </properties>
 
   <dependencyManagement>
@@ -43,7 +45,18 @@
     <dependency>
       <groupId>me.tongfei</groupId>
       <artifactId>progressbar</artifactId>
-      <version>0.10.2</version>
+      <version>${progressbar.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>tech.tablesaw</groupId>
+      <artifactId>tablesaw-core</artifactId>
+      <version>${tablesaw.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>tech.tablesaw</groupId>
+      <artifactId>tablesaw-jsplot</artifactId>
+      <version>${tablesaw.version}</version>
     </dependency>
 
     <dependency>

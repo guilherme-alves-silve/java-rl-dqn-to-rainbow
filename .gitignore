@@ -243,3 +243,4 @@ __marimo__/
 .mvn/
 
 !python/Lib
+testoutput/

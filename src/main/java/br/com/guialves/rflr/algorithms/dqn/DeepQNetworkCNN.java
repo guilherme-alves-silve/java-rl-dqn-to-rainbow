@@ -90,6 +90,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
             net.initialize(manager,
                     DataType.FLOAT32,
                     new Shape(1, channels, size, size));
+            DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
     }

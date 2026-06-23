@@ -10,8 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static java.util.stream.IntStream.range;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ExperienceReplayBufferTest {
@@ -32,13 +31,14 @@ class ExperienceReplayBufferTest {
     @Test
     void shouldNotOverflow() {
         var expectedCapacity = 10;
-        var replayBuffer = new ExperienceReplayBuffer(expectedCapacity, STATE_SHAPE, manager);
+        var replayBuffer = new ExperienceReplayBuffer(expectedCapacity, manager);
         for (int i = 0; i < 1000; ++i) {
             var exp = createRandomExperience(i);
             if (i < expectedCapacity) assertEquals(i, replayBuffer.pos());
             else assertEquals(i % expectedCapacity, replayBuffer.pos());
             replayBuffer.store(exp);
             assertTrue(replayBuffer.size() <= expectedCapacity);
+            assertDoesNotThrow(() -> replayBuffer.sample(1).close());
         }
     }
 
@@ -56,7 +56,7 @@ class ExperienceReplayBufferTest {
         var expectedNotDone = manager.create(new int[] {0, 0, 0, 0, 0});
 
         try (var mockRandomFactory = mockStatic(ThreadLocalRandom.class)) {
-            var replayBuffer = new ExperienceReplayBuffer(size, STATE_SHAPE, manager);
+            var replayBuffer = new ExperienceReplayBuffer(size, manager);
             range(0, size).forEach(i -> replayBuffer.store(createRandomExperience(i)));
 
             var mockRandom = mock(ThreadLocalRandom.class);

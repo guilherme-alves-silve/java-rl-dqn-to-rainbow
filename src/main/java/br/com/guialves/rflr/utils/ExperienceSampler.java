@@ -22,14 +22,23 @@ public class ExperienceSampler {
     }
 
     public Experience[] sample(Experience[] buffer, int sampleSize, boolean replacement) {
-        if (replacement) return randomSampleReplacement(buffer, sampleSize);
-        return randomSampleWithoutReplacement(buffer, sampleSize);
+        return sample(buffer, sampleSize, 0, buffer.length, replacement);
     }
 
-    private Experience[] randomSampleReplacement(Experience[] buffer, int sampleSize) {
+    public Experience[] sample(Experience[] buffer, int sampleSize, int endExclusive, boolean replacement) {
+        if (replacement) return randomSampleReplacement(buffer, sampleSize, 0, endExclusive);
+        return randomSampleWithoutReplacement(buffer, sampleSize, 0, endExclusive);
+    }
+
+    public Experience[] sample(Experience[] buffer, int sampleSize, int startInclusive, int endExclusive, boolean replacement) {
+        if (replacement) return randomSampleReplacement(buffer, sampleSize, startInclusive, endExclusive);
+        return randomSampleWithoutReplacement(buffer, sampleSize, startInclusive, endExclusive);
+    }
+
+    private Experience[] randomSampleReplacement(Experience[] buffer, int sampleSize, int startInclusive, int endExclusive) {
         var batch = new Experience[sampleSize];
         for (int i = 0; i < sampleSize; ++i) {
-            batch[i] = buffer[ThreadLocalRandom.current().nextInt(0, buffer.length)];
+            batch[i] = buffer[ThreadLocalRandom.current().nextInt(startInclusive, endExclusive)];
         }
 
         return batch;
@@ -41,7 +50,7 @@ public class ExperienceSampler {
      * or millions of elements, the problem is that Fisher–Yates shuffle clones the
      * input array.
      */
-    private Experience[] randomSampleWithoutReplacement(Experience[] buffer, int sampleSize) {
+    private Experience[] randomSampleWithoutReplacement(Experience[] buffer, int sampleSize, int startInclusive, int endExclusive) {
         if (buffer.length < sampleSize) throw new IllegalArgumentException("Sample size (" + sampleSize +
                 ") cannot exceed buffer size (" + buffer.length + ") for sampling without replacement");
         var batch = new Experience[sampleSize];
@@ -53,7 +62,7 @@ public class ExperienceSampler {
         for (int i = 0; i < sampleSize; ++i) {
             tries = startTries;
             do {
-                randomIdx = ThreadLocalRandom.current().nextInt(0, buffer.length);
+                randomIdx = ThreadLocalRandom.current().nextInt(startInclusive, endExclusive);
                 --tries;
             } while (!selected.add(randomIdx) && tries > 0);
 

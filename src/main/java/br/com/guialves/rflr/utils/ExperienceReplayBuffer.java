@@ -1,10 +1,11 @@
 package br.com.guialves.rflr.utils;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.types.Shape;
+import ai.djl.ndarray.types.DataType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Function;
@@ -27,28 +28,35 @@ public class ExperienceReplayBuffer {
     private final NDManager manager;
     private final ExperienceSampler sampler;
     private final int capacity;
-    private final Shape stateShape;
+    private final Device device;
     private int size;
     private int pos;
 
-    public ExperienceReplayBuffer(int capacity, Shape stateShape, NDManager manager) {
-        this(capacity, stateShape, manager, new ExperienceSampler());
+    public ExperienceReplayBuffer(int capacity, NDManager manager) {
+        this(capacity, manager, new ExperienceSampler(), Device.cpu());
+    }
+
+    public ExperienceReplayBuffer(int capacity, NDManager manager, ExperienceSampler sampler) {
+        this(capacity, manager, sampler, Device.cpu());
     }
 
     public ExperienceReplayBuffer(int capacity,
-                                  Shape stateShape,
                                   NDManager manager,
-                                  ExperienceSampler sampler) {
+                                  ExperienceSampler sampler,
+                                  Device device) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
-        this.stateShape = requireNonNull(stateShape);
         this.experiences = new Experience[capacity];
         this.manager = requireNonNull(manager);
         this.sampler = requireNonNull(sampler);
+        this.device = requireNonNull(device);
         this.pos = 0;
     }
 
     public void store(Experience exp) {
+        exp.state().attach(manager);
+        exp.nextState().attach(manager);
+
         if (size < capacity) ++size;
         var temp = experiences[pos];
         experiences[pos] = exp;
@@ -67,12 +75,17 @@ public class ExperienceReplayBuffer {
     public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
-        var batch = sampler.sample(experiences, batchSize, false);
-        var states = toList(batch, exp -> exp.state().expandDims(0));
-        var actions = manager.create(stream(batch).mapToInt(exp -> exp.actionAs(int.class)).toArray());
-        var rewards = manager.create(stream(batch).mapToDouble(Experience::reward).toArray());
-        var nextStates = toList(batch, exp -> exp.nextState().expandDims(0));
-        var dones = manager.create(stream(batch).mapToInt(exp -> exp.done()? 1 : 0).toArray());
+        var batch = sampler.sample(experiences, batchSize, size, false);
+        var states = toList(batch, exp -> exp.state().expandDims(0))
+                .toDevice(device, false);
+        var actions = manager.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
+                .expandDims(1).toDevice(device, false);;
+        var rewards = manager.create(stream(batch).mapToDouble(Experience::reward).toArray())
+                .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
+        var nextStates = toList(batch, exp -> exp.nextState().expandDims(0))
+                .toDevice(device, false);;
+        var dones = manager.create(stream(batch).mapToDouble(exp -> exp.done()? 1 : 0).toArray())
+                .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
 
         return new VecExperience(states, actions, rewards, nextStates, dones);
     }
@@ -97,13 +110,6 @@ public class ExperienceReplayBuffer {
     protected NDArray toList(Experience[] batch, Function<Experience, NDArray> mapper) {
         var arrays = stream(batch)
                 .map(mapper)
-                .peek(arr -> {
-                    if (arr.getShape().dimension() == 2) {
-                        log.warn("Mapper returned 2D array (shape: {}). " +
-                                        "Consider using expandDims(0) for proper batching.",
-                                arr.getShape());
-                    }
-                })
                 .collect(() -> new NDList(batch.length), NDList::add, NDList::addAll);
         return NDArrays.concat(arrays, 0);
     }

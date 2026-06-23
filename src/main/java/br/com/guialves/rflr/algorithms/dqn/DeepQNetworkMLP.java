@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.algorithms.dqn;
 
+import ai.djl.Device;
 import ai.djl.Model;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
@@ -33,11 +34,19 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
     private final SequentialBlock net;
     private final ParameterStore parameterStore;
     private final boolean training;
+    private final Device device;
 
     public DeepQNetworkMLP(int observations,
                            int actions,
                            NDManager manager) {
-        this(observations, actions, null, null, manager);
+        this(observations, actions, null, null, manager, Device.cpu());
+    }
+
+    public DeepQNetworkMLP(int observations,
+                           int actions,
+                           NDManager manager,
+                           Device device) {
+        this(observations, actions, null, null, manager, device);
     }
 
     @SneakyThrows
@@ -45,10 +54,12 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
                            int actions,
                            Path modelPath,
                            String prefix,
-                           NDManager manager) {
+                           NDManager manager,
+                           Device device) {
         this.observations = observations;
         this.actions = actions;
-        this.model = Model.newInstance("dqn_mlp");
+        this.device = device;
+        this.model = Model.newInstance("dqn_mlp", device);
         this.net = new SequentialBlock();
         net.add(Linear.builder().setUnits(128).optBias(true).build())
             .add(Activation::relu)
@@ -64,6 +75,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
             this.training = false;
         } else {
             net.initialize(manager, DataType.FLOAT32, new Shape(1, observations));
+            DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
     }
@@ -91,7 +103,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DeepQNetworkMLP(observations, actions, this.model.getNDManager());
+        var cloned = new DeepQNetworkMLP(observations, actions, model.getNDManager(), device);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

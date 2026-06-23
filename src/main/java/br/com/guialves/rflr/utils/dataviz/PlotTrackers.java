@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.utils;
+package br.com.guialves.rflr.utils.dataviz;
 
 import me.tongfei.progressbar.ProgressBar;
 
@@ -17,7 +17,6 @@ public class PlotTrackers {
         this.meanEpisodeLoss = new ArrayList<>();
     }
 
-
     public void setTrackersMessage(ProgressBar pg, int frames) {
         if (!episodeEpsilons.isEmpty() &&
                 !meanEpisodeRewards.isEmpty() &&
@@ -30,6 +29,10 @@ public class PlotTrackers {
                     frames
             ));
         }
+    }
+
+    public void showAllMetrics() {
+        PlotTrackersTablesaw.showAllMetrics(episodeEpsilons, meanEpisodeRewards, meanEpisodeLoss);
     }
 
     public void add(float epsilon, ArrayList<Object> episodeRewards, float avgLoss) {
