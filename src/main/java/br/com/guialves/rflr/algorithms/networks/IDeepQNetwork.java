@@ -1,10 +1,9 @@
-package br.com.guialves.rflr.algorithms.dqn;
+package br.com.guialves.rflr.algorithms.networks;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.nn.Block;
-import lombok.SneakyThrows;
 
 import java.nio.file.Path;
 
@@ -16,7 +15,6 @@ public interface IDeepQNetwork extends AutoCloseable {
 
     NDManager manager();
 
-    @SneakyThrows
     void save(Path modelPath, String newModelName);
 
     IDeepQNetwork clone();

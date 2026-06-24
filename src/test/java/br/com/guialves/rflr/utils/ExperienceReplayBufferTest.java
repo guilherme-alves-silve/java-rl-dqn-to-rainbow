@@ -16,6 +16,7 @@ import static org.mockito.Mockito.*;
 class ExperienceReplayBufferTest {
 
     private static final Shape STATE_SHAPE = new Shape(3, 3);
+    private static final Shape BATCH_1_SHAPE = new Shape(-1, 1);
     private static NDManager manager;
 
     @BeforeAll
@@ -49,11 +50,15 @@ class ExperienceReplayBufferTest {
         int batchSize = 5;
         var expectedShape = new Shape(batchSize, 3, 3);
 
-        var expectedDoneActions = manager.create(new int[] {0, 2, 4, 6, 8});
-        var expectedDone = manager.create(new int[] {1, 1, 1, 1, 1});
+        var expectedDoneActions = manager.create(
+                new long[] {0L, 2L, 4L, 6L, 8L}).reshape(BATCH_1_SHAPE);
+        var expectedDone = manager.create(
+                new float[] {1f, 1f, 1f, 1f, 1f}).reshape(BATCH_1_SHAPE);
 
-        var expectedNotDoneActions = manager.create(new int[] {1, 3, 5, 7, 9});
-        var expectedNotDone = manager.create(new int[] {0, 0, 0, 0, 0});
+        var expectedNotDoneActions = manager.create(
+                new long[] {1L, 3L, 5L, 7L, 9L}).reshape(BATCH_1_SHAPE);
+        var expectedNotDone = manager.create(
+                new float[] {0f, 0f, 0f, 0f, 0f}).reshape(BATCH_1_SHAPE);
 
         try (var mockRandomFactory = mockStatic(ThreadLocalRandom.class)) {
             var replayBuffer = new ExperienceReplayBuffer(size, manager);
@@ -88,7 +93,7 @@ class ExperienceReplayBufferTest {
     private Experience createRandomExperience(int i) {
         var state = manager.randomUniform(0, 10, STATE_SHAPE);
         var action = mock(ActionSpaceType.ActionResult.class);
-        when(action.valueAs(int.class)).thenReturn(i);
+        when(action.valueAs(Long.class)).thenReturn((long) i);
         var reward = -5 + (i + 1);
         var nextState = manager.randomNormal(STATE_SHAPE);
         boolean done = i % 2 == 0;

@@ -62,8 +62,8 @@ public final class PythonDataStructures {
 
             while (PyDict_Next(obj, pos, keyRef, valueRef) != 0) {
 
-                var javaKey = primitiveFromPy(keyRef);
-                var javaValue = primitiveFromPy(valueRef);
+                var javaKey = primitiveOrObjFromPy(keyRef);
+                var javaValue = primitiveOrObjFromPy(valueRef);
 
                 result.put((K) javaKey, (V) javaValue);
             }
@@ -379,7 +379,7 @@ public final class PythonDataStructures {
         return dict;
     }
 
-    private static Object primitiveFromPy(PyObject obj) {
+    private static Object primitiveOrObjFromPy(PyObject obj) {
 
         if (obj == null || Py_IsNone(obj) >= 1) {
             return null;
@@ -399,6 +399,10 @@ public final class PythonDataStructures {
 
         if (isString(obj)) {
             return toStr(obj);
+        }
+
+        if (isDict(obj)) {
+            return toMap(obj);
         }
 
         throw new IllegalArgumentException(

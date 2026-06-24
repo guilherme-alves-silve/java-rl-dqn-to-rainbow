@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.algorithms.dqn;
+package br.com.guialves.rflr.algorithms.networks;
 
 import ai.djl.Device;
 import ai.djl.Model;

@@ -5,6 +5,7 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
+import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -14,17 +15,20 @@ import br.com.guialves.rflr.utils.DJLUtils;
 import br.com.guialves.rflr.utils.Experience;
 import br.com.guialves.rflr.utils.ExperienceReplayBuffer;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+import lombok.extern.slf4j.Slf4j;
 import me.tongfei.progressbar.ProgressBar;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.gymnasium4j.EngineUtils.gradCol;
 import static java.util.Objects.requireNonNull;
 
+@Slf4j
 public class AgentDQN {
 
     public static final int DEFAULT_FRAME_SKIP = 1;
@@ -34,6 +38,7 @@ public class AgentDQN {
     private boolean test;
     private int episodes;
     private float epsilon;
+    private Map<Object, Object> lastInfo;
 
     private final int updateQTargetAtTimeN;
     private final float minEpsilon;
@@ -107,6 +112,8 @@ public class AgentDQN {
                     var reward = stepResult.reward();
                     var nextState = stepResult.state();
                     var done = stepResult.done();
+                    var info = stepResult.info();
+                    if (!info.isEmpty()) lastInfo = info;
                     var exp = new Experience(state.duplicate(), action, reward,
                             nextState.duplicate(), done);
                     replayBuffer.store(exp);
@@ -142,8 +149,22 @@ public class AgentDQN {
         plotTrackers.showAllMetrics();
     }
 
+    /**
+     * @return true if the agent is in evaluation mode
+     */
+    public boolean test() {
+        return test;
+    }
+
     public int episodes() {
         return episodes;
+    }
+
+    /**
+     * @return the latest metadata returned by the environment step or reset
+     */
+    public Map<Object, Object> lastInfo() {
+        return lastInfo;
     }
 
     /**

@@ -1,10 +1,10 @@
-package br.com.guialves.rflr.dqn;
+package br.com.guialves.rflr.algorithms.networks;
 
 import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
-import br.com.guialves.rflr.algorithms.dqn.DeepQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
