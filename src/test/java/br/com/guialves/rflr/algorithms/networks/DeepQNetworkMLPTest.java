@@ -1,8 +1,10 @@
-package br.com.guialves.rflr.dqn;
+package br.com.guialves.rflr.algorithms.networks;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
+import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -65,7 +67,7 @@ class DeepQNetworkMLPTest {
             dqn.save(tempDir, prefix);
         }
 
-        try (var loaded = new DeepQNetworkMLP(obs, actions, tempDir, prefix, manager)) {
+        try (var loaded = new DeepQNetworkMLP(obs, actions, tempDir, prefix, manager, Device.cpu())) {
             var loadedOutput = loaded.forward(input);
             assertEquals(originalOutput.getShape(), loadedOutput.getShape());
             assertEquals(originalOutput.getDataType(), loadedOutput.getDataType());

@@ -1,7 +1,17 @@
-# [Connecting Java Reinforcement Learning to Python Gymnasium](https://guilhermealvessilveira.substack.com/p/connecting-java-reinforcement-learning)
+# Implementation of Rainbow-DQN (and it's derivatives) in Java 
 
-> The first step toward an autonomous car — Part 1 of 3
-> Building the core for the autonomous car — Part 2 of 3
+## My articles
+- [How to Never Forget Deep Q-Networks: Memory Palaces Meet Reinforcement Learning](https://neuralpalace.substack.com/p/how-to-never-forget-deep-q-networks)
+- [Connecting Java Reinforcement Learning to Python Gymnasium](https://guilhermealvessilveira.substack.com/p/connecting-java-reinforcement-learning)
+
+## Codes and books
+
+- [Rainbow is All you need](https://github.com/Curt-Park/rainbow-is-all-you-need/)
+  - Main author: Jinwoo Park (Curt)
+- [Deep Reinforcement Learning Hands-On, 3rd Edition](https://www.packtpub.com/en-us/product/deep-reinforcement-learning-hands-on-9781835882719)
+  - Main author: Maxim Lapan
+- [Modern Computer Vision with PyTorch, 2nd Edition](https://www.packtpub.com/en-us/product/modern-computer-vision-with-pytorch-9781803240930)
+  - Main authors: V Kishore Ayyadevara, Yeshwanth Reddy
 
 ## Overview
 
@@ -11,6 +21,14 @@ The series progresses in three articles:
 
 1. **Part 1** — Gymnasium integration via JavaCPP
 2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
+- [ ] DQN
+- [ ] Double DQN
+- [ ] PER
+- [ ] Dueling DQN
+- [ ] n-Step
+- [ ] Noisy Networks
+- [ ] C51
+- [ ] Rainbow
 3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN
 
 ### Related articles:

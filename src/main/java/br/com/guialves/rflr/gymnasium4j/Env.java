@@ -95,7 +95,7 @@ public final class Env implements IEnv {
     }
 
     @Override
-    public Pair<NDArray, Map<Object, Object>> reset() {
+    public EnvResetResult reset() {
         this.stateMetadata = null;
         this.stateBuffer = null;
 
@@ -109,7 +109,7 @@ public final class Env implements IEnv {
                 long observationValue = toLong(pyState);
                 var state = manager.create(observationValue);
                 log.debug("Discrete observation: {}", observationValue);
-                return new Pair<>(state, infoMap);
+                return new EnvResetResult(state, infoMap);
             }
 
             this.scalarObservation = false;
@@ -124,7 +124,7 @@ public final class Env implements IEnv {
                     stateMetadata.djlType
             );
 
-            return new Pair<>(state, infoMap);
+            return new EnvResetResult(state, infoMap);
         }
     }
 
@@ -136,8 +136,8 @@ public final class Env implements IEnv {
     @Override
     public EnvStepResult step(ActionResult action, NDManager manager) {
         try (var result = callFunction(pyStep, action.pyObj)) {
-            NDArray state;
 
+            NDArray state;
             if (scalarObservation) {
                 var pyState = getItem(result, 0);
                 long observationValue = toLong(pyState);
@@ -162,8 +162,7 @@ public final class Env implements IEnv {
             boolean truncated = getItemBool(result, 3);
             var infoMap = getItemMap(result, 4);
 
-            return new EnvStepResult(reward, terminated, truncated, infoMap)
-                    .state(state);
+            return new EnvStepResult(reward, terminated, truncated, infoMap, state);
         }
     }
 

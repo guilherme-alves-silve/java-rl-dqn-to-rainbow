@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.utils;
 
+import ai.djl.engine.Engine;
 import ai.djl.ndarray.index.NDIndex;
 import ai.djl.nn.Block;
 import ai.djl.nn.Parameter;
@@ -44,5 +45,21 @@ public class DJLUtils {
         }
 
         return false;
+    }
+
+    public static void freeze(final Block block) {
+        for (var params : block.getParameters()) {
+            params.getValue().freeze(true);
+        }
+    }
+
+    public static void setGradients(final Block block) {
+        for (var params : block.getParameters()) {
+            params.getValue().freeze(false);
+        }
+    }
+
+    public static int gpuCount() {
+        return Engine.getInstance().getGpuCount();
     }
 }

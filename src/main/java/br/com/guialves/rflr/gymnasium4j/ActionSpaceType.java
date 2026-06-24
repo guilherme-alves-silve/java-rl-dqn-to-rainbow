@@ -240,17 +240,37 @@ public enum ActionSpaceType {
          * @throws IllegalStateException if the ActionResult is closed
          * @throws ClassCastException if the value is not of the expected type
          */
+        @SuppressWarnings("unchecked")
         public <T> T valueAs(Class<T> clazz) {
             Object value = value();
             if (value == null) {
                 return null;
             }
-            if (!clazz.isInstance(value)) {
+
+            Class<T> targetType = clazz;
+            if (clazz.isPrimitive()) {
+                targetType = (Class<T>) primitiveToWrapper(clazz);
+            }
+
+            if (!targetType.isInstance(value)) {
                 throw new ClassCastException(
-                        "Expected %s but got %s".formatted(clazz.getName(), value.getClass().getName())
+                        "Expected %s but got %s".formatted(targetType.getName(), value.getClass().getName())
                 );
             }
-            return clazz.cast(value);
+
+            return targetType.cast(value);
+        }
+
+        private Class<?> primitiveToWrapper(Class<?> primitive) {
+            if (int.class == primitive) return Integer.class;
+            if (long.class == primitive) return Long.class;
+            if (float.class == primitive) return Float.class;
+            if (double.class == primitive) return Double.class;
+            if (boolean.class == primitive) return Boolean.class;
+            if (byte.class == primitive) return Byte.class;
+            if (short.class == primitive) return Short.class;
+            if (char.class == primitive) return Character.class;
+            throw new IllegalArgumentException("Unknown primitive: " + primitive);
         }
 
         private Object extractBoxValue(PyObject obj) {

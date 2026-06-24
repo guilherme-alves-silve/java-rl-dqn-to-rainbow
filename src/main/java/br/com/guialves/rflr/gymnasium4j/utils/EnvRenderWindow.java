@@ -62,4 +62,9 @@ public class EnvRenderWindow implements AutoCloseable {
     public void waitRender() {
         Thread.sleep(1000/60);
     }
+
+    public void displayAndWait(BufferedImage image) {
+        this.display(image);
+        this.waitRender();
+    }
 }

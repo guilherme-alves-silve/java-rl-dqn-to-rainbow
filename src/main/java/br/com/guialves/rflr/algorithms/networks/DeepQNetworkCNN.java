@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.dqn;
+package br.com.guialves.rflr.algorithms.networks;
 
 import ai.djl.Model;
 import ai.djl.ndarray.NDArray;
@@ -7,6 +7,7 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
+import ai.djl.nn.Block;
 import ai.djl.nn.Blocks;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.convolutional.Conv2d;
@@ -16,7 +17,6 @@ import br.com.guialves.rflr.utils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.nio.file.Path;
 
 @Slf4j
@@ -90,6 +90,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
             net.initialize(manager,
                     DataType.FLOAT32,
                     new Shape(1, channels, size, size));
+            DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
     }
@@ -113,6 +114,11 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     @SneakyThrows
     public void save(Path path, String prefix) {
         model.save(path, prefix);
+    }
+
+    @Override
+    public Block getBlock() {
+        return model.getBlock();
     }
 
     @Override

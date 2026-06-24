@@ -5,7 +5,7 @@ import ai.djl.ndarray.NDList;
 import ai.djl.translate.Translator;
 import ai.djl.translate.TranslatorContext;
 
-public class DjlTranslators {
+public class DJLTranslators {
 
     public static final SimpleDjlTranslator SIMPLE_DJL_TRANSLATOR = new SimpleDjlTranslator();
 

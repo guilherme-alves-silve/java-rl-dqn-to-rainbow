@@ -53,8 +53,8 @@ class PreProcessingWrapperTest {
     @Test
     void shouldReturnConcatenatedFrames() {
         var result = wrapper.reset();
-        var state = result.getKey();
-        var info = result.getValue();
+        var state = result.state();
+        var info = result.info();
 
         assertNotNull(state);
         assertNotNull(info);
@@ -79,7 +79,7 @@ class PreProcessingWrapperTest {
     @Test
     void shouldProcessSingleStep() {
         var resetResult = wrapper.reset();
-        var initialState = resetResult.getKey();
+        var initialState = resetResult.state();
         var action = env.actionSpaceSample();
 
         var stepResult = wrapper.step(action);
@@ -191,7 +191,7 @@ class PreProcessingWrapperTest {
         assertTrue(stepResult.done());
 
         var resetResult = wrapper.reset();
-        var newState = resetResult.getKey();
+        var newState = resetResult.state();
 
         assertNotNull(newState);
         assertEquals(new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE), newState.getShape());
@@ -317,7 +317,7 @@ class PreProcessingWrapperTest {
     @Test
     void shouldConvertToGrayscale() {
         var resetResult = wrapper.reset();
-        var state = resetResult.getKey();
+        var state = resetResult.state();
 
         assertEquals(DataType.UINT8, state.getDataType());
 
@@ -346,7 +346,7 @@ class PreProcessingWrapperTest {
                 var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, CONCATENATE_FRAMES);
 
                 var resetResult = testWrapper.reset();
-                var state = resetResult.getKey();
+                var state = resetResult.state();
                 var action = testEnv.actionSpaceSample();
 
                 var stepResult = testWrapper.step(action);

@@ -8,6 +8,7 @@ import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.util.Pair;
+import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.EnvStepResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import lombok.experimental.Delegate;
@@ -153,11 +154,11 @@ public class PreProcessingWrapper implements IEnv {
     }
 
     @Override
-    public Pair<NDArray, Map<Object, Object>> reset() {
+    public EnvResetResult reset() {
         var parent = env.manager();
         var resetResult = env.reset();
-        var rawState = resetResult.getKey();
-        var info = resetResult.getValue();
+        var rawState = resetResult.state();
+        var info = resetResult.info();
 
         try (var gray = grayscaleFrame(rawState);
              var resized = resizeFrame(gray)) {
@@ -173,7 +174,7 @@ public class PreProcessingWrapper implements IEnv {
 
             // Promote survivor out of sub before sub closes
             state.attach(parent);
-            return new Pair<>(state, info);
+            return new EnvResetResult(state, info);
         }
     }
 }
