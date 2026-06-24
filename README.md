@@ -22,7 +22,7 @@ The series progresses in three articles:
 1. **Part 1** — Gymnasium integration via JavaCPP
 2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
 - [x] DQN
-- [ ] Double DQN
+- [x] Double DQN
 - [ ] PER
 - [ ] Dueling DQN
 - [ ] n-Step

@@ -1,6 +1,5 @@
-package br.com.guialves.rflr.algorithms.dqn;
+package br.com.guialves.rflr.algorithms.ddqn;
 
-import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.training.loss.Loss;
@@ -30,9 +29,8 @@ import static br.com.guialves.rflr.gymnasium4j.EngineUtils.gradCol;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
-public class AgentDQN implements IAgent {
+public class AgentDDQN implements IAgent {
 
-    private final int[] the2ndAxis = new int[] {1};
     private final ActionSpaceType actionSpaceType;
 
     private boolean test;
@@ -50,10 +48,10 @@ public class AgentDQN implements IAgent {
     private final IDeepQNetwork targetNet;
     private final PlotTrackers plotTrackers;
 
-    public AgentDQN(float epsilon, int updateQTargetAtTimeN,
-                    float minEpsilon, float epsilonDecay,
-                    float gamma, IEnv env, Optimizer optimizer,
-                    Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentDDQN(float epsilon, int updateQTargetAtTimeN,
+                     float minEpsilon, float epsilonDecay,
+                     float gamma, IEnv env, Optimizer optimizer,
+                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         log.info("Creating {}", getClass().getSimpleName());
         this.test = false;
         this.epsilon = epsilon;
@@ -183,14 +181,17 @@ public class AgentDQN implements IAgent {
             var nextStates = samples.nextStates();
             var dones = samples.dones();
 
-            // max q_target(s', a')
-            var maxNextQValue = targetNet.forward(nextStates)
-                    .max(the2ndAxis, true);
-            // gamma * max q_target(s', a')
-            var discountNextQValue = maxNextQValue.mul(gamma);
+            // a* = arg max q_online(s', a')
+            var action = onlineNet.forward(nextStates).argMax(1)
+                    .reshape(N_BATCH, 1);
+            // q_target(s', a*)
+            var nextQValue = targetNet.forward(nextStates)
+                    .gather(action, 1);
+            // gamma * q_target(s', a*)
+            var discountNextQValue = nextQValue.mul(gamma);
             // (1 - done)
             var mask = dones.neg().add(1);
-            // y = r + gamma * max q_target(s', a') * (1 - done)
+            // y = r + gamma * q_target(s', arg max q_online(s', a')) * (1 - done)
             var targetQValue = rewards.add(discountNextQValue.mul(mask))
                     .stopGradient();
 
