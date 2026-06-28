@@ -15,7 +15,7 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 public class AgentDQNMain {
     static void main() {
 
-        int framesLimit = 150_000;
+        int framesLimit = 200_000;
         float maxEpsilon = 1.0f;
         float minEpsilon = 0.01f;
         float epsilonLinearStep = (maxEpsilon - minEpsilon) / framesLimit;

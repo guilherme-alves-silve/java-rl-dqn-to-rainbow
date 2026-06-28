@@ -28,12 +28,12 @@ import java.nio.file.Path;
 @Slf4j
 public class DeepQNetworkMLP implements IDeepQNetwork {
 
+    private boolean training;
     private final int observations;
     private final int actions;
     private final Model model;
     private final SequentialBlock net;
     private final ParameterStore parameterStore;
-    private final boolean training;
     private final Device device;
 
     public DeepQNetworkMLP(int observations,
@@ -99,6 +99,16 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
     @Override
     public Block getBlock() {
         return model.getBlock();
+    }
+
+    @Override
+    public void eval() {
+        this.training = false;
+    }
+
+    @Override
+    public void train() {
+        this.training = true;
     }
 
     @Override

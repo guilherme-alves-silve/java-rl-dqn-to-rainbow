@@ -20,4 +20,8 @@ public interface IDeepQNetwork extends INetwork {
     IDeepQNetwork clone();
 
     Block getBlock();
+
+    void eval();
+
+    void train();
 }

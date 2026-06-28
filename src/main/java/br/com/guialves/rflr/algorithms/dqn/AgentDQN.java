@@ -2,6 +2,7 @@ package br.com.guialves.rflr.algorithms.dqn;
 
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
+import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
@@ -68,9 +69,8 @@ public class AgentDQN extends AbstractAgent {
         float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
             var states = arrays[0];
             var actions = arrays[1];
-
-            return onlineNet.forward(states, qValue ->
-                    qValue.gather(actions, 1));
+            // y_hat = q_online(s, a)
+            return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
         }, samples.states(), samples.actions());
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);

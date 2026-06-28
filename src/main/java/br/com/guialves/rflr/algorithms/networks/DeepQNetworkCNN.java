@@ -22,6 +22,7 @@ import java.nio.file.Path;
 @Slf4j
 public class DeepQNetworkCNN implements IDeepQNetwork {
 
+    private boolean training;
     private final int channels;
     private final int size;
     private final int actions;
@@ -30,7 +31,6 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     private final Model model;
     private final SequentialBlock net;
     private final ParameterStore parameterStore;
-    private final boolean training;
 
     public DeepQNetworkCNN(int channels,
                            int size,
@@ -119,6 +119,16 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     @Override
     public Block getBlock() {
         return model.getBlock();
+    }
+
+    @Override
+    public void eval() {
+        this.training = false;
+    }
+
+    @Override
+    public void train() {
+        this.training = true;
     }
 
     @Override

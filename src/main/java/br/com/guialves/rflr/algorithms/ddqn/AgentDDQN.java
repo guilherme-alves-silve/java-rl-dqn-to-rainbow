@@ -3,7 +3,7 @@ package br.com.guialves.rflr.algorithms.ddqn;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
-import br.com.guialves.rflr.algorithms.dqn.AbstractAgent;
+import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -50,15 +50,15 @@ public class AgentDDQN extends AbstractAgent {
 
             // a* = arg max q_online(s', a')
             @Cleanup var action = onlineNet.forward(nextStates,
-                    local -> local.argMax(1).reshape(N_BATCH, 1));
+                    qOnlineNext -> qOnlineNext.argMax(1).reshape(N_BATCH, 1));
 
-            return targetNet.forward(nextStates, it -> {
+            return targetNet.forward(nextStates, qNextValues -> {
                 // q_target(s', a*)
-                var nextQValue = it.gather(action, 1);
+                var qNextValue = qNextValues.gather(action, 1);
                 // gamma * q_target(s', a*)
-                var discountNextQValue = nextQValue.mul(gamma);
+                var discountNextQValue = qNextValue.mul(gamma);
                 // (1 - done)
-                @Cleanup var mask = scoped(inner -> inner.neg().add(1), dones);
+                @Cleanup var mask = dones.neg().add(1);
                 // y = r + gamma * q_target(s', arg max q_online(s', a')) * (1 - done)
                 return rewards.add(discountNextQValue.mul(mask))
                         .stopGradient();
@@ -69,8 +69,7 @@ public class AgentDDQN extends AbstractAgent {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)
-            var qValue = onlineNet.forward(states, it -> it.gather(actions, 1));
-            return qValue;
+            return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
         }, samples.states(), samples.actions());
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
