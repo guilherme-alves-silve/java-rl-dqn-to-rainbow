@@ -13,7 +13,7 @@ import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.convolutional.Conv2d;
 import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
-import br.com.guialves.rflr.utils.DJLUtils;
+import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 

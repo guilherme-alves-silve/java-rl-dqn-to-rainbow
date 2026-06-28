@@ -7,7 +7,7 @@ import ai.djl.nn.Block;
 
 import java.nio.file.Path;
 
-public interface IDeepQNetwork extends AutoCloseable {
+public interface IDeepQNetwork extends INetwork {
 
     NDList forward(NDList input);
 

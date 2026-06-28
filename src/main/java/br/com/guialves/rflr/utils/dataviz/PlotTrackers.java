@@ -17,16 +17,17 @@ public class PlotTrackers {
         this.meanEpisodeLoss = new ArrayList<>();
     }
 
-    public void setTrackersMessage(ProgressBar pbar, int frames) {
+    public void setTrackersMessage(ProgressBar pbar, int frames, int bufferSize) {
         if (!episodeEpsilons.isEmpty() &&
                 !meanEpisodeRewards.isEmpty() &&
                 !meanEpisodeLoss.isEmpty()) {
             pbar.setExtraMessage(String.format(
-                    "ε=%.4f 🪙=%.4f 📉=%.4f 🖼️=%-6d",
+                    "ε=%.4f 🪙=%.4f 📉=%.4f 🖼️=%d, 📥=%d",
                     episodeEpsilons.getLast(),
                     meanEpisodeRewards.getLast(),
                     meanEpisodeLoss.getLast(),
-                    frames
+                    frames,
+                    bufferSize
             ));
         }
     }
@@ -43,5 +44,9 @@ public class PlotTrackers {
         episodeEpsilons.add(epsilon);
         meanEpisodeRewards.add(avgReward);
         meanEpisodeLoss.add(avgLoss);
+    }
+
+    public void explainTrackersMessage() {
+        IO.println("ε=epsilon decay, 🪙=reward, 📉=loss, 🖼️=frames, 📥=buffer size");
     }
 }

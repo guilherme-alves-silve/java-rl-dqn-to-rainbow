@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -49,7 +50,7 @@ class AgentDQNTest {
 
     private final int updateQTargetAtTimeN = 10;
     private final float minEpsilon = 0.1f;
-    private final float epsilonDecay = 0.9f;
+    private final float epsilonDecay = 0.1f;
     private final float gamma = 0.99f;
 
     @BeforeEach
@@ -70,7 +71,6 @@ class AgentDQNTest {
                 epsilonDecay,
                 gamma,
                 env,
-                device,
                 optimizer,
                 networkFactory,
                 plotTrackers
@@ -105,24 +105,23 @@ class AgentDQNTest {
         AgentDQN exploitativeAgent = new AgentDQN(
                 0.0f,
                 updateQTargetAtTimeN, minEpsilon, epsilonDecay, gamma,
-                env, device, optimizer, () -> onlineNet, plotTrackers
+                env, optimizer, () -> onlineNet, plotTrackers
         );
 
-        NDArray mockExpandedState = mock(NDArray.class);
-        NDArray mockForwardOutput = mock(NDArray.class);
-        NDArray mockStopGrad = mock(NDArray.class);
-        NDArray mockArgMax = mock(NDArray.class);
+        var oneBatchState = mock(NDArray.class);
+        var mockArgMax = mock(NDArray.class);
 
-        when(mockState.expandDims(0)).thenReturn(mockExpandedState);
-        when(onlineNet.forward(mockExpandedState)).thenReturn(mockForwardOutput);
-        when(mockForwardOutput.stopGradient()).thenReturn(mockStopGrad);
-        when(mockStopGrad.argMax(1)).thenReturn(mockArgMax);
+        when(mockState.expandDims(0)).thenReturn(oneBatchState);
+        when(onlineNet.forward(eq(oneBatchState), any(UnaryOperator.class)))
+                .thenReturn(mockArgMax);
         when(mockArgMax.getLong(0)).thenReturn(2L);
 
-        ActionSpaceType.ActionResult result = exploitativeAgent.selectAction(mockState);
+        var result = exploitativeAgent.selectAction(mockState);
 
         assertNotNull(result);
-        verify(onlineNet, times(1)).forward(any(NDArray.class));
+        verify(mockState, times(1)).expandDims(0);
+        verify(onlineNet, times(1)).forward(eq(oneBatchState), any(UnaryOperator.class));
+        verify(oneBatchState, times(1)).close();
         verify(mockArgMax, times(1)).close();
     }
 

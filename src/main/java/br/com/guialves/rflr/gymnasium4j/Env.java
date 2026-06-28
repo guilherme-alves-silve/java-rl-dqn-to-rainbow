@@ -2,7 +2,6 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
-import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
 import lombok.Getter;
 import lombok.NonNull;
@@ -13,9 +12,9 @@ import org.bytedeco.cpython.PyObject;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Map;
 
-import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
+import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
+import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.detectActionSpaceType;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.fillFromNumpy;
@@ -96,6 +95,11 @@ public final class Env implements IEnv {
 
     @Override
     public EnvResetResult reset() {
+        return reset(manager);
+    }
+
+    @Override
+    public EnvResetResult reset(NDManager manager) {
         this.stateMetadata = null;
         this.stateBuffer = null;
 

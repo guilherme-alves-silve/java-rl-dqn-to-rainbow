@@ -1,6 +1,8 @@
-package br.com.guialves.rflr.utils;
+package br.com.guialves.rflr.djlutils;
 
 import ai.djl.engine.Engine;
+import ai.djl.ndarray.BaseNDManager;
+import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.index.NDIndex;
 import ai.djl.nn.Block;
 import ai.djl.nn.Parameter;

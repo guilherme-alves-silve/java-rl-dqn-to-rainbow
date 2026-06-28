@@ -244,4 +244,4 @@ __marimo__/
 
 !python/Lib
 testoutput/
-output_models/*.pt
+output_models/

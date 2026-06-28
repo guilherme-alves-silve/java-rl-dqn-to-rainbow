@@ -12,15 +12,15 @@ import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
-import br.com.guialves.rflr.utils.DJLUtils;
-import br.com.guialves.rflr.utils.ExperienceReplayBuffer;
+import br.com.guialves.rflr.djlutils.DJLUtils;
+import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static br.com.guialves.rflr.utils.DJLUtils.gpuCount;
+import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
 
 public class RLRunner {
 

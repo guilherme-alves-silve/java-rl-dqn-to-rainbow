@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.utils;
+package br.com.guialves.rflr.djlutils;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;

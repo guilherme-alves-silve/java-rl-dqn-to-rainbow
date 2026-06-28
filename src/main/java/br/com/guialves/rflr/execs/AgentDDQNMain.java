@@ -14,10 +14,17 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
  */
 public class AgentDDQNMain {
     static void main() {
+
+        int framesLimit = 150_000;
+        float maxEpsilon = 1.0f;
+        float minEpsilon = 0.01f;
+        float epsilonLinearStep = (maxEpsilon - minEpsilon) / framesLimit;
+        float discountFactor = 0.99f;
+
         var config = new RLConfig(
                 "LunarLander-v3", 8, 4,
-                0.0001f, 1.0f, 0.01f, 0.995f, 0.99f,
-                1000, 128, 100_000, 30_000,
+                0.0005f, maxEpsilon, minEpsilon, epsilonLinearStep, discountFactor,
+                1000, 128, framesLimit, 30_000,
                 true, "ddqn"
         );
 

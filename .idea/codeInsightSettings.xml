@@ -4,6 +4,7 @@
     <included-static-names>
       <name>java.util.Objects</name>
       <name>org.bytedeco.cpython.global.python</name>
+      <name>br.com.guialves.rflr.djlutils.DJLMemoryManagement</name>
     </included-static-names>
   </component>
 </project>
