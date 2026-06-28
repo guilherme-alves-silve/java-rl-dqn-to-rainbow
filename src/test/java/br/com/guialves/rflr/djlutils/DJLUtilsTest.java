@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.utils;
+package br.com.guialves.rflr.djlutils;
 
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
@@ -6,6 +6,7 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.core.Linear;
+import br.com.guialves.rflr.djlutils.DJLUtils;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

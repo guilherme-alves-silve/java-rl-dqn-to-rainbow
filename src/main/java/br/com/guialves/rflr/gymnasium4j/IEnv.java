@@ -21,6 +21,8 @@ public interface IEnv extends AutoCloseable {
 
     EnvResetResult reset();
 
+    EnvResetResult reset(NDManager manager);
+
     EnvStepResult step(ActionSpaceType.ActionResult action);
 
     EnvStepResult step(ActionSpaceType.ActionResult action, NDManager manager);
@@ -31,4 +33,8 @@ public interface IEnv extends AutoCloseable {
 
     @Override
     void close();
+
+    default NDManager newSubManager() {
+        return manager().newSubManager();
+    }
 }

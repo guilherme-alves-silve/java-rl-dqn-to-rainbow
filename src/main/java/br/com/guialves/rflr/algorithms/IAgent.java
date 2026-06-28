@@ -3,7 +3,7 @@ package br.com.guialves.rflr.algorithms;
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
-import br.com.guialves.rflr.utils.ExperienceReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 
 import java.nio.file.Path;
 import java.util.List;

@@ -1,25 +1,9 @@
-package br.com.guialves.rflr.utils;
+package br.com.guialves.rflr.algorithms.buffer;
 
 import java.util.HashSet;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class ExperienceSampler {
-
-    private final int startTries;
-
-    public ExperienceSampler() {
-        this(5);
-    }
-
-    /**
-     * Constructor of ExperienceSampler, used to
-     * sample elements from ExperienceReplayBuffer.
-     * @param startTries When doing sampling without replacement, the number of tries that
-     *                   the algorithm will retry sampling without repetition
-     */
-    public ExperienceSampler(int startTries) {
-        this.startTries = startTries;
-    }
 
     public Experience[] sample(Experience[] buffer, int sampleSize, boolean replacement) {
         return sample(buffer, sampleSize, 0, buffer.length, replacement);
@@ -53,18 +37,26 @@ public class ExperienceSampler {
     private Experience[] randomSampleWithoutReplacement(Experience[] buffer, int sampleSize, int startInclusive, int endExclusive) {
         if (buffer.length < sampleSize) throw new IllegalArgumentException("Sample size (" + sampleSize +
                 ") cannot exceed buffer size (" + buffer.length + ") for sampling without replacement");
+
+        if (startInclusive < 0 || endExclusive > buffer.length || startInclusive > endExclusive) {
+            throw new IllegalArgumentException("Invalid sample range");
+        }
+        int populationSize = endExclusive - startInclusive;
+        if (sampleSize > populationSize) {
+            throw new IllegalArgumentException("Sample size (" + sampleSize +
+                    ") cannot exceed population size (" + populationSize +
+                    ") for sampling without replacement");
+        }
+
         var batch = new Experience[sampleSize];
 
         var selected = new HashSet<Integer>();
 
-        int tries;
         int randomIdx;
         for (int i = 0; i < sampleSize; ++i) {
-            tries = startTries;
             do {
                 randomIdx = ThreadLocalRandom.current().nextInt(startInclusive, endExclusive);
-                --tries;
-            } while (!selected.add(randomIdx) && tries > 0);
+            } while (!selected.add(randomIdx));
 
             batch[i] = buffer[randomIdx];
         }

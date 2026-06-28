@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.utils;
+package br.com.guialves.rflr.algorithms.buffer;
 
 import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
@@ -6,6 +6,7 @@ import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
+import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Function;
@@ -22,7 +23,7 @@ import static java.util.Objects.requireNonNull;
  * <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/01_dqn.py">rainbow-is-all-you-need/01_dqn.py</a>
  */
 @Slf4j
-public class ExperienceReplayBuffer {
+public class ExperienceReplayBuffer implements AutoCloseable {
 
     private final Experience[] experiences;
     private final NDManager manager;
@@ -63,9 +64,9 @@ public class ExperienceReplayBuffer {
         exp.nextState().attach(manager);
 
         if (size < capacity) ++size;
-        var temp = experiences[pos];
+        var oldExp = experiences[pos];
         experiences[pos] = exp;
-        if (temp != null) temp.close();
+        if (oldExp != null) oldExp.close();
         pos = (pos + 1) % experiences.length;
     }
 
@@ -80,19 +81,32 @@ public class ExperienceReplayBuffer {
     public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
+        @Cleanup var sub = manager.newSubManager();
         var batch = sampler.sample(experiences, batchSize, size, false);
-        var states = toList(batch, exp -> exp.state().expandDims(0))
+        var states = toList(batch, exp -> {
+                    exp.state().tempAttach(sub);
+                    return exp.state().expandDims(0);
+                })
                 .toDevice(device, false);
-        var actions = manager.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
+        var actions = sub.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
                 .expandDims(1).toDevice(device, false);
-        var rewards = manager.create(stream(batch).mapToDouble(Experience::reward).toArray())
+        var rewards = sub.create(stream(batch).mapToDouble(Experience::reward).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
-        var nextStates = toList(batch, exp -> exp.nextState().expandDims(0))
+        var nextStates = toList(batch, exp -> {
+                    exp.nextState().tempAttach(sub);
+                    return exp.nextState().expandDims(0);
+                })
                 .toDevice(device, false);
-        var dones = manager.create(stream(batch).mapToDouble(exp -> exp.done()? 1 : 0).toArray())
+        var dones = sub.create(stream(batch).mapToDouble(exp -> exp.done() ? 1 : 0).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
 
-        return new VecExperience(states, actions, rewards, nextStates, dones);
+        return new VecExperience(
+                sub.ret(states),
+                sub.ret(actions),
+                sub.ret(rewards),
+                sub.ret(nextStates),
+                sub.ret(dones)
+        );
     }
 
     /**
@@ -139,15 +153,14 @@ public class ExperienceReplayBuffer {
                                 NDArray actions,
                                 NDArray rewards,
                                 NDArray nextStates,
-                                NDArray dones) implements AutoCloseable {
+                                NDArray dones) implements IVecExperience {
 
-        @Override
-        public void close() {
-            states.close();
-            actions.close();
-            rewards.close();
-            nextStates.close();
-            dones.close();
+    }
+
+    @Override
+    public void close() {
+        for (var exp : experiences) {
+            exp.close();
         }
     }
 }

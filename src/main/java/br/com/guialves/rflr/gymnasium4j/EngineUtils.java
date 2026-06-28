@@ -9,7 +9,7 @@ public class EngineUtils {
         throw new IllegalArgumentException("No EngineUtils!");
     }
 
-    public static GradientCollector gradCol() {
+    public static GradientCollector gradient() {
         return Engine.getInstance().newGradientCollector();
     }
 }

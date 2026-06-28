@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.utils;
+package br.com.guialves.rflr.algorithms.buffer;
 
 import org.junit.jupiter.api.Test;
 
@@ -234,7 +234,7 @@ class ExperienceSamplerTest {
     }
 
     @Test
-    void shouldNeverHaveDuplicatesWithFisherYates() {
+    void shouldNeverHaveDuplicates() {
         var sampler = new ExperienceSampler();
         var experiences = createMockBuffer(100);
 

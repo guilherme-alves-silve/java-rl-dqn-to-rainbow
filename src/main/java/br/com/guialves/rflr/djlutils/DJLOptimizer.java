@@ -1,19 +1,20 @@
-package br.com.guialves.rflr.gymnasium4j;
+package br.com.guialves.rflr.djlutils;
 
 import ai.djl.nn.Block;
 import ai.djl.training.optimizer.Optimizer;
+import lombok.Cleanup;
 
-public class OptimizerUtils {
+public class DJLOptimizer {
 
-    private OptimizerUtils() {
-        throw new IllegalArgumentException("No OptimizerUtils!");
+    private DJLOptimizer() {
+        throw new IllegalStateException("No OptimizerUtils!");
     }
 
     public static void trainStep(Block block, Optimizer optimizer) {
         for (var param : block.getParameters()) {
             if (!param.getValue().requiresGradient()) continue;
             var weight = param.getValue().getArray();
-            var grad = weight.getGradient();
+            @Cleanup var grad = weight.getGradient();
             optimizer.update(param.getKey(), weight, grad);
         }
     }

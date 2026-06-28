@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
 
 /**
@@ -121,10 +122,9 @@ public class PreProcessingWrapper implements IEnv {
     }
 
     private NDArray grayscaleFrame(NDArray state) {
-        try (var f32 = state.toType(DataType.FLOAT32, false);
-             var mean = f32.mean(new int[]{2}, true)) {
-            return mean.toType(DataType.UINT8, false);
-        }
+        return scoped(it -> it.toType(DataType.FLOAT32, false)
+                .mean(new int[]{2}, true)
+                .toType(DataType.UINT8, false), state);
     }
 
     private NDArray resizeFrame(NDArray state) {
@@ -155,8 +155,12 @@ public class PreProcessingWrapper implements IEnv {
 
     @Override
     public EnvResetResult reset() {
-        var parent = env.manager();
-        var resetResult = env.reset();
+        return reset(env.manager());
+    }
+
+    @Override
+    public EnvResetResult reset(NDManager parent) {
+        var resetResult = env.reset(parent);
         var rawState = resetResult.state();
         var info = resetResult.info();
 
@@ -172,7 +176,6 @@ public class PreProcessingWrapper implements IEnv {
             var result = finishConcatenateFrames(frames, rewards);
             var state = result.getKey();
 
-            // Promote survivor out of sub before sub closes
             state.attach(parent);
             return new EnvResetResult(state, info);
         }
