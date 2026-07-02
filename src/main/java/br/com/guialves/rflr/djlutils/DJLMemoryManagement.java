@@ -2,9 +2,13 @@ package br.com.guialves.rflr.djlutils;
 
 import ai.djl.ndarray.BaseNDManager;
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import lombok.Cleanup;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -34,6 +38,10 @@ public class DJLMemoryManagement {
         oldVal.close();
         newVal.attach(manager);
         return newVal;
+    }
+
+    public static Scope scoped(NDManager manager) {
+        return new Scope(manager);
     }
 
     public static NDArray scoped(final UnaryOperator<NDArray> block,
@@ -104,5 +112,59 @@ public class DJLMemoryManagement {
         }
 
         return -1;
+    }
+
+    public static final class Scope implements AutoCloseable {
+
+        private final BaseNDManager manager;
+        private final Set<NDArray> before;
+        private boolean closed;
+
+        private Scope(NDManager manager) {
+            if (manager instanceof BaseNDManager base) {
+                this.manager = base;
+                this.before = identitySnapshot(base.getManagedArrays());
+            } else {
+                this.manager = null;
+                this.before = Set.of();
+            }
+        }
+
+        @Override
+        public void close() {
+            close(null);
+        }
+
+        public void close(Object returned) {
+            if (closed || manager == null) return;
+            closed = true;
+
+            var retained = retainedArrays(returned);
+            var current = identitySnapshot(manager.getManagedArrays());
+            current.removeAll(before);
+            current.removeAll(retained);
+
+            for (var array : current) {
+                array.close();
+            }
+        }
+
+        private static Set<NDArray> identitySnapshot(Iterable<NDArray> arrays) {
+            var snapshot = Collections.newSetFromMap(new IdentityHashMap<NDArray, Boolean>());
+            for (var array : arrays) {
+                if (array != null) snapshot.add(array);
+            }
+            return snapshot;
+        }
+
+        private static Set<NDArray> retainedArrays(Object returned) {
+            var retained = Collections.newSetFromMap(new IdentityHashMap<NDArray, Boolean>());
+            if (returned instanceof NDArray array) {
+                retained.add(array);
+            } else if (returned instanceof NDList list) {
+                retained.addAll(list);
+            }
+            return retained;
+        }
     }
 }
