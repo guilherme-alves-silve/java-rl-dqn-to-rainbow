@@ -46,10 +46,6 @@ abstract class SumSegmentTreeContractTest {
         tree8 = fromArray(1, 2, 3, 4, 5, 6, 7, 8);
     }
 
-    // =========================================================
-    // Constructor
-    // =========================================================
-
     @Test
     void testConstructorSizeAndInitValue() {
         var tree = create(5, 2f);
@@ -71,10 +67,6 @@ abstract class SumSegmentTreeContractTest {
         assertEquals(10f, tree.rangeSum(0, 0), DELTA);
     }
 
-    // =========================================================
-    // sum()
-    // =========================================================
-
     @Test
     void testSumReturnsTotal() {
         assertEquals(15f, tree5.sum(), DELTA);
@@ -86,10 +78,6 @@ abstract class SumSegmentTreeContractTest {
         tree5.update(2, 10f);
         assertEquals(22f, tree5.sum(), DELTA);
     }
-
-    // =========================================================
-    // update()
-    // =========================================================
 
     @Test
     void testUpdateMiddleElement() {
@@ -134,10 +122,6 @@ abstract class SumSegmentTreeContractTest {
         assertDoesNotThrow(() -> tree5.update(10, 10f));
         assertEquals(15f, tree5.sum(), DELTA);
     }
-
-    // =========================================================
-    // rangeSum()
-    // =========================================================
 
     @Test
     void testRangeSumFullArray() {
@@ -215,10 +199,6 @@ abstract class SumSegmentTreeContractTest {
         assertEquals(expected, tree8.rangeSum(left, right), DELTA);
     }
 
-    // =========================================================
-    // prefixSum()
-    // =========================================================
-
     @Test
     void testPrefixSumDefinitionConsistency() {
         float[] array = {3, 1, 4, 1, 5};
@@ -255,10 +235,6 @@ abstract class SumSegmentTreeContractTest {
         for (int i = 0; i < cumsum.length; i++)
             assertEquals(cumsum[i], tree.prefixSum(i), DELTA);
     }
-
-    // =========================================================
-    // sampleIndexByValueInRange() — deterministic via narrow range
-    // =========================================================
 
     @Test
     void testUniformArray() {
@@ -363,10 +339,6 @@ abstract class SumSegmentTreeContractTest {
             assertEquals(3, tree.sampleIndexByValueInRange(9.0f + DELTA, 12.0f));
         }
     }
-
-    // =========================================================
-    // Miscellaneous
-    // =========================================================
 
     @Test
     void testFloatPriorities() {
