@@ -3,8 +3,8 @@ package br.com.guialves.rflr.algorithms;
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
-import br.com.guialves.rflr.algorithms.buffer.Experience;
-import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.IExperience;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -28,7 +28,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.transfer;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
-public abstract class AbstractAgent implements IAgent {
+public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> {
 
     protected final ActionSpaceType actionSpaceType;
 
@@ -71,7 +71,7 @@ public abstract class AbstractAgent implements IAgent {
     public void train(int batchSize,
                       long framesLimit,
                       int framesSkip,
-                      ExperienceReplayBuffer replayBuffer,
+                      IReplayBuffer<T> replayBuffer,
                       Loss lossFunc) {
 
         requireNonNull(replayBuffer, "replayBuffer cannot be null!");
@@ -105,7 +105,7 @@ public abstract class AbstractAgent implements IAgent {
                 var done = stepResult.done();
                 var info = stepResult.info();
                 if (!info.isEmpty()) lastInfo = info;
-                var exp = new Experience(state.duplicate(), action, reward,
+                var exp = newExperience(state.duplicate(), action, reward,
                         nextState.duplicate(), done);
                 replayBuffer.store(exp);
 
@@ -140,6 +140,12 @@ public abstract class AbstractAgent implements IAgent {
         plotTrackers.showAllMetrics();
     }
 
+    protected abstract T newExperience(NDArray state,
+                                       ActionSpaceType.ActionResult action,
+                                       double reward,
+                                       NDArray nextState,
+                                       boolean done);
+
     /**
      * @return true if the agent is in evaluation mode
      */
@@ -161,7 +167,9 @@ public abstract class AbstractAgent implements IAgent {
         return lastInfo;
     }
 
-    protected abstract float trainOnline(int batchSize, ExperienceReplayBuffer replayBuffer, Loss lossFunc);
+    protected abstract float trainOnline(int batchSize,
+                                         IReplayBuffer<T> replayBuffer,
+                                         Loss lossFunc);
 
     protected void updateTargetNetworkAtN(int frames) {
         if (frames % updateQTargetAtTimeN == 0) {

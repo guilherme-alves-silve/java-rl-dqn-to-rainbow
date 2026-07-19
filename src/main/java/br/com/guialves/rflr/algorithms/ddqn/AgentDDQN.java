@@ -1,11 +1,15 @@
 package br.com.guialves.rflr.algorithms.ddqn;
 
+import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
-import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
+import br.com.guialves.rflr.algorithms.buffer.Experience;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
+import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
+import br.com.guialves.rflr.gymnasium4j.EnvStepResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -17,7 +21,7 @@ import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 
 @Slf4j
-public class AgentDDQN extends AbstractAgent {
+public class AgentDDQN extends AbstractAgent<Experience> {
 
     public AgentDDQN(float epsilon, int updateQTargetAtTimeN,
                     float minEpsilon, float epsilonDecay,
@@ -25,6 +29,15 @@ public class AgentDDQN extends AbstractAgent {
                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
+    }
+
+    @Override
+    protected Experience newExperience(NDArray state,
+                                       ActionSpaceType.ActionResult action,
+                                       double reward,
+                                       NDArray nextState,
+                                       boolean done) {
+        return new Experience(state, action, reward, nextState, done);
     }
 
     /**
@@ -38,7 +51,7 @@ public class AgentDDQN extends AbstractAgent {
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
-    protected float trainOnline(int batchSize, ExperienceReplayBuffer replayBuffer, Loss lossFunc) {
+    protected float trainOnline(int batchSize, IReplayBuffer<Experience> replayBuffer, Loss lossFunc) {
         if (replayBuffer.size() < batchSize) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);

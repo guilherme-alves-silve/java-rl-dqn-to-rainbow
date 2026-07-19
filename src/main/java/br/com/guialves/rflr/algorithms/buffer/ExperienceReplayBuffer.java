@@ -2,14 +2,10 @@ package br.com.guialves.rflr.algorithms.buffer;
 
 import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
-import ai.djl.ndarray.NDArrays;
-import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Function;
 
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -23,7 +19,7 @@ import static java.util.Objects.requireNonNull;
  * <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/01_dqn.py">rainbow-is-all-you-need/01_dqn.py</a>
  */
 @Slf4j
-public class ExperienceReplayBuffer implements AutoCloseable {
+public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
 
     private final Experience[] experiences;
     private final NDManager manager;
@@ -35,10 +31,6 @@ public class ExperienceReplayBuffer implements AutoCloseable {
 
     public ExperienceReplayBuffer(int capacity, NDManager manager) {
         this(capacity, manager, new ExperienceSampler(), Device.cpu());
-    }
-
-    public ExperienceReplayBuffer(int capacity, NDManager manager, ExperienceSampler sampler) {
-        this(capacity, manager, sampler, Device.cpu());
     }
 
     public ExperienceReplayBuffer(int capacity, NDManager manager, Device device) {
@@ -58,6 +50,7 @@ public class ExperienceReplayBuffer implements AutoCloseable {
         this.pos = 0;
     }
 
+    @Override
     public void store(Experience exp) {
 
         exp.state().attach(manager);
@@ -70,6 +63,7 @@ public class ExperienceReplayBuffer implements AutoCloseable {
         pos = (pos + 1) % experiences.length;
     }
 
+    @Override
     public boolean enough(int batchSize) {
         return size >= batchSize;
     }
@@ -78,6 +72,7 @@ public class ExperienceReplayBuffer implements AutoCloseable {
      * @param batchSize The number of samples used to generate the mini-batch.
      * @return VecExperience record respecting this order (s, a, r, s', done)
      */
+    @Override
     public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
@@ -110,37 +105,15 @@ public class ExperienceReplayBuffer implements AutoCloseable {
     }
 
     /**
-     * Converts an array of Experiences into a batched NDArray using the provided mapper.
-     *
-     * <p>The mapper function must add a batch dimension using {@code expandDims(0)}
-     * to preserve the batch structure. For example, if each Experience maps to
-     * a {@code [3, 3]} NDArray, the mapper should return {@code [1, 3, 3]}.
-     *
-     * <p><b>Shape behavior:</b>
-     * <ul>
-     *   <li>With {@code expandDims(0)}: {@code [1, 3, 3]} → {@code [N, 3, 3]} ✓</li>
-     *   <li>Without {@code expandDims(0)}: {@code [3, 3]} → {@code [N*3, 3]} ✗</li>
-     * </ul>
-     *
-     * @param batch  the array of experiences to batch
-     * @param mapper maps each experience to its NDArray representation
-     * @return concatenated NDArray along axis 0
-     */
-    protected NDArray toList(Experience[] batch, Function<Experience, NDArray> mapper) {
-        var arrays = stream(batch)
-                .map(mapper)
-                .collect(() -> new NDList(batch.length), NDList::add, NDList::addAll);
-        return NDArrays.concat(arrays, 0);
-    }
-
-    /**
      * Immutable capacity, not the same as size
      * @return capacity
      */
+    @Override
     public int capacity() {
         return capacity;
     }
 
+    @Override
     public int size() {
         return size;
     }
@@ -160,7 +133,7 @@ public class ExperienceReplayBuffer implements AutoCloseable {
     @Override
     public void close() {
         for (var exp : experiences) {
-            exp.close();
+            if (exp != null) exp.close();
         }
     }
 }

@@ -2,21 +2,22 @@ package br.com.guialves.rflr.algorithms;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
+import br.com.guialves.rflr.algorithms.buffer.IExperience;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
-import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-public interface IAgent {
+public interface IAgent<T extends IExperience> {
 
     static final int DEFAULT_FRAME_SKIP = 1;
     static final int N_BATCH = -1;
 
     default void train(int batchSize,
                        long framesLimit,
-                       ExperienceReplayBuffer replayBuffer,
+                       IReplayBuffer<T> replayBuffer,
                        Loss lossFunc) {
         train(batchSize, framesLimit, DEFAULT_FRAME_SKIP, replayBuffer, lossFunc);
     }
@@ -24,7 +25,7 @@ public interface IAgent {
     void train(int batchSize,
                long framesLimit,
                int framesSkip,
-               ExperienceReplayBuffer replayBuffer,
+               IReplayBuffer<T> replayBuffer,
                Loss lossFunc);
 
     /**

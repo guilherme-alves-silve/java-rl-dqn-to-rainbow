@@ -2,15 +2,11 @@ package br.com.guialves.rflr.algorithms.buffer;
 
 import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
-import ai.djl.ndarray.NDArrays;
-import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import br.com.guialves.rflr.datastructure.MinSegmentTree;
 import br.com.guialves.rflr.datastructure.SumSegmentTree;
 import lombok.Cleanup;
-
-import java.util.function.Function;
 
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -21,7 +17,7 @@ import static java.util.Objects.requireNonNull;
  * Reference:
  *  <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
  */
-public class PrioritizedReplayBuffer implements AutoCloseable {
+public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperience> {
 
     private final PrioritizedExperience[] experiences;
     private final NDManager manager;
@@ -49,6 +45,7 @@ public class PrioritizedReplayBuffer implements AutoCloseable {
         this.pos = 0;
     }
 
+    @Override
     public void store(PrioritizedExperience exp) {
 
         exp.state().attach(manager);
@@ -63,11 +60,12 @@ public class PrioritizedReplayBuffer implements AutoCloseable {
         pos = (pos + 1) % experiences.length;
     }
 
+    @Override
     public boolean enough(int batchSize) {
         return size >= batchSize;
     }
 
-    private PrioritizedExperience[] prioritizedSamples(int batchSize) {
+    protected PrioritizedExperience[] prioritizedSamples(int batchSize) {
         var batch = new PrioritizedExperience[batchSize];
         float segment = sumSegmentTree.sum() / batchSize;
         for (int i = 0; i < batchSize; ++i) {
@@ -80,7 +78,8 @@ public class PrioritizedReplayBuffer implements AutoCloseable {
         return batch;
     }
 
-    public IVecExperience sample(int batchSize) {
+    @Override
+    public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
         @Cleanup var sub = manager.newSubManager();
@@ -113,22 +112,16 @@ public class PrioritizedReplayBuffer implements AutoCloseable {
         );
     }
 
-    protected NDArray toList(PrioritizedExperience[] batch,
-                             Function<PrioritizedExperience, NDArray> mapper) {
-        var arrays = stream(batch)
-                .map(mapper)
-                .collect(() -> new NDList(batch.length), NDList::add, NDList::addAll);
-        return NDArrays.concat(arrays, 0);
-    }
-
     /**
      * Immutable capacity, not the same as size
      * @return capacity
      */
+    @Override
     public int capacity() {
         return capacity;
     }
 
+    @Override
     public int size() {
         return size;
     }
@@ -149,7 +142,7 @@ public class PrioritizedReplayBuffer implements AutoCloseable {
     @Override
     public void close() {
         for (var exp : experiences) {
-            exp.close();
+            if (exp != null) exp.close();
         }
     }
 }

@@ -1,11 +1,12 @@
-package br.com.guialves.rflr.algorithms.dqn;
+package br.com.guialves.rflr.algorithms.dqnper;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
-import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.PrioritizedExperience;
+import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -20,25 +21,32 @@ import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 
 @Slf4j
-public class AgentDQN extends AbstractAgent<Experience> {
+public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
 
     private final int[] the2ndAxis = new int[] {1};
+    // 0 = uniform distribution, 1 = full priority
+    private float alpha;
+    // 0 = no correction, 1 = full correction
+    private float beta;
 
-    public AgentDQN(float epsilon, int updateQTargetAtTimeN,
-                    float minEpsilon, float epsilonDecay,
-                    float gamma, IEnv env, Optimizer optimizer,
-                    Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentDQNPER(float epsilon, int updateQTargetAtTimeN,
+                       float minEpsilon, float epsilonDecay,
+                       float gamma, float alpha, float beta,
+                       IEnv env, Optimizer optimizer,
+                       Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
+        this.alpha = alpha;
+        this.beta = beta;
     }
 
     @Override
-    protected Experience newExperience(NDArray state,
-                                       ActionSpaceType.ActionResult action,
-                                       double reward,
-                                       NDArray nextState,
-                                       boolean done) {
-        return new Experience(state, action, reward, nextState, done);
+    protected PrioritizedExperience newExperience(NDArray state,
+                                                  ActionSpaceType.ActionResult action,
+                                                  double reward,
+                                                  NDArray nextState,
+                                                  boolean done) {
+        return new PrioritizedExperience(state, action, reward, nextState, done, 0.00001f);
     }
 
     /**
@@ -48,14 +56,17 @@ public class AgentDQN extends AbstractAgent<Experience> {
      * Reference:
      * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-scratch.html">DJL Linear Regression from Scratch</a>
      * @param batchSize Number of experiences to sample from the replay buffer for each training step
-     * @param replayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
+     * @param ireplayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
     protected float trainOnline(int batchSize,
-                                IReplayBuffer<Experience> replayBuffer,
+                                IReplayBuffer<PrioritizedExperience> ireplayBuffer,
                                 Loss lossFunc) {
-        if (replayBuffer.size() < batchSize) return Float.NaN;
+        if (ireplayBuffer.size() < batchSize) return Float.NaN;
+        if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
+        }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
 
@@ -76,7 +87,7 @@ public class AgentDQN extends AbstractAgent<Experience> {
                         .add(discountNextQValue.mul(mask))
                         .stopGradient();
             });
-        }, samples.rewards(), samples.nextStates(), samples.dones());
+        }, samples.rewards(), samples.nextStates(), samples.dones(), samples.priorities());
 
         float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
             var states = arrays[0];
