@@ -24,20 +24,13 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
 
     private final int[] the2ndAxis = new int[] {1};
-    // 0 = uniform distribution, 1 = full priority
-    private float alpha;
-    // 0 = no correction, 1 = full correction
-    private float beta;
 
     public AgentDQNPER(float epsilon, int updateQTargetAtTimeN,
                        float minEpsilon, float epsilonDecay,
-                       float gamma, float alpha, float beta,
-                       IEnv env, Optimizer optimizer,
+                       float gamma, IEnv env, Optimizer optimizer,
                        Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
-        this.alpha = alpha;
-        this.beta = beta;
     }
 
     @Override

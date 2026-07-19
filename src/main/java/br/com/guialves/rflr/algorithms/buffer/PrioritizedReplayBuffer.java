@@ -16,8 +16,12 @@ import static java.util.Objects.requireNonNull;
  * PER = Prioritized Experience Replay
  * Reference:
  *  <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
+ *  <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/03_per.py">PER Python implementation</a>
  */
 public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperience> {
+
+    public static final float DEFAULT_ALPHA = 0.6f;
+    public static final float DEFAULT_BETA = 0.4f;
 
     private final PrioritizedExperience[] experiences;
     private final NDManager manager;
@@ -25,14 +29,18 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
     private final Device device;
     private int size;
     private int pos;
+    private float maxPriority;
+    // 0 = uniform distribution, 1 = full priority
+    private float alpha;
     private final SumSegmentTree sumSegmentTree;
     private final MinSegmentTree minSegmentTree;
 
     public PrioritizedReplayBuffer(int capacity, NDManager manager) {
-        this(capacity, manager, Device.cpu());
+        this(capacity, DEFAULT_ALPHA, manager, Device.cpu());
     }
 
     public PrioritizedReplayBuffer(int capacity,
+                                   float alpha,
                                    NDManager manager,
                                    Device device) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
@@ -43,6 +51,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
         this.sumSegmentTree = new SumSegmentTree(this.capacity);
         this.minSegmentTree = new MinSegmentTree(this.capacity);
         this.pos = 0;
+        this.alpha = alpha;
+        this.maxPriority = 1f;
     }
 
     @Override
@@ -54,8 +64,9 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
         experiences[pos] = exp;
-        sumSegmentTree.update(pos, exp.priority());
-        minSegmentTree.update(pos, exp.priority());
+        float defaultPriority = (float) Math.pow(maxPriority, alpha);
+        sumSegmentTree.update(pos, defaultPriority);
+        minSegmentTree.update(pos, defaultPriority);
         if (oldExp != null) oldExp.close();
         pos = (pos + 1) % experiences.length;
     }
@@ -65,6 +76,12 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
         return size >= batchSize;
     }
 
+    /**
+     * Approximation to the PER formula of priority sampling of experiences:
+     * \( P(i) = \frac{p_i^{\alpha}}{\sum_k p_k^{\alpha}} \)
+     * @param batchSize batch size
+     * @return array of prioritized experiences
+     */
     protected PrioritizedExperience[] prioritizedSamples(int batchSize) {
         var batch = new PrioritizedExperience[batchSize];
         float segment = sumSegmentTree.sum() / batchSize;
@@ -80,6 +97,10 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
 
     @Override
     public VecExperience sample(int batchSize) {
+        return sample(batchSize, DEFAULT_BETA);
+    }
+
+    public VecExperience sample(int batchSize, float beta) {
         if (!enough(batchSize)) return null;
 
         @Cleanup var sub = manager.newSubManager();
@@ -95,12 +116,10 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
         var nextStates = toList(batch, exp -> {
             exp.nextState().tempAttach(sub);
             return exp.nextState().expandDims(0);
-        })
-                .toDevice(device, false);
+        }).toDevice(device, false);
         var dones = sub.create(stream(batch).mapToDouble(exp -> exp.done() ? 1 : 0).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
-        var priorities = sub.create(stream(batch).mapToDouble(PrioritizedExperience::priority).toArray())
-                .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
+        var weights = calculateWeights(sub, batch, beta);
 
         return new VecExperience(
                 sub.ret(states),
@@ -108,8 +127,43 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
                 sub.ret(rewards),
                 sub.ret(nextStates),
                 sub.ret(dones),
-                sub.ret(priorities)
+                sub.ret(weights)
         );
+    }
+
+    /**
+     * Calculates the Importance Sampling (IS) weights for the prioritized batch to correct
+     * the bias introduced by non-uniform sampling.
+     *
+     * <p>The weight \( w_i \) for an experience \( i \) is defined as:
+     * \[ w_i = \left( \frac{1}{N \cdot P(i)} \right)^{\beta} \]
+     *
+     * <p>To ensure stability, these weights are normalized by the maximum weight \( w_{max} \)
+     * in the current batch:
+     * \[ \hat{w}_i = \frac{w_i}{w_{max}} = \frac{(N \cdot P(i))^{-\beta}}{(N \cdot P_{min})^{-\beta}} \]
+     *
+     * @param sub   The {@link NDManager} to manage memory allocation for the resulting array.
+     * @param batch The array of {@link PrioritizedExperience} sampled from the replay buffer.
+     * @param beta  The degree of importance sampling correction (annealed from initial to 1.0).
+     * @return An {@link NDArray} of shape (batchSize, 1) containing the normalized weights.
+     */
+    private NDArray calculateWeights(NDManager sub, PrioritizedExperience[] batch, float beta) {
+        float sum = sumSegmentTree.sum();
+        float pMin = minSegmentTree.min() / sum;
+        int count = minSegmentTree.size();
+        float maxISWeight = (float) Math.pow(count * pMin, -beta);
+        return sub.create(stream(batch).mapToDouble(exp -> {
+                    float pSample = exp.priority() / sum;
+                    return Math.pow(count * pSample, -beta)/maxISWeight;
+                })
+                .toArray())
+                .toType(DataType.FLOAT32, false)
+                .expandDims(1)
+                .toDevice(device, false);
+    }
+
+    public void updatePriorities(int[] idxs, NDArray priorities) {
+        // TODO
     }
 
     /**
@@ -135,7 +189,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
                                 NDArray rewards,
                                 NDArray nextStates,
                                 NDArray dones,
-                                NDArray priorities) implements IVecExperience {
+                                NDArray weights) implements IVecExperience {
 
     }
 
