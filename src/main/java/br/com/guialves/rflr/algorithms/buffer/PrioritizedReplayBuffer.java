@@ -12,16 +12,23 @@ import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
 /**
+ * Prioritized Experience Replay buffer with PER sampling and importance sampling weights.
  *
+ * <p>Implements the core PER algorithm where experiences are sampled with probability
+ * proportional to their TD-error priority (p^α), and bias is corrected via importance
+ * sampling weights.</p>
+ *
+ * <p>Uses segment trees for O(log N) priority updates and O(log N) sampling.</p>
  * PER = Prioritized Experience Replay
  * Reference:
- *  <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
- *  <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/03_per.py">PER Python implementation</a>
+ *  @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
+ *  @see <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/03_per.py">PER Python implementation</a>
  */
 public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperience> {
 
     public static final float DEFAULT_ALPHA = 0.6f;
     public static final float DEFAULT_BETA = 0.4f;
+    private static final float MIN_DELTA = 0.000_000_001f;
 
     private final PrioritizedExperience[] experiences;
     private final NDManager manager;
@@ -149,10 +156,11 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
      */
     private NDArray calculateWeights(NDManager sub, PrioritizedExperience[] batch, float beta) {
         float sum = sumSegmentTree.sum();
-        float pMin = minSegmentTree.min() / sum;
+        float pMin = Math.max(minSegmentTree.min() / sum, MIN_DELTA);
         int count = minSegmentTree.size();
         float maxISWeight = (float) Math.pow(count * pMin, -beta);
-        return sub.create(stream(batch).mapToDouble(exp -> {
+        return sub.create(stream(batch)
+                .mapToDouble(exp -> {
                     float pSample = exp.priority() / sum;
                     return Math.pow(count * pSample, -beta)/maxISWeight;
                 })
@@ -162,8 +170,34 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
                 .toDevice(device, false);
     }
 
+    /**
+     * Updates priorities for given indices using priority transformation p^α.
+     *
+     * @param idxs      indices to update
+     * @param priorities raw priority values (must match idxs length)
+     * @throws IllegalArgumentException if lengths differ or any priority ≤ 0
+     */
     public void updatePriorities(int[] idxs, NDArray priorities) {
-        // TODO
+        if (idxs.length != priorities.size()) throw new IllegalArgumentException("Invalid length!");
+        float tempMaxPriority = this.maxPriority;
+        var rawPriorities = priorities.toFloatArray();
+        for (int i = 0; i < idxs.length; ++i) {
+            int experienceIdx = idxs[i];
+            if (experienceIdx < 0 || experienceIdx >= experiences.length) {
+                throw new ArrayIndexOutOfBoundsException("Invalid experienceIdx: " + experienceIdx);
+            }
+
+            float priority = (float) Math.pow(rawPriorities[i], this.alpha);
+            if (priority <= 0) {
+                throw new IllegalArgumentException("priority must be greater than 0!");
+            }
+
+            this.sumSegmentTree.update(experienceIdx, priority);
+            this.minSegmentTree.update(experienceIdx, priority);
+            tempMaxPriority = Math.max(tempMaxPriority, priority);
+        }
+
+        this.maxPriority = tempMaxPriority;
     }
 
     /**
