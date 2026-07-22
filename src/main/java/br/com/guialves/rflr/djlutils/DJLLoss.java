@@ -44,19 +44,18 @@ public class DJLLoss {
      * @param manager    parent NDManager
      * @param lossFunc   loss function (e.g., MSE, PERL2Loss)
      * @param yTarget    target values (labels)
-     * @param blockYPred forward pass function that returns predictions
+     * @param yPredBlock forward pass function that returns predictions
      * @param arrays     additional NDArrays needed by blockYPred (states, actions, etc.)
      * @return mean loss value as float
      */
     public static float backwardLoss(NDManager manager,
                                      Loss lossFunc,
                                      NDArray yTarget,
-                                     final Function<NDArray[], NDArray> blockYPred,
+                                     final Function<NDArray[], NDArray> yPredBlock,
                                      final NDArray... arrays) {
         try (var sub = manager.newSubManager();
              var gradCol = gradient()) {
-            @Cleanup var yPred = blockYPred.apply(arrays);
-            @Cleanup var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPred, arrays);
+            @Cleanup var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
             return scopedToFloat(it -> it.stopGradient().mean(), lossesVal);
         }
     }
@@ -69,19 +68,18 @@ public class DJLLoss {
      * @param manager    parent NDManager
      * @param lossFunc   loss function (must support per-sample weights, e.g., PERL2Loss)
      * @param yTarget    target values (labels)
-     * @param blockYPred forward pass function that returns predictions
+     * @param yPredBlock forward pass function that returns predictions
      * @param arrays     additional NDArrays needed by blockYPred (states, actions, etc.)
      * @return per-sample losses with shape (batchSize, 1), gradients stopped
      */
     public static NDArray rawBackwardLoss(NDManager manager,
                                           Loss lossFunc,
                                           NDArray yTarget,
-                                          final Function<NDArray[], NDArray> blockYPred,
+                                          final Function<NDArray[], NDArray> yPredBlock,
                                           final NDArray... arrays) {
         try (var sub = manager.newSubManager();
              var gradCol = gradient()) {
-            @Cleanup var yPred = blockYPred.apply(arrays);
-            @Cleanup var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPred, arrays);
+            @Cleanup var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
             return scoped(NDArray::stopGradient, lossesVal);
         }
     }
@@ -92,23 +90,24 @@ public class DJLLoss {
      * <p>Temporarily attaches all arrays to the sub-manager, computes the loss,
      * and executes backward pass to compute gradients.
      *
-     * @param lossFunc loss function to evaluate
-     * @param sub      sub-manager for temporary memory management
-     * @param gradCol  gradient collector for backpropagation
-     * @param yTarget  target values
-     * @param yPred    predictions from the forward pass
-     * @param arrays   additional arrays used in the computation
+     * @param lossFunc   loss function to evaluate
+     * @param sub        sub-manager for temporary memory management
+     * @param gradCol    gradient collector for backpropagation
+     * @param yTarget    target values
+     * @param yPredBlock predictions from the forward pass
+     * @param arrays     additional arrays used in the computation
      * @return raw loss NDArray (still managed by the sub-manager)
      */
     private static NDArray evaluate(Loss lossFunc,
                                     NDManager sub,
                                     GradientCollector gradCol,
                                     NDArray yTarget,
-                                    NDArray yPred,
+                                    Function<NDArray[], NDArray> yPredBlock,
                                     NDArray[] arrays) {
         yTarget.tempAttach(sub);
-        yPred.tempAttach(sub);
         sub.tempAttachAll(arrays);
+        @Cleanup var yPred = yPredBlock.apply(arrays);
+        yPred.tempAttach(sub);
         var lossesVal = lossFunc.evaluate(new NDList(yTarget), new NDList(yPred));
         gradCol.backward(lossesVal);
         return lossesVal;

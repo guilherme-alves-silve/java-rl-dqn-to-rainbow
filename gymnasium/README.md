@@ -10,9 +10,10 @@ uv pip install -r requirements.txt
 
 The used environment is the [CartPole](https://gymnasium.farama.org/environments/classic_control/cart_pole/)
 
-Configure the environment varibles. Example:
+Configure the environment variables, with one of the options below. Example:
 
 - `export JAVA_RL_SITE_PACKAGES=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/include/site/python3.12`
+- `export JAVA_RL_SITE_PACKAGES=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/Lib/site-packages`
 
 Sometimes the python don't add the Include, do the process below:
 
