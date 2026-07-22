@@ -20,23 +20,7 @@ public record RLConfig(
         String algorithmName
 ) {
 
-    public RLConfig build() {
-        var epsilonLinearStep = (maxEpsilon - minEpsilon) / framesLimit;
-        return new RLConfig(
-                envName,
-                observations,
-                actions,
-                learningRate,
-                maxEpsilon,
-                minEpsilon,
-                epsilonLinearStep,
-                discountFactor,
-                updateQTargetAtTimeN,
-                batchSize,
-                framesLimit,
-                bufferCapacity,
-                saveModel,
-                algorithmName
-        );
+    public RLConfig {
+        epsilonDecay = (maxEpsilon - minEpsilon) / framesLimit;
     }
 }

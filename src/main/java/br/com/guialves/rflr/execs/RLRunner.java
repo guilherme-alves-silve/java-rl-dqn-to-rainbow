@@ -27,6 +27,10 @@ public class RLRunner {
     @FunctionalInterface
     public interface AgentFactory {
         IAgent create(IEnv env, Optimizer optimizer, Device device, PlotTrackers plotTrackers);
+
+        default Loss lossFunc() {
+            return Loss.l2Loss();
+        }
     }
 
     public static void run(RLConfig config, AgentFactory agentFactory) {
@@ -57,7 +61,7 @@ public class RLRunner {
             var agent = agentFactory.create(env, optimizer, device, plotTrackers);
 
             var replayBuffer = new ExperienceReplayBuffer(config.bufferCapacity(), manager, device);
-            var lossFunc = Loss.l2Loss();
+            var lossFunc = agentFactory.lossFunc();
 
             agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
 

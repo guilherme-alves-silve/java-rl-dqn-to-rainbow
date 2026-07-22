@@ -1,9 +1,11 @@
 package br.com.guialves.rflr.execs;
 
 import ai.djl.Device;
+import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.dqnper.AgentDQNPER;
+import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -31,8 +33,18 @@ public class AgentDQNPERMain {
                 .algorithmName("dqnper")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, device, plotTrackers) ->
-                buildDQNPER(config, env, optimizer, device, plotTrackers));
+        RLRunner.run(config, new RLRunner.AgentFactory() {
+
+            @Override
+            public IAgent<?> create(IEnv env, Optimizer optimizer, Device device, PlotTrackers plotTrackers) {
+                return buildDQNPER(config, env, optimizer, device, plotTrackers);
+            }
+
+            @Override
+            public Loss lossFunc() {
+                return new PERL2Loss();
+            }
+        });
     }
 
     private static IAgent<?> buildDQNPER(RLConfig config,

@@ -96,7 +96,7 @@ public class DJLMemoryManagement {
         if (arrays.length == 0) throw new IllegalArgumentException("arrays must contain elements!");
 
         try (var sub = arrays[0].getManager().newSubManager()) {
-            a.attach(sub);
+            a.tempAttach(sub);
             sub.tempAttachAll(arrays);
 
             var result = sub.ret(block.apply(a, arrays));
