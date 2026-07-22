@@ -83,23 +83,32 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
         return size >= batchSize;
     }
 
+    private PrioritizedExperience[] buildPrioritizedSamples(int[] bufferIndexes) {
+        var batch = new PrioritizedExperience[bufferIndexes.length];
+        for (int i = 0; i < batch.length; ++i) {
+            batch[i] = experiences[bufferIndexes[i]];
+        }
+
+        return batch;
+    }
+
     /**
      * Approximation to the PER formula of priority sampling of experiences:
      * \( P(i) = \frac{p_i^{\alpha}}{\sum_k p_k^{\alpha}} \)
      * @param batchSize batch size
-     * @return array of prioritized experiences
+     * @return array of the index of prioritized experiences
      */
-    protected PrioritizedExperience[] prioritizedSamples(int batchSize) {
-        var batch = new PrioritizedExperience[batchSize];
+    protected int[] prioritizedIndexSamples(int batchSize) {
+        var batchIdxs = new int[batchSize];
         float segment = sumSegmentTree.sum() / batchSize;
         for (int i = 0; i < batchSize; ++i) {
             float lower = i * segment;
             float upper = (i + 1) * segment;
             int sampledIdx = sumSegmentTree.sampleIndexByValueInRange(lower, upper);
-            batch[i] = experiences[sampledIdx];
+            batchIdxs[i] = sampledIdx;
         }
 
-        return batch;
+        return batchIdxs;
     }
 
     @Override
@@ -111,7 +120,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
         if (!enough(batchSize)) return null;
 
         @Cleanup var sub = manager.newSubManager();
-        var batch = prioritizedSamples(batchSize);
+        var bufferIndexes = prioritizedIndexSamples(batchSize);
+        var batch = buildPrioritizedSamples(bufferIndexes);
         var states = toList(batch, exp -> {
             exp.state().tempAttach(sub);
             return exp.state().expandDims(0);
@@ -134,7 +144,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
                 sub.ret(rewards),
                 sub.ret(nextStates),
                 sub.ret(dones),
-                sub.ret(weights)
+                sub.ret(weights),
+                bufferIndexes
         );
     }
 
@@ -142,12 +153,12 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
      * Calculates the Importance Sampling (IS) weights for the prioritized batch to correct
      * the bias introduced by non-uniform sampling.
      *
-     * <p>The weight \( w_i \) for an experience \( i \) is defined as:
-     * \[ w_i = \left( \frac{1}{N \cdot P(i)} \right)^{\beta} \]
+     * <p>The weight \( w^{\tiny (IS)}_i \) for an experience \( i \) is defined as:
+     * \[ w^{\tiny (IS)}_i = \left(N \cdot P(i) \right)^{-\beta} \]
      *
      * <p>To ensure stability, these weights are normalized by the maximum weight \( w_{max} \)
      * in the current batch:
-     * \[ \hat{w}_i = \frac{w_i}{w_{max}} = \frac{(N \cdot P(i))^{-\beta}}{(N \cdot P_{min})^{-\beta}} \]
+     * \[ \overline{w}^{\tiny (IS)}_i = \frac{w^{\tiny (IS)}_i}{w^{\tiny (IS)}_{max}} = \frac{(N \cdot P(i))^{-\beta}}{(N \cdot P_{min})^{-\beta}} \]
      *
      * @param sub   The {@link NDManager} to manage memory allocation for the resulting array.
      * @param batch The array of {@link PrioritizedExperience} sampled from the replay buffer.
@@ -173,16 +184,16 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
     /**
      * Updates priorities for given indices using priority transformation p^α.
      *
-     * @param idxs      indices to update
+     * @param bufferIndexes      indices to update
      * @param priorities raw priority values (must match idxs length)
      * @throws IllegalArgumentException if lengths differ or any priority ≤ 0
      */
-    public void updatePriorities(int[] idxs, NDArray priorities) {
-        if (idxs.length != priorities.size()) throw new IllegalArgumentException("Invalid length!");
+    public void updatePriorities(int[] bufferIndexes, NDArray priorities) {
+        if (bufferIndexes.length != priorities.size()) throw new IllegalArgumentException("Invalid length!");
         float tempMaxPriority = this.maxPriority;
         var rawPriorities = priorities.toFloatArray();
-        for (int i = 0; i < idxs.length; ++i) {
-            int experienceIdx = idxs[i];
+        for (int i = 0; i < bufferIndexes.length; ++i) {
+            int experienceIdx = bufferIndexes[i];
             if (experienceIdx < 0 || experienceIdx >= experiences.length) {
                 throw new ArrayIndexOutOfBoundsException("Invalid experienceIdx: " + experienceIdx);
             }
@@ -223,7 +234,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<PrioritizedExperie
                                 NDArray rewards,
                                 NDArray nextStates,
                                 NDArray dones,
-                                NDArray weights) implements IVecExperience {
+                                NDArray weights,
+                                int[] bufferIndexes) implements IVecExperience {
 
     }
 

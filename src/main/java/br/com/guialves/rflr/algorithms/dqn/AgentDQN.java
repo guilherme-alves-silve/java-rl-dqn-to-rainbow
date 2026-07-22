@@ -17,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 
 @Slf4j
 public class AgentDQN extends AbstractAgent<Experience> {
@@ -58,13 +57,10 @@ public class AgentDQN extends AbstractAgent<Experience> {
         if (replayBuffer.size() < batchSize) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
+        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
+                var rewards = arrays[0];
+                var dones = arrays[1];
 
-        @Cleanup var targetQValue = scoped(arrays -> {
-            var rewards = arrays[0];
-            var nextStates = arrays[1];
-            var dones = arrays[2];
-
-            return targetNet.forward(nextStates, nextQValue -> {
                 // max Q(s', a')
                 var maxNextQValue = nextQValue.max(the2ndAxis, true);
                 // gamma * max Q(s', a')
@@ -75,8 +71,7 @@ public class AgentDQN extends AbstractAgent<Experience> {
                 return rewards
                         .add(discountNextQValue.mul(mask))
                         .stopGradient();
-            });
-        }, samples.rewards(), samples.nextStates(), samples.dones());
+        }, samples.rewards(), samples.dones());
 
         float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
             var states = arrays[0];

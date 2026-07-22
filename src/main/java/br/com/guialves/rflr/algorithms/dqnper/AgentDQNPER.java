@@ -13,17 +13,23 @@ import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Supplier;
 
-import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
 
 @Slf4j
 public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
 
+    private static final Float MIN_PRIORITY = 0.000_001f;
     private final int[] the2ndAxis = new int[] {1};
+    @Getter @Setter
+    private float beta;
 
     public AgentDQNPER(float epsilon, int updateQTargetAtTimeN,
                        float minEpsilon, float epsilonDecay,
@@ -39,7 +45,7 @@ public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
                                                   double reward,
                                                   NDArray nextState,
                                                   boolean done) {
-        return new PrioritizedExperience(state, action, reward, nextState, done, 0.00001f);
+        return new PrioritizedExperience(state, action, reward, nextState, done, MIN_PRIORITY);
     }
 
     /**
@@ -60,35 +66,39 @@ public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
         if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
         }
+        if (!(lossFunc instanceof PERL2Loss perl2LossFunc)) {
+            throw new IllegalArgumentException("You must pass PERL2Loss!");
+        }
 
-        @Cleanup var samples = replayBuffer.sample(batchSize);
-
-        @Cleanup var targetQValue = scoped(arrays -> {
+        @Cleanup var samples = replayBuffer.sample(batchSize, beta);
+        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
             var rewards = arrays[0];
-            var nextStates = arrays[1];
-            var dones = arrays[2];
+            var dones = arrays[1];
+            // max Q(s', a')
+            var maxNextQValue = nextQValue.max(the2ndAxis, true);
+            // gamma * max Q(s', a')
+            var discountNextQValue = maxNextQValue.mul(gamma);
+            // (1 - done)
+            var mask = dones.neg().add(1);
+            // r + gamma * max Q(s', a') * (1 - done)
+            return rewards
+                    .add(discountNextQValue.mul(mask))
+                    .stopGradient();
+        }, samples.rewards(), samples.dones());
 
-            return targetNet.forward(nextStates, nextQValue -> {
-                // max Q(s', a')
-                var maxNextQValue = nextQValue.max(the2ndAxis, true);
-                // gamma * max Q(s', a')
-                var discountNextQValue = maxNextQValue.mul(gamma);
-                // (1 - done)
-                var mask = dones.neg().add(1);
-                // r + gamma * max Q(s', a') * (1 - done)
-                return rewards
-                        .add(discountNextQValue.mul(mask))
-                        .stopGradient();
-            });
-        }, samples.rewards(), samples.nextStates(), samples.dones(), samples.priorities());
-
-        float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
+        perl2LossFunc.normISWeights(samples.weights());
+        // (perl2LossFunc) L = sum norm w^{is} * error^2
+        @Cleanup var losses = rawBackwardLoss(env.manager(), perl2LossFunc, targetQValue, arrays -> {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
-        }, samples.states(), samples.actions());
+        }, samples.states(), samples.actions(), perl2LossFunc.normISWeights());
 
+        var lossItem = scopedToFloat(it -> it.stopGradient().mean(), losses);
+        var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
+
+        replayBuffer.updatePriorities(samples.bufferIndexes(), priorities);
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;
     }
