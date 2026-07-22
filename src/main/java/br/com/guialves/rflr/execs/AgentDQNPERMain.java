@@ -3,7 +3,7 @@ package br.com.guialves.rflr.execs;
 import ai.djl.Device;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.dqn.AgentDQN;
+import br.com.guialves.rflr.algorithms.dqnper.AgentDQNPER;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -12,7 +12,7 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
-public class AgentDQNMain {
+public class AgentDQNPERMain {
     static void main() {
 
         var config = RLConfig.builder()
@@ -28,24 +28,24 @@ public class AgentDQNMain {
                 .framesLimit(200_000)
                 .bufferCapacity(30_000)
                 .saveModel(true)
-                .algorithmName("dqn")
+                .algorithmName("dqnper")
                 .build();
 
         RLRunner.run(config, (env, optimizer, device, plotTrackers) ->
-                buildDQN(config, env, optimizer, device, plotTrackers));
+                buildDQNPER(config, env, optimizer, device, plotTrackers));
     }
 
-    private static IAgent<?> buildDQN(RLConfig config,
-                                     IEnv env,
-                                     Optimizer optimizer,
-                                     Device device,
-                                     PlotTrackers plotTrackers) {
-        return new AgentDQN(
+    private static IAgent<?> buildDQNPER(RLConfig config,
+                                         IEnv env,
+                                         Optimizer optimizer,
+                                         Device device,
+                                         PlotTrackers plotTrackers) {
+        return new AgentDQNPER(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
                 config.epsilonDecay(),
-                config.discountFactor(), // gamma
+                config.discountFactor(),
                 env,
                 optimizer,
                 () -> new DeepQNetworkMLP(

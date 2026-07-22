@@ -13,3 +13,11 @@ The used environment is the [CartPole](https://gymnasium.farama.org/environments
 Configure the environment varibles. Example:
 
 - `export JAVA_RL_SITE_PACKAGES=/path/to/java-rl-dqn-to-rainbow/gymnasium/.venv/include/site/python3.12`
+
+Sometimes the python don't add the Include, do the process below:
+
+Windows (Git Bash):
+- `cp -r "/c/Users/YOUR_USER_NAME/AppData/Local/Python/pythoncore-3.12-64/Include/"* "venv/Include/"`
+
+Linux:
+- `cp -r /usr/include/python3.12/* venv/include`
