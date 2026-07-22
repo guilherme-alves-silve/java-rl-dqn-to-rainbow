@@ -1,9 +1,13 @@
 package br.com.guialves.rflr.execs;
 
 import ai.djl.Device;
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
+import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.dqnper.AgentDQNPER;
 import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
@@ -17,6 +21,7 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 public class AgentDQNPERMain {
     static void main() {
 
+        float alpha = 0.4f;
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
                 .observations(8)
@@ -27,7 +32,7 @@ public class AgentDQNPERMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .framesLimit(200_000)
+                .framesLimit(500_000)
                 .bufferCapacity(30_000)
                 .saveModel(true)
                 .algorithmName("dqnper")
@@ -42,7 +47,12 @@ public class AgentDQNPERMain {
 
             @Override
             public Loss lossFunc() {
-                return new PERL2Loss();
+                return PERL2Loss.noneReduction();
+            }
+
+            @Override
+            public IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager, Device device) {
+                return new PrioritizedReplayBuffer(config.bufferCapacity(), alpha, manager, device);
             }
         });
     }
@@ -52,12 +62,14 @@ public class AgentDQNPERMain {
                                          Optimizer optimizer,
                                          Device device,
                                          PlotTrackers plotTrackers) {
+        float initialBeta = 0.6f;
         return new AgentDQNPER(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
                 config.epsilonDecay(),
                 config.discountFactor(),
+                initialBeta,
                 env,
                 optimizer,
                 () -> new DeepQNetworkMLP(

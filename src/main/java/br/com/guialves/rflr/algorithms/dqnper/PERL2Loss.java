@@ -17,13 +17,27 @@ public class PERL2Loss extends Loss {
 
     private static final long INFER_DIMENSION = -1;
     private static final float HALF_WEIGHT = 0.5f;
+    private final Reduction reduction;
     private NDArray normISWeights;
+
+    public enum Reduction {
+        MEAN, NONE
+    }
+
+    public PERL2Loss() {
+        this(Reduction.MEAN);
+    }
 
     /**
      * Importance Sampling Weights used in the PER algorithm
      */
-    public PERL2Loss() {
+    public PERL2Loss(Reduction reduction) {
         super("PERL2Loss");
+        this.reduction = reduction;
+    }
+
+    public static PERL2Loss noneReduction() {
+        return new PERL2Loss(Reduction.NONE);
     }
 
     /**
@@ -58,6 +72,10 @@ public class PERL2Loss extends Loss {
         var weightedError = timeDifferenceError.mul(normISWeights);
         var loss = weightedError.mul(HALF_WEIGHT);
         this.normISWeights = null;
-        return loss.mean();
+        if (reduction.equals(Reduction.MEAN)) {
+            return loss.mean();
+        }
+
+        return loss;
     }
 }

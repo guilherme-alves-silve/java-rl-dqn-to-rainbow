@@ -15,4 +15,6 @@ public interface ISumSegmentTree {
     float prefixSum(int end);
 
     int sampleIndexByValueInRange(float lower, float upper);
+
+    float get(int idx);
 }

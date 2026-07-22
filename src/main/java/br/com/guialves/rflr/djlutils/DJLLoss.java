@@ -79,8 +79,8 @@ public class DJLLoss {
                                           final NDArray... arrays) {
         try (var sub = manager.newSubManager();
              var gradCol = gradient()) {
-            @Cleanup var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
-            return scoped(NDArray::stopGradient, lossesVal);
+            var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
+            return manager.ret(scoped(NDArray::stopGradient, lossesVal));
         }
     }
 

@@ -115,6 +115,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
                     ++episodeSteps;
                 }
 
+                templateExtraProcessing(framesLimit, framesSkip);
                 frames += framesSkip;
                 updateTargetNetworkAtN(frames);
 
@@ -138,6 +139,13 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
         debugDump(env.manager());
 
         plotTrackers.showAllMetrics();
+    }
+
+    /**
+     * Follow the design pattern template method
+     */
+    protected void templateExtraProcessing(long framesLimit, int framesSkip) {
+        // Empty, it's a template method
     }
 
     protected abstract T newExperience(NDArray state,

@@ -25,7 +25,7 @@ class SumSegmentTreeFlatTest extends SumSegmentTreeContractTest {
 
 abstract class SumSegmentTreeContractTest {
 
-    private static final float DELTA = 1e-5f;
+    private static final float DELTA = 1e-6f;
 
     // [1, 2, 3, 4, 5] -> sum = 15
     private ISumSegmentTree tree5;
@@ -379,6 +379,45 @@ abstract class SumSegmentTreeContractTest {
         assertEquals(5f,  tree.rangeSum(1, 1), DELTA);
         assertEquals(8f,  tree.rangeSum(1, 3), DELTA);
         assertEquals(15f, tree.rangeSum(0, 5), DELTA);
+    }
+
+    @Test
+    void testGetExistingIndices() {
+        assertEquals(1.0f, tree5.get(0), DELTA);
+        assertEquals(2.0f, tree5.get(1), DELTA);
+        assertEquals(3.0f, tree5.get(2), DELTA);
+        assertEquals(4.0f, tree5.get(3), DELTA);
+        assertEquals(5.0f, tree5.get(4), DELTA);
+    }
+
+    @Test
+    void testGetAfterUpdate() {
+        tree5.update(2, 10f);
+        assertEquals(1.0f, tree5.get(0), DELTA);
+        assertEquals(2.0f, tree5.get(1), DELTA);
+        assertEquals(10.0f, tree5.get(2), DELTA);
+        assertEquals(4.0f, tree5.get(3), DELTA);
+        assertEquals(5.0f, tree5.get(4), DELTA);
+    }
+
+    @Test
+    void testGetMultipleUpdatesSameIndex() {
+        tree5.update(2, 10f);
+        assertEquals(10.0f, tree5.get(2), DELTA);
+
+        tree5.update(2, 20f);
+        assertEquals(20.0f, tree5.get(2), DELTA);
+
+        tree5.update(2, 3f);
+        assertEquals(3.0f, tree5.get(2), DELTA);
+    }
+
+    @Test
+    void testGetWithZeroValue() {
+        var treeWithZeros = new SumSegmentTree(3, 0f);
+        assertEquals(0.0f, treeWithZeros.get(0), DELTA);
+        assertEquals(0.0f, treeWithZeros.get(1), DELTA);
+        assertEquals(0.0f, treeWithZeros.get(2), DELTA);
     }
 
     @Test

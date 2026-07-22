@@ -4,8 +4,8 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
+import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.PrioritizedExperience;
 import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
@@ -13,8 +13,6 @@ import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Supplier;
@@ -24,28 +22,29 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
 
 @Slf4j
-public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
+public class AgentDQNPER extends AbstractAgent<Experience> {
 
     private static final Float MIN_PRIORITY = 0.000_001f;
     private final int[] the2ndAxis = new int[] {1};
-    @Getter @Setter
+    private final float initialBeta;
     private float beta;
 
     public AgentDQNPER(float epsilon, int updateQTargetAtTimeN,
                        float minEpsilon, float epsilonDecay,
-                       float gamma, IEnv env, Optimizer optimizer,
+                       float gamma, float beta, IEnv env, Optimizer optimizer,
                        Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
+        this.initialBeta = beta;
     }
 
     @Override
-    protected PrioritizedExperience newExperience(NDArray state,
-                                                  ActionSpaceType.ActionResult action,
-                                                  double reward,
-                                                  NDArray nextState,
-                                                  boolean done) {
-        return new PrioritizedExperience(state, action, reward, nextState, done, MIN_PRIORITY);
+    protected Experience newExperience(NDArray state,
+                                       ActionSpaceType.ActionResult action,
+                                       double reward,
+                                       NDArray nextState,
+                                       boolean done) {
+        return new Experience(state, action, reward, nextState, done);
     }
 
     /**
@@ -60,7 +59,7 @@ public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
      */
     @Override
     protected float trainOnline(int batchSize,
-                                IReplayBuffer<PrioritizedExperience> ireplayBuffer,
+                                IReplayBuffer<Experience> ireplayBuffer,
                                 Loss lossFunc) {
         if (ireplayBuffer.size() < batchSize) return Float.NaN;
         if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
@@ -95,11 +94,36 @@ public class AgentDQNPER extends AbstractAgent<PrioritizedExperience> {
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
         }, samples.states(), samples.actions(), perl2LossFunc.normISWeights());
 
-        var lossItem = scopedToFloat(it -> it.stopGradient().mean(), losses);
-        var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
+        var lossItem = scopedToFloat(NDArray::mean, losses);
+        @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
 
         replayBuffer.updatePriorities(samples.bufferIndexes(), priorities);
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;
+    }
+
+    /**
+     * Updates the importance sampling annealing parameter (beta) based on the current training progress.
+     *
+     * <p>Beta is annealed from {@code initialBeta} to 1.0 over the course of training to
+     * gradually correct the bias introduced by prioritized experience replay. This follows
+     * the approach described in the Prioritized Experience Replay paper (Schaul et al., 2015).
+     *
+     * <p>The annealing formula is:
+     * \[ \beta = \beta_{initial} + \text{fraction} \times (1.0 - \beta_{initial}) \]
+     *
+     * @param framesLimit The total number of frames to process during training.
+     *                         Must be greater than 0.
+     * @param framesSkip       The number of frames to skip between actions (frame-skip).
+     *                         This is added to totalFramesLimit to account for skipped frames.
+     *                         Must be >= 0.
+     * @throws IllegalArgumentException if {@code totalFramesLimit} <= 0 or {@code framesSkip} < 0
+     * @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
+     */
+    @Override
+    protected void templateExtraProcessing(long framesLimit, int framesSkip) {
+        float currentFrameIndex = framesLimit + framesSkip;
+        float fraction = Math.min(currentFrameIndex / framesLimit, 1.0f);
+        this.beta = this.initialBeta + fraction * (1.0f - this.initialBeta);
     }
 }
