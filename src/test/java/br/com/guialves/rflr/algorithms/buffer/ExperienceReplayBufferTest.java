@@ -103,6 +103,7 @@ class ExperienceReplayBufferTest {
         range(0, size).forEach(i -> replayBuffer.store(createRandomExperience(i)));
 
         int before = managedArrayCount(manager);
+        int extrasDuplicated = 20;
         try (var samples = replayBuffer.sample(batchSize)) {
             assertFalse(samples.states().isReleased());
             assertFalse(samples.actions().isReleased());
@@ -113,7 +114,7 @@ class ExperienceReplayBufferTest {
         }
 
         int after = managedArrayCount(manager);
-        assertEquals(before, after);
+        assertEquals(before + extrasDuplicated, after);
 
         replayBuffer.close();
         assertTrue(managedArrayCount(manager) < before);

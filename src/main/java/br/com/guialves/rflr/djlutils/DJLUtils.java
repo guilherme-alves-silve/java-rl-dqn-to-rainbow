@@ -1,12 +1,22 @@
 package br.com.guialves.rflr.djlutils;
 
+import ai.djl.Device;
 import ai.djl.engine.Engine;
 import ai.djl.ndarray.BaseNDManager;
+import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.index.NDIndex;
+import ai.djl.ndarray.types.DataType;
 import ai.djl.nn.Block;
 import ai.djl.nn.Parameter;
 import ai.djl.util.Pair;
+import br.com.guialves.rflr.algorithms.buffer.Experience;
+
+import java.util.function.Function;
+import java.util.function.ToDoubleFunction;
+import java.util.function.ToLongFunction;
+
+import static java.util.Arrays.stream;
 
 public class DJLUtils {
 
@@ -63,5 +73,18 @@ public class DJLUtils {
 
     public static int gpuCount() {
         return Engine.getInstance().getGpuCount();
+    }
+
+    public static <T> NDArray djlMapToLong(NDManager manager, Device device, T[] input, ToLongFunction<T> mapper) {
+        return manager.create(stream(input).mapToLong(mapper).toArray())
+                .expandDims(1)
+                .toDevice(device, false);
+    }
+
+    public static <T> NDArray djlMapToFloat32(NDManager manager, Device device, T[] input, ToDoubleFunction<T> mapper) {
+        return manager.create(stream(input).mapToDouble(mapper).toArray())
+                .toType(DataType.FLOAT32, false)
+                .expandDims(1)
+                .toDevice(device, false);
     }
 }

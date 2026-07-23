@@ -9,6 +9,8 @@ import br.com.guialves.rflr.datastructure.SumSegmentTree;
 import lombok.Cleanup;
 import lombok.NonNull;
 
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Arrays.stream;
 
 /**
@@ -118,27 +120,11 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
         var bufferIndexes = prioritizedIndexSamples(batchSize);
         var batch = buildPrioritizedSamples(bufferIndexes);
 
-        var states = toList(batch, exp -> {
-            var stateCopy = exp.state().duplicate();
-            stateCopy.tempAttach(sub);
-            return stateCopy.expandDims(0);
-        }).toDevice(device, false);
-
-        var actions = sub.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
-                .expandDims(1).toDevice(device, false);
-
-        var rewards = sub.create(stream(batch).mapToDouble(Experience::reward).toArray())
-                .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
-
-        var nextStates = toList(batch, exp -> {
-            var nextStateCopy = exp.nextState().duplicate();
-            nextStateCopy.tempAttach(sub);
-            return nextStateCopy.expandDims(0);
-        }).toDevice(device, false);
-
-        var dones = sub.create(stream(batch).mapToDouble(exp -> exp.done() ? 1 : 0).toArray())
-                .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
-
+        var states = newAttachedList(sub, device, batch, IExperience::state);
+        var actions = djlMapToLong(sub, device, batch, exp -> exp.actionAs(Long.class));
+        var rewards = djlMapToFloat32(sub, device, batch, Experience::reward);
+        var nextStates = newAttachedList(sub, device, batch, IExperience::nextState);
+        var dones = djlMapToFloat32(sub, device, batch, exp -> exp.done() ? 1 : 0);
         var weights = calculateWeights(sub, bufferIndexes, beta);
 
         return new VecExperience(

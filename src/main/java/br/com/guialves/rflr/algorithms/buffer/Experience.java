@@ -12,10 +12,4 @@ public record Experience(NDArray state,
     public <T> T actionAs(Class<T> clazz) {
         return action.valueAs(clazz);
     }
-
-    @Override
-    public void close() {
-        state.close();
-        nextState.close();
-    }
 }

@@ -7,6 +7,8 @@ import ai.djl.ndarray.types.DataType;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
@@ -79,26 +81,11 @@ public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
         @Cleanup var sub = manager.newSubManager();
         var batch = sampler.sample(experiences, batchSize, size, false);
 
-        var states = toList(batch, exp -> {
-                    exp.state().tempAttach(sub);
-                    return exp.state().expandDims(0);
-                })
-                .toDevice(device, false);
-
-        var actions = sub.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
-                .expandDims(1).toDevice(device, false);
-
-        var rewards = sub.create(stream(batch).mapToDouble(Experience::reward).toArray())
-                .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
-
-        var nextStates = toList(batch, exp -> {
-                    exp.nextState().tempAttach(sub);
-                    return exp.nextState().expandDims(0);
-                })
-                .toDevice(device, false);
-
-        var dones = sub.create(stream(batch).mapToDouble(exp -> exp.done() ? 1 : 0).toArray())
-                .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
+        var states = newAttachedList(sub, device, batch, IExperience::state);
+        var actions = djlMapToLong(sub, device, batch, exp -> exp.actionAs(Long.class));
+        var rewards = djlMapToFloat32(sub, device, batch, Experience::reward);
+        var nextStates = newAttachedList(sub, device, batch, IExperience::nextState);
+        var dones = djlMapToFloat32(sub, device, batch, exp -> exp.done() ? 1 : 0);
 
         return new VecExperience(
                 sub.ret(states),

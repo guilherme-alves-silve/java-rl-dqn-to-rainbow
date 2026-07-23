@@ -1,12 +1,12 @@
 package br.com.guialves.rflr.algorithms.buffer;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
+import ai.djl.ndarray.NDManager;
 
 import java.util.function.Function;
-
-import static java.util.Arrays.stream;
 
 public interface IReplayBuffer<T extends IExperience> extends AutoCloseable {
 
@@ -45,11 +45,18 @@ public interface IReplayBuffer<T extends IExperience> extends AutoCloseable {
      * @param mapper maps each experience to its NDArray representation
      * @return concatenated NDArray along axis 0
      */
-    default NDArray toList(IExperience[] batch,
-                           Function<IExperience, NDArray> mapper) {
-        var arrays = stream(batch)
-                .map(mapper)
-                .collect(() -> new NDList(batch.length), NDList::add, NDList::addAll);
-        return NDArrays.concat(arrays, 0);
+    default NDArray newAttachedList(final NDManager manager,
+                                    final Device device,
+                                    final IExperience[] batch,
+                                    final Function<IExperience, NDArray> mapper) {
+        var arrays = new NDList(batch.length);
+        for (var exp : batch) {
+            var copy = mapper.apply(exp).duplicate()
+                    .expandDims(0);
+            copy.tempAttach(manager);
+            arrays.add(copy);
+        }
+        return NDArrays.concat(arrays, 0)
+                .toDevice(device, false);
     }
 }

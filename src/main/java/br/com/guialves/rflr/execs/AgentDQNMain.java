@@ -27,8 +27,8 @@ public class AgentDQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .framesLimit(300_000)
-                .bufferCapacity(30_000)
+                .framesLimit(5_000)
+                .bufferCapacity(1_000)
                 .saveModel(true)
                 .algorithmName("dqn")
                 .build();
