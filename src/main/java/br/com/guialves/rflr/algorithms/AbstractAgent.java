@@ -23,8 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.debugDump;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.transfer;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
@@ -129,12 +128,12 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
                 state = transfer(parent, state, nextState);
 
                 pbar.stepTo(frames);
-                plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size());
+                plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
                 templateExtraProcessing(frames, framesLimit);
                 epsilon = reduceEpsilon(epsilon);
             } while (frames < framesLimit);
         } while ((frames < framesLimit));
-        plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size());
+        plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
 
         debugDump(env.manager());
 

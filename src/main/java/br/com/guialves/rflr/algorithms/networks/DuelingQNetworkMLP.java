@@ -26,7 +26,7 @@ import java.nio.file.Path;
  * <a href="https://d2l.djl.ai/chapter_multilayer-perceptrons/mlp-djl.html">...</a>
  */
 @Slf4j
-public class DeepQNetworkMLP implements IDeepQNetwork {
+public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
     private final int observations;
@@ -36,26 +36,26 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
     private final ParameterStore parameterStore;
     private final Device device;
 
-    public DeepQNetworkMLP(int observations,
-                           int actions,
-                           NDManager manager) {
+    public DuelingQNetworkMLP(int observations,
+                              int actions,
+                              NDManager manager) {
         this(observations, actions, null, null, manager, Device.cpu());
     }
 
-    public DeepQNetworkMLP(int observations,
-                           int actions,
-                           NDManager manager,
-                           Device device) {
+    public DuelingQNetworkMLP(int observations,
+                              int actions,
+                              NDManager manager,
+                              Device device) {
         this(observations, actions, null, null, manager, device);
     }
 
     @SneakyThrows
-    public DeepQNetworkMLP(int observations,
-                           int actions,
-                           Path modelPath,
-                           String prefix,
-                           NDManager manager,
-                           Device device) {
+    public DuelingQNetworkMLP(int observations,
+                              int actions,
+                              Path modelPath,
+                              String prefix,
+                              NDManager manager,
+                              Device device) {
         this.observations = observations;
         this.actions = actions;
         this.device = device;
@@ -67,6 +67,8 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
             .add(Activation::relu)
             .add(Linear.builder().setUnits(actions).optBias(true).build());
         model.setBlock(net);
+
+        // Q(s, a) = V(s) + (A(s, a) - mean A(s, a*))
 
         this.parameterStore = new ParameterStore(manager, false);
         if (modelPath != null) {
@@ -113,7 +115,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DeepQNetworkMLP(observations, actions, model.getNDManager(), device);
+        var cloned = new DuelingQNetworkMLP(observations, actions, model.getNDManager(), device);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

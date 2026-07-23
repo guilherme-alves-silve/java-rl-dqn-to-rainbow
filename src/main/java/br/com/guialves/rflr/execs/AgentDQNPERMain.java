@@ -31,7 +31,7 @@ public class AgentDQNPERMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .framesLimit(500_000)
+                .framesLimit(300_000)
                 .bufferCapacity(30_000)
                 .saveModel(true)
                 .algorithmName("dqnper")

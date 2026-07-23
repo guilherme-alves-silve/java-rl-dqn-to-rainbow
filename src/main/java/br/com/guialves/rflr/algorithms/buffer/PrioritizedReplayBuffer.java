@@ -7,11 +7,9 @@ import ai.djl.ndarray.types.DataType;
 import br.com.guialves.rflr.datastructure.MinSegmentTree;
 import br.com.guialves.rflr.datastructure.SumSegmentTree;
 import lombok.Cleanup;
-
-import java.util.Arrays;
+import lombok.NonNull;
 
 import static java.util.Arrays.stream;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Prioritized Experience Replay buffer with PER sampling and importance sampling weights.
@@ -45,13 +43,13 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
 
     public PrioritizedReplayBuffer(int capacity,
                                    float alpha,
-                                   NDManager manager,
-                                   Device device) {
+                                   @NonNull NDManager manager,
+                                   @NonNull Device device) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.manager = requireNonNull(manager);
-        this.device = requireNonNull(device);
+        this.manager = manager;
+        this.device = device;
         this.sumSegmentTree = new SumSegmentTree(this.capacity);
         this.minSegmentTree = new MinSegmentTree(this.capacity);
         this.pos = 0;
