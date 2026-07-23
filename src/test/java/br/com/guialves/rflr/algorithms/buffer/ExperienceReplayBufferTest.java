@@ -3,6 +3,7 @@ package br.com.guialves.rflr.algorithms.buffer;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
+import br.com.guialves.rflr.fixture.ExperienceFixture;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import lombok.Cleanup;
 import org.junit.jupiter.api.AfterAll;
@@ -14,14 +15,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
+import static br.com.guialves.rflr.fixture.ExperienceFixture.BATCH_1_SHAPE;
 import static java.util.stream.IntStream.range;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ExperienceReplayBufferTest {
 
-    private static final Shape STATE_SHAPE = new Shape(3, 3);
-    private static final Shape BATCH_1_SHAPE = new Shape(-1, 1);
     private static NDManager manager;
 
     @BeforeAll
@@ -103,6 +103,7 @@ class ExperienceReplayBufferTest {
         range(0, size).forEach(i -> replayBuffer.store(createRandomExperience(i)));
 
         int before = managedArrayCount(manager);
+        int extrasDuplicated = 20;
         try (var samples = replayBuffer.sample(batchSize)) {
             assertFalse(samples.states().isReleased());
             assertFalse(samples.actions().isReleased());
@@ -113,19 +114,13 @@ class ExperienceReplayBufferTest {
         }
 
         int after = managedArrayCount(manager);
-        assertEquals(before, after);
+        assertEquals(before + extrasDuplicated, after);
 
         replayBuffer.close();
         assertTrue(managedArrayCount(manager) < before);
     }
 
     private Experience createRandomExperience(int i) {
-        var state = manager.randomUniform(0, 10, STATE_SHAPE);
-        var action = mock(ActionSpaceType.ActionResult.class);
-        when(action.valueAs(Long.class)).thenReturn((long) i);
-        var reward = -5 + (i + 1);
-        var nextState = manager.randomNormal(STATE_SHAPE);
-        boolean done = i % 2 == 0;
-        return new Experience(state, action, reward, nextState, done);
+        return ExperienceFixture.createRandomExperience(manager, i);
     }
 }

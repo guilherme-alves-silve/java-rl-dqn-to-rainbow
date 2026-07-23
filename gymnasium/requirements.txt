@@ -1,4 +1,6 @@
 numpy==2.3.5
 pygame==2.6.1
 matplotlib==3.10.8
-gymnasium[classic-control,box2d,atari,other]==1.2.2
+swig==4.4.1
+box2d==2.3.10
+gymnasium[classic-control,atari,other]==1.2.2

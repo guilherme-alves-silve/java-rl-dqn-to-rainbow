@@ -65,6 +65,16 @@ public class SumSegmentTreeFlat implements ISumSegmentTree {
         return tree[1];
     }
 
+    @Override
+    public float get(int idx) {
+        if (idx < 0 || idx >= size) {
+            throw new IndexOutOfBoundsException(
+                    String.format("Index: %d, Size: %d", idx, size)
+            );
+        }
+        return tree[capacity + idx];
+    }
+
     /**
      * Updates the value at position idx and propagates the change up to the root.
      * O(log n).

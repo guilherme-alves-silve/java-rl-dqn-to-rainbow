@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.djlutils;
 
+import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
@@ -13,9 +14,9 @@ import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import org.junit.jupiter.api.Test;
 
+import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
-import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -66,11 +67,17 @@ class DJLOptimizerTest {
                                         ParameterStore parameterStore,
                                         Optimizer optimizer,
                                         Loss loss,
-                                        ai.djl.ndarray.NDArray x,
-                                        ai.djl.ndarray.NDArray y) {
+                                        NDArray x,
+                                        NDArray y) {
         backwardLoss(manager, loss, y, arrays -> {
             var gradX = arrays[0];
+            IO.println("gradX: " + gradX);
             return block.forward(parameterStore, new NDList(x), true).singletonOrThrow();
+        }, x);
+
+        backwardLoss(manager, loss, y, arrays -> {
+            var gradX = arrays[0];
+            return block.forward(parameterStore, new NDList(gradX), true).singletonOrThrow();
         }, x);
 
         DJLOptimizer.trainStep(block, optimizer);

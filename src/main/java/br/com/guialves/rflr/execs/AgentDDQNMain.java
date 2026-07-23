@@ -15,40 +15,45 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 public class AgentDDQNMain {
     static void main() {
 
-        int framesLimit = 150_000;
-        float maxEpsilon = 1.0f;
-        float minEpsilon = 0.01f;
-        float epsilonLinearStep = (maxEpsilon - minEpsilon) / framesLimit;
-        float discountFactor = 0.99f;
-
-        var config = new RLConfig(
-                "LunarLander-v3", 8, 4,
-                0.0005f, maxEpsilon, minEpsilon, epsilonLinearStep, discountFactor,
-                1000, 128, framesLimit, 30_000,
-                true, "ddqn"
-        );
+        var config = RLConfig.builder()
+                .envName("LunarLander-v3")
+                .observations(8)
+                .actions(4)
+                .learningRate(0.0005f)
+                .maxEpsilon(1.0f)
+                .minEpsilon(0.01f)
+                .discountFactor(0.99f)
+                .updateQTargetAtTimeN(1000)
+                .batchSize(128)
+                .framesLimit(5_000)
+                .bufferCapacity(1_000)
+                .saveModel(true)
+                .algorithmName("ddqn")
+                .build();
 
         RLRunner.run(config, (env, optimizer, device, plotTrackers) ->
                 buildDDQN(config, env, optimizer, device, plotTrackers));
     }
 
-    private static IAgent buildDDQN(RLConfig config,
-                                    IEnv env,
-                                    Optimizer optimizer,
-                                    Device device,
-                                    PlotTrackers plotTrackers) {
+    private static IAgent<?> buildDDQN(RLConfig config,
+                                       IEnv env,
+                                       Optimizer optimizer,
+                                       Device device,
+                                       PlotTrackers plotTrackers) {
         return new AgentDDQN(
-                config.epsilon(),
+                config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
                 config.epsilonDecay(),
-                config.gamma(),
+                config.discountFactor(),
                 env,
                 optimizer,
-                () -> new DeepQNetworkMLP(config.observations(),
-                        config.actions(),
-                        env.manager(),
-                        device),
+                () -> new DeepQNetworkMLP(
+                    config.observations(),
+                    config.actions(),
+                    env.manager(),
+                    device
+                ),
                 plotTrackers
         );
     }

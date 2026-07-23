@@ -5,6 +5,7 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import lombok.Cleanup;
 
+import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -80,6 +81,25 @@ public class DJLMemoryManagement {
             sub.tempAttachAll(arrays);
 
             var result = sub.ret(block.apply(arrays));
+            for (var element : arrays) {
+                if (element == result) {
+                    throw new IllegalStateException("scoped block returned any input NDArray itself");
+                }
+            }
+            return result;
+        }
+    }
+
+    public static NDArray scoped(final BiFunction<NDArray, NDArray[], NDArray> block,
+                                 final NDArray a,
+                                 final NDArray... arrays) {
+        if (arrays.length == 0) throw new IllegalArgumentException("arrays must contain elements!");
+
+        try (var sub = arrays[0].getManager().newSubManager()) {
+            a.tempAttach(sub);
+            sub.tempAttachAll(arrays);
+
+            var result = sub.ret(block.apply(a, arrays));
             for (var element : arrays) {
                 if (element == result) {
                     throw new IllegalStateException("scoped block returned any input NDArray itself");

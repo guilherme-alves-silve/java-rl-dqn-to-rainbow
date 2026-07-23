@@ -21,8 +21,8 @@ public interface IExperience extends AutoCloseable {
 
     @Override
     default void close() {
-        action().close();
         state().close();
+        action().close();
         nextState().close();
     }
 }

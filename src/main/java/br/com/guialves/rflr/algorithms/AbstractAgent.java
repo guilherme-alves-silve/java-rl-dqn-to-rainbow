@@ -1,11 +1,10 @@
-package br.com.guialves.rflr.algorithms.dqn;
+package br.com.guialves.rflr.algorithms;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
-import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.buffer.Experience;
-import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.IExperience;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -24,12 +23,11 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.debugDump;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.transfer;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
-public abstract class AbstractAgent implements IAgent {
+public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> {
 
     protected final ActionSpaceType actionSpaceType;
 
@@ -72,7 +70,7 @@ public abstract class AbstractAgent implements IAgent {
     public void train(int batchSize,
                       long framesLimit,
                       int framesSkip,
-                      ExperienceReplayBuffer replayBuffer,
+                      IReplayBuffer<T> replayBuffer,
                       Loss lossFunc) {
 
         requireNonNull(replayBuffer, "replayBuffer cannot be null!");
@@ -106,7 +104,7 @@ public abstract class AbstractAgent implements IAgent {
                 var done = stepResult.done();
                 var info = stepResult.info();
                 if (!info.isEmpty()) lastInfo = info;
-                var exp = new Experience(state.duplicate(), action, reward,
+                var exp = newExperience(state.duplicate(), action, reward,
                         nextState.duplicate(), done);
                 replayBuffer.store(exp);
 
@@ -130,16 +128,30 @@ public abstract class AbstractAgent implements IAgent {
                 state = transfer(parent, state, nextState);
 
                 pbar.stepTo(frames);
-                plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size());
+                plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
+                templateExtraProcessing(frames, framesLimit);
                 epsilon = reduceEpsilon(epsilon);
             } while (frames < framesLimit);
         } while ((frames < framesLimit));
-        plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size());
+        plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
 
         debugDump(env.manager());
 
         plotTrackers.showAllMetrics();
     }
+
+    /**
+     * Follow the design pattern template method
+     */
+    protected void templateExtraProcessing(int frames, long frameLimit) {
+        // Empty, it's a template method
+    }
+
+    protected abstract T newExperience(NDArray state,
+                                       ActionSpaceType.ActionResult action,
+                                       double reward,
+                                       NDArray nextState,
+                                       boolean done);
 
     /**
      * @return true if the agent is in evaluation mode
@@ -162,7 +174,9 @@ public abstract class AbstractAgent implements IAgent {
         return lastInfo;
     }
 
-    protected abstract float trainOnline(int batchSize, ExperienceReplayBuffer replayBuffer, Loss lossFunc);
+    protected abstract float trainOnline(int batchSize,
+                                         IReplayBuffer<T> replayBuffer,
+                                         Loss lossFunc);
 
     protected void updateTargetNetworkAtN(int frames) {
         if (frames % updateQTargetAtTimeN == 0) {

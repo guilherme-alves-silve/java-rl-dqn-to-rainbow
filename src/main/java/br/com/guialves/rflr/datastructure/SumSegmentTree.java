@@ -12,7 +12,6 @@ public class SumSegmentTree implements ISumSegmentTree {
 
     private final int size;
     private final Node root;
-    private final ThreadLocalRandom random;
 
     public SumSegmentTree(int size) {
         this(size, 0.0f);
@@ -21,7 +20,6 @@ public class SumSegmentTree implements ISumSegmentTree {
     public SumSegmentTree(int size, float initValue) {
         this.size = size;
         this.root = new Node(0, size - 1, initValue);
-        this.random = ThreadLocalRandom.current();
     }
 
     @Override
@@ -33,6 +31,13 @@ public class SumSegmentTree implements ISumSegmentTree {
     @Override
     public void update(int idx, float value) {
         update(root, idx, value);
+    }
+
+    public float get(int idx) {
+        if (idx < 0 || idx >= size) {
+            throw new IndexOutOfBoundsException("Index: " + idx + ", Size: " + size);
+        }
+        return get(root, idx);
     }
 
     @Override
@@ -51,7 +56,7 @@ public class SumSegmentTree implements ISumSegmentTree {
         if (lower < 0) throw new IllegalArgumentException("lower cannot be negative: " + lower);
         if (upper > totalSum) throw new IllegalArgumentException("upper cannot exceed total sum. upper: " + upper + ", total: " + totalSum);
         if (lower >= upper) throw new IllegalArgumentException("lower must be < upper. lower: " + lower + ", upper: " + upper);
-        float sample = random.nextFloat(lower, upper);
+        float sample = ThreadLocalRandom.current().nextFloat(lower, upper);
         return sampleIndexByValue(root, sample);
     }
 
@@ -68,6 +73,18 @@ public class SumSegmentTree implements ISumSegmentTree {
             update(node.right, idx, value);
         }
         node.sum = node.left.sum + node.right.sum;
+    }
+
+    private float get(Node node, int idx) {
+        if (node.leftMost == node.rightMost) {
+            return node.sum;
+        }
+        int mid = (node.leftMost + node.rightMost) / 2;
+        if (idx <= mid) {
+            return get(node.left, idx);
+        }
+
+        return get(node.right, idx);
     }
 
     private float rangeSum(Node node, int start, int end) {

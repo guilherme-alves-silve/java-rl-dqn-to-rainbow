@@ -8,6 +8,7 @@ import ai.djl.training.optimizer.Adam;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import br.com.guialves.rflr.algorithms.IAgent;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
@@ -27,6 +28,14 @@ public class RLRunner {
     @FunctionalInterface
     public interface AgentFactory {
         IAgent create(IEnv env, Optimizer optimizer, Device device, PlotTrackers plotTrackers);
+
+        default Loss lossFunc() {
+            return Loss.l2Loss();
+        }
+
+        default IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager, Device device) {
+            return new ExperienceReplayBuffer(config.bufferCapacity(), manager, device);
+        }
     }
 
     public static void run(RLConfig config, AgentFactory agentFactory) {
@@ -56,8 +65,8 @@ public class RLRunner {
 
             var agent = agentFactory.create(env, optimizer, device, plotTrackers);
 
-            var replayBuffer = new ExperienceReplayBuffer(config.bufferCapacity(), manager, device);
-            var lossFunc = Loss.l2Loss();
+            var replayBuffer = agentFactory.replayBuffer(config, manager, device);
+            var lossFunc = agentFactory.lossFunc();
 
             agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
 

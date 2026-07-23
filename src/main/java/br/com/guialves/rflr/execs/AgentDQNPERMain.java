@@ -1,10 +1,13 @@
 package br.com.guialves.rflr.execs;
 
 import ai.djl.Device;
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.dqn.AgentDQN;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.dqnper.AgentDQNPER;
 import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -14,9 +17,10 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
-public class AgentDQNMain {
+public class AgentDQNPERMain {
     static void main() {
 
+        float alpha = 0.4f;
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
                 .observations(8)
@@ -30,24 +34,41 @@ public class AgentDQNMain {
                 .framesLimit(5_000)
                 .bufferCapacity(1_000)
                 .saveModel(true)
-                .algorithmName("dqn")
+                .algorithmName("dqnper")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, device, plotTrackers) ->
-                buildDQN(config, env, optimizer, device, plotTrackers));
+        RLRunner.run(config, new RLRunner.AgentFactory() {
+
+            @Override
+            public IAgent<?> create(IEnv env, Optimizer optimizer, Device device, PlotTrackers plotTrackers) {
+                return buildDQNPER(config, env, optimizer, device, plotTrackers);
+            }
+
+            @Override
+            public Loss lossFunc() {
+                return PERL2Loss.noneReduction();
+            }
+
+            @Override
+            public IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager, Device device) {
+                return new PrioritizedReplayBuffer(config.bufferCapacity(), alpha, manager, device);
+            }
+        });
     }
 
-    private static IAgent<?> buildDQN(RLConfig config,
-                                     IEnv env,
-                                     Optimizer optimizer,
-                                     Device device,
-                                     PlotTrackers plotTrackers) {
-        return new AgentDQN(
+    private static IAgent<?> buildDQNPER(RLConfig config,
+                                         IEnv env,
+                                         Optimizer optimizer,
+                                         Device device,
+                                         PlotTrackers plotTrackers) {
+        float initialBeta = 0.6f;
+        return new AgentDQNPER(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
                 config.epsilonDecay(),
-                config.discountFactor(), // gamma
+                config.discountFactor(),
+                initialBeta,
                 env,
                 optimizer,
                 () -> new DeepQNetworkMLP(
