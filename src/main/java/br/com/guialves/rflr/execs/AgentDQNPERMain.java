@@ -5,7 +5,6 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.dqnper.AgentDQNPER;

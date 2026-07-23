@@ -38,8 +38,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
     private float maxPriority;
     // 0 = uniform distribution, 1 = full priority
     private final float alpha;
-    private final SumSegmentTree sumSegmentTree;
-    private final MinSegmentTree minSegmentTree;
+    final SumSegmentTree sumSegmentTree;
+    final MinSegmentTree minSegmentTree;
 
     public PrioritizedReplayBuffer(int capacity,
                                    float alpha,
@@ -233,7 +233,11 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
                                 NDArray dones,
                                 NDArray weights,
                                 int[] bufferIndexes) implements IVecExperience {
-
+        @Override
+        public void close() {
+            IVecExperience.super.close();
+            weights.close();
+        }
     }
 
     @Override

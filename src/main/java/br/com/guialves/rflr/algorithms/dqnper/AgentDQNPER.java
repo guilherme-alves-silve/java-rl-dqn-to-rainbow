@@ -112,18 +112,12 @@ public class AgentDQNPER extends AbstractAgent<Experience> {
      * <p>The annealing formula is:
      * \[ \beta = \beta_{initial} + \text{fraction} \times (1.0 - \beta_{initial}) \]
      *
-     * @param framesLimit The total number of frames to process during training.
-     *                         Must be greater than 0.
-     * @param framesSkip       The number of frames to skip between actions (frame-skip).
-     *                         This is added to totalFramesLimit to account for skipped frames.
-     *                         Must be >= 0.
      * @throws IllegalArgumentException if {@code totalFramesLimit} <= 0 or {@code framesSkip} < 0
      * @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
      */
     @Override
-    protected void templateExtraProcessing(long framesLimit, int framesSkip) {
-        float currentFrameIndex = framesLimit + framesSkip;
-        float fraction = Math.min(currentFrameIndex / framesLimit, 1.0f);
+    protected void templateExtraProcessing(int frames, long frameLimit) {
+        float fraction = Math.min((float) frames / frameLimit, 1.0f);
         this.beta = this.initialBeta + fraction * (1.0f - this.initialBeta);
     }
 }

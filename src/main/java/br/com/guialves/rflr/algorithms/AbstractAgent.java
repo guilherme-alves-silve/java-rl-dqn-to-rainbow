@@ -115,7 +115,6 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
                     ++episodeSteps;
                 }
 
-                templateExtraProcessing(framesLimit, framesSkip);
                 frames += framesSkip;
                 updateTargetNetworkAtN(frames);
 
@@ -131,6 +130,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
 
                 pbar.stepTo(frames);
                 plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size());
+                templateExtraProcessing(frames, framesLimit);
                 epsilon = reduceEpsilon(epsilon);
             } while (frames < framesLimit);
         } while ((frames < framesLimit));
@@ -144,7 +144,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
     /**
      * Follow the design pattern template method
      */
-    protected void templateExtraProcessing(long framesLimit, int framesSkip) {
+    protected void templateExtraProcessing(int frames, long frameLimit) {
         // Empty, it's a template method
     }
 
