@@ -8,6 +8,8 @@ import br.com.guialves.rflr.datastructure.MinSegmentTree;
 import br.com.guialves.rflr.datastructure.SumSegmentTree;
 import lombok.Cleanup;
 
+import java.util.Arrays;
+
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
@@ -117,20 +119,28 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
         @Cleanup var sub = manager.newSubManager();
         var bufferIndexes = prioritizedIndexSamples(batchSize);
         var batch = buildPrioritizedSamples(bufferIndexes);
+
         var states = toList(batch, exp -> {
-            exp.state().tempAttach(sub);
-            return exp.state().expandDims(0);
+            var stateCopy = exp.state().duplicate();
+            stateCopy.tempAttach(sub);
+            return stateCopy.expandDims(0);
         }).toDevice(device, false);
+
         var actions = sub.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
                 .expandDims(1).toDevice(device, false);
+
         var rewards = sub.create(stream(batch).mapToDouble(Experience::reward).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
+
         var nextStates = toList(batch, exp -> {
-            exp.nextState().tempAttach(sub);
-            return exp.nextState().expandDims(0);
+            var nextStateCopy = exp.nextState().duplicate();
+            nextStateCopy.tempAttach(sub);
+            return nextStateCopy.expandDims(0);
         }).toDevice(device, false);
+
         var dones = sub.create(stream(batch).mapToDouble(exp -> exp.done() ? 1 : 0).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
+
         var weights = calculateWeights(sub, bufferIndexes, beta);
 
         return new VecExperience(
@@ -233,9 +243,14 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
                                 NDArray dones,
                                 NDArray weights,
                                 int[] bufferIndexes) implements IVecExperience {
+
         @Override
         public void close() {
-            IVecExperience.super.close();
+            states.close();
+            actions.close();
+            rewards.close();
+            nextStates.close();
+            dones.close();
             weights.close();
         }
     }

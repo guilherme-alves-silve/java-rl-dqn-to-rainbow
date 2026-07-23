@@ -78,20 +78,25 @@ public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
 
         @Cleanup var sub = manager.newSubManager();
         var batch = sampler.sample(experiences, batchSize, size, false);
+
         var states = toList(batch, exp -> {
                     exp.state().tempAttach(sub);
                     return exp.state().expandDims(0);
                 })
                 .toDevice(device, false);
+
         var actions = sub.create(stream(batch).mapToLong(exp -> exp.actionAs(Long.class)).toArray())
                 .expandDims(1).toDevice(device, false);
+
         var rewards = sub.create(stream(batch).mapToDouble(Experience::reward).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
+
         var nextStates = toList(batch, exp -> {
                     exp.nextState().tempAttach(sub);
                     return exp.nextState().expandDims(0);
                 })
                 .toDevice(device, false);
+
         var dones = sub.create(stream(batch).mapToDouble(exp -> exp.done() ? 1 : 0).toArray())
                 .toType(DataType.FLOAT32, false).expandDims(1).toDevice(device, false);
 
