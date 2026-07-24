@@ -24,6 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
+import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
@@ -137,7 +138,9 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
 
         debugDump(env.manager());
 
-        plotTrackers.showAllMetrics();
+        if (getBoolProp("agent.showAllMetrics")) {
+            plotTrackers.showAllMetrics();
+        }
     }
 
     /**
@@ -226,7 +229,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
             boolean done;
             do {
                 if (render) envRender.displayAndWait(env.render());
-                var action = selectAction(state);
+                @Cleanup var action = selectAction(state);
                 var stepResult = env.step(action, sub);
                 var reward = stepResult.reward();
                 var nextState = stepResult.state();

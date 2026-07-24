@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
+import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 
 public class RLRunner {
 
@@ -39,17 +40,20 @@ public class RLRunner {
     }
 
     public static void run(RLConfig config, AgentFactory agentFactory) {
-        var path = Paths.get("./output_models/", config.algorithmName());
+        var path = config.path();
         var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
-
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
         try (var manager = NDManager.newBaseManager(device)) {
-            var env = Gym.builder()
+            var envBuilder = Gym.builder()
                     .envName(config.envName())
-                    .ndManager(manager)
-                    .add(new RecordVideo(path))
-                    .add(new RecordEpisodeStatistics())
-                    .build();
+                    .ndManager(manager);
+
+            if (getBoolProp("agent.records", "true")) {
+                envBuilder.add(config.recordVideo())
+                          .add(config.recordEpisodeStatistics());
+            }
+
+            var env = envBuilder.build();
 
             var optimizer = Adam.builder()
                     .optLearningRateTracker(Tracker.fixed(config.learningRate()))

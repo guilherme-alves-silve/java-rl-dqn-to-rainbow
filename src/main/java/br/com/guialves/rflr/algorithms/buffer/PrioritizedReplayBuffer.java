@@ -119,19 +119,19 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
         var bufferIndexes = prioritizedIndexSamples(batchSize);
         var batch = buildPrioritizedSamples(bufferIndexes);
 
-        var states = newAttachedList(sub, batch, IExperience::state);
+        var states = newAttachedList(sub, batch, exp -> exp.state().duplicate());
         var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
         var rewards = djlMapToFloat32(sub, batch, Experience::reward);
-        var nextStates = newAttachedList(sub, batch, IExperience::nextState);
+        var nextStates = newAttachedList(sub, batch, exp -> exp.nextState().duplicate());
         var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
         var weights = calculateWeights(sub, bufferIndexes, beta);
 
         return new VecExperience(
                 sub,
-                sub.ret(states),
+                states,
                 actions,
                 rewards,
-                sub.ret(nextStates),
+                nextStates,
                 dones,
                 weights,
                 bufferIndexes

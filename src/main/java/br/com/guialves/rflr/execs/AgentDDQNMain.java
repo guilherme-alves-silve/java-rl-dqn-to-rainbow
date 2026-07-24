@@ -8,6 +8,9 @@ import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
+import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
+import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
+
 /**
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
@@ -25,9 +28,9 @@ public class AgentDDQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .framesLimit(5_000)
-                .bufferCapacity(1_000)
-                .saveModel(true)
+                .framesLimit(getIntProp("agent.framesLimit", "300_000"))
+                .bufferCapacity(getIntProp("agent.bufferCapacity", "30_000"))
+                .saveModel(getBoolProp("agent.saveModel", "true"))
                 .algorithmName("ddqn")
                 .build();
 
