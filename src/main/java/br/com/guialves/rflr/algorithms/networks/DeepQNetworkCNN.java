@@ -23,6 +23,7 @@ import java.nio.file.Path;
 public class DeepQNetworkCNN implements IDeepQNetwork {
 
     private boolean training;
+    private final NDManager manager;
     private final int channels;
     private final int size;
     private final int actions;
@@ -51,6 +52,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
         this.actions = actions;
         this.modelPath = modelPath;
         this.prefix = prefix;
+        this.manager = manager;
         this.model = Model.newInstance("dqn_cnn");
         this.net = new SequentialBlock();
 
@@ -107,7 +109,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
 
     @Override
     public NDManager manager() {
-        return this.model.getNDManager();
+        return this.manager;
     }
 
     @Override
@@ -134,7 +136,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     @Override
     public IDeepQNetwork clone() {
         var cloned = new DeepQNetworkCNN(channels, size, actions,
-                                         modelPath, prefix, this.model.getNDManager());
+                                         modelPath, prefix, manager);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

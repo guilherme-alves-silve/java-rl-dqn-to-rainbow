@@ -6,12 +6,12 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import br.com.guialves.rflr.datastructure.MinSegmentTree;
 import br.com.guialves.rflr.datastructure.SumSegmentTree;
-import lombok.Cleanup;
 import lombok.NonNull;
 
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Arrays.stream;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Prioritized Experience Replay buffer with PER sampling and importance sampling weights.
@@ -32,7 +32,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
     private static final float MIN_DELTA = 0.000_000_001f;
 
     private final Experience[] experiences;
-    private final NDManager manager;
+    private final NDManager thisSubManager;
     private final int capacity;
     private final Device device;
     private int size;
@@ -45,13 +45,12 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
 
     public PrioritizedReplayBuffer(int capacity,
                                    float alpha,
-                                   @NonNull NDManager manager,
-                                   @NonNull Device device) {
+                                   @NonNull NDManager manager) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.manager = manager;
-        this.device = device;
+        this.thisSubManager = requireNonNull(manager).newSubManager();
+        this.device = manager.getDevice();
         this.sumSegmentTree = new SumSegmentTree(this.capacity);
         this.minSegmentTree = new MinSegmentTree(this.capacity);
         this.pos = 0;
@@ -62,8 +61,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
     @Override
     public void store(Experience exp) {
 
-        exp.state().attach(manager);
-        exp.nextState().attach(manager);
+        exp.state().attach(thisSubManager);
+        exp.nextState().attach(thisSubManager);
 
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
@@ -116,24 +115,25 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
     public VecExperience sample(int batchSize, float beta) {
         if (!enough(batchSize)) return null;
 
-        @Cleanup var sub = manager.newSubManager();
+        var sub = thisSubManager.newSubManager();
         var bufferIndexes = prioritizedIndexSamples(batchSize);
         var batch = buildPrioritizedSamples(bufferIndexes);
 
-        var states = newAttachedList(sub, device, batch, IExperience::state);
-        var actions = djlMapToLong(sub, device, batch, exp -> exp.actionAs(Long.class));
-        var rewards = djlMapToFloat32(sub, device, batch, Experience::reward);
-        var nextStates = newAttachedList(sub, device, batch, IExperience::nextState);
-        var dones = djlMapToFloat32(sub, device, batch, exp -> exp.done() ? 1 : 0);
+        var states = newAttachedList(sub, batch, IExperience::state);
+        var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
+        var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+        var nextStates = newAttachedList(sub, batch, IExperience::nextState);
+        var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
         var weights = calculateWeights(sub, bufferIndexes, beta);
 
         return new VecExperience(
+                sub,
                 sub.ret(states),
-                sub.ret(actions),
-                sub.ret(rewards),
+                actions,
+                rewards,
                 sub.ret(nextStates),
-                sub.ret(dones),
-                sub.ret(weights),
+                dones,
+                weights,
                 bufferIndexes
         );
     }
@@ -220,7 +220,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
         return pos;
     }
 
-    public record VecExperience(NDArray states,
+    public record VecExperience(NDManager sub,
+                                NDArray states,
                                 NDArray actions,
                                 NDArray rewards,
                                 NDArray nextStates,
@@ -230,19 +231,17 @@ public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
 
         @Override
         public void close() {
-            states.close();
-            actions.close();
-            rewards.close();
-            nextStates.close();
-            dones.close();
-            weights.close();
+            sub.close();
         }
     }
 
     @Override
+    public boolean isOpen() {
+        return thisSubManager.isOpen();
+    }
+
+    @Override
     public void close() {
-        for (var exp : experiences) {
-            if (exp != null) exp.close();
-        }
+        thisSubManager.close();
     }
 }

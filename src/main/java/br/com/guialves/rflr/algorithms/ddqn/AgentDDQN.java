@@ -54,7 +54,6 @@ public class AgentDDQN extends AbstractAgent<Experience> {
         if (replayBuffer.size() < batchSize) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-
         @Cleanup var targetQValue = scoped(arrays -> {
             var rewards = arrays[0];
             var nextStates = arrays[1];
