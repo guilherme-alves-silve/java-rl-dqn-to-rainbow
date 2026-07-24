@@ -181,6 +181,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
     protected void updateTargetNetworkAtN(int frames) {
         if (frames % updateQTargetAtTimeN == 0) {
             DJLUtils.copy(onlineNet.getBlock(), targetNet.getBlock());
+            DJLUtils.freeze(targetNet.getBlock());
         }
     }
 
