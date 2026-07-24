@@ -3,13 +3,10 @@ package br.com.guialves.rflr.algorithms.buffer;
 import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.types.DataType;
-import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
-import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -24,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
 
     private final Experience[] experiences;
-    private final NDManager manager;
+    private final NDManager thisSubManager;
     private final ExperienceSampler sampler;
     private final int capacity;
     private final Device device;
@@ -32,31 +29,26 @@ public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
     private int pos;
 
     public ExperienceReplayBuffer(int capacity, NDManager manager) {
-        this(capacity, manager, new ExperienceSampler(), Device.cpu());
-    }
-
-    public ExperienceReplayBuffer(int capacity, NDManager manager, Device device) {
-        this(capacity, manager, new ExperienceSampler(), device);
+        this(capacity, manager, new ExperienceSampler());
     }
 
     public ExperienceReplayBuffer(int capacity,
                                   NDManager manager,
-                                  ExperienceSampler sampler,
-                                  Device device) {
+                                  ExperienceSampler sampler) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.manager = requireNonNull(manager);
+        this.thisSubManager = requireNonNull(manager).newSubManager();
         this.sampler = requireNonNull(sampler);
-        this.device = requireNonNull(device);
+        this.device = requireNonNull(manager.getDevice());
         this.pos = 0;
     }
 
     @Override
     public void store(Experience exp) {
 
-        exp.state().attach(manager);
-        exp.nextState().attach(manager);
+        exp.state().attach(thisSubManager);
+        exp.nextState().attach(thisSubManager);
 
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
@@ -78,21 +70,22 @@ public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
     public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
-        @Cleanup var sub = manager.newSubManager();
+        var sub = thisSubManager.newSubManager();
         var batch = sampler.sample(experiences, batchSize, size, false);
 
-        var states = newAttachedList(sub, device, batch, IExperience::state);
-        var actions = djlMapToLong(sub, device, batch, exp -> exp.actionAs(Long.class));
-        var rewards = djlMapToFloat32(sub, device, batch, Experience::reward);
-        var nextStates = newAttachedList(sub, device, batch, IExperience::nextState);
-        var dones = djlMapToFloat32(sub, device, batch, exp -> exp.done() ? 1 : 0);
+        var states = newAttachedList(sub, batch, IExperience::state);
+        var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
+        var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+        var nextStates = newAttachedList(sub, batch, IExperience::nextState);
+        var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
 
         return new VecExperience(
+                sub,
                 sub.ret(states),
-                sub.ret(actions),
-                sub.ret(rewards),
+                actions,
+                rewards,
                 sub.ret(nextStates),
-                sub.ret(dones)
+                dones
         );
     }
 
@@ -114,18 +107,25 @@ public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
         return pos;
     }
 
-    public record VecExperience(NDArray states,
+    public record VecExperience(NDManager sub,
+                                NDArray states,
                                 NDArray actions,
                                 NDArray rewards,
                                 NDArray nextStates,
                                 NDArray dones) implements IVecExperience {
+        @Override
+        public void close() {
+            sub.close();
+        }
+    }
 
+    @Override
+    public boolean isOpen() {
+        return thisSubManager.isOpen();
     }
 
     @Override
     public void close() {
-        for (var exp : experiences) {
-            if (exp != null) exp.close();
-        }
+        thisSubManager.close();
     }
 }

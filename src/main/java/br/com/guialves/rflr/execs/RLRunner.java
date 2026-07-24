@@ -33,8 +33,8 @@ public class RLRunner {
             return Loss.l2Loss();
         }
 
-        default IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager, Device device) {
-            return new ExperienceReplayBuffer(config.bufferCapacity(), manager, device);
+        default IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager) {
+            return new ExperienceReplayBuffer(config.bufferCapacity(), manager);
         }
     }
 
@@ -42,7 +42,8 @@ public class RLRunner {
         var path = Paths.get("./output_models/", config.algorithmName());
         var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
 
-        try (var manager = NDManager.newBaseManager()) {
+        var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
+        try (var manager = NDManager.newBaseManager(device)) {
             var env = Gym.builder()
                     .envName(config.envName())
                     .ndManager(manager)
@@ -50,7 +51,6 @@ public class RLRunner {
                     .add(new RecordEpisodeStatistics())
                     .build();
 
-            var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
             var optimizer = Adam.builder()
                     .optLearningRateTracker(Tracker.fixed(config.learningRate()))
                     .build();
@@ -65,7 +65,7 @@ public class RLRunner {
 
             var agent = agentFactory.create(env, optimizer, device, plotTrackers);
 
-            var replayBuffer = agentFactory.replayBuffer(config, manager, device);
+            var replayBuffer = agentFactory.replayBuffer(config, manager);
             var lossFunc = agentFactory.lossFunc();
 
             agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);

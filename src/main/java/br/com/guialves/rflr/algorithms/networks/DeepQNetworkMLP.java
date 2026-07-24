@@ -29,6 +29,7 @@ import java.nio.file.Path;
 public class DeepQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
+    private final NDManager manager;
     private final int observations;
     private final int actions;
     private final Model model;
@@ -59,6 +60,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
         this.observations = observations;
         this.actions = actions;
         this.device = device;
+        this.manager = manager;
         this.model = Model.newInstance("dqn_mlp", device);
         this.net = new SequentialBlock();
         net.add(Linear.builder().setUnits(128).optBias(true).build())
@@ -113,14 +115,14 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DeepQNetworkMLP(observations, actions, model.getNDManager(), device);
+        var cloned = new DeepQNetworkMLP(observations, actions, manager, device);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 
     @Override
     public NDManager manager() {
-        return this.model.getNDManager();
+        return this.manager;
     }
 
     @Override

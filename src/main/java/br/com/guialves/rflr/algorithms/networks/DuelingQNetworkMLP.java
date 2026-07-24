@@ -29,6 +29,7 @@ import java.nio.file.Path;
 public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
+    private final NDManager manager;
     private final int observations;
     private final int actions;
     private final Model model;
@@ -59,7 +60,8 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
         this.observations = observations;
         this.actions = actions;
         this.device = device;
-        this.model = Model.newInstance("dqn_mlp", device);
+        this.manager = manager;
+        this.model = Model.newInstance("dueling_mlp", device);
         this.net = new SequentialBlock();
         net.add(Linear.builder().setUnits(128).optBias(true).build())
             .add(Activation::relu)
@@ -67,8 +69,6 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
             .add(Activation::relu)
             .add(Linear.builder().setUnits(actions).optBias(true).build());
         model.setBlock(net);
-
-        // Q(s, a) = V(s) + (A(s, a) - mean A(s, a*))
 
         this.parameterStore = new ParameterStore(manager, false);
         if (modelPath != null) {
@@ -115,14 +115,14 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DuelingQNetworkMLP(observations, actions, model.getNDManager(), device);
+        var cloned = new DuelingQNetworkMLP(observations, actions, manager, device);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 
     @Override
     public NDManager manager() {
-        return this.model.getNDManager();
+        return this.manager;
     }
 
     @Override

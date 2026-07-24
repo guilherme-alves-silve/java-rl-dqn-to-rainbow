@@ -50,8 +50,8 @@ public class AgentDQNPERMain {
             }
 
             @Override
-            public IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager, Device device) {
-                return new PrioritizedReplayBuffer(config.bufferCapacity(), alpha, manager, device);
+            public IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager) {
+                return new PrioritizedReplayBuffer(config.bufferCapacity(), alpha, manager);
             }
         });
     }
