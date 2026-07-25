@@ -1,14 +1,15 @@
 package br.com.guialves.rflr.execs;
 
 import ai.djl.Device;
-import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.dqn.AgentDQN;
-import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+
+import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
+import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
 
 /**
  * Reference:
@@ -27,8 +28,9 @@ public class AgentDQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .framesLimit(5_000)
-                .bufferCapacity(1_000)
+                .framesLimit(getIntProp("agent.framesLimit", "300000"))
+                .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
+                .saveModel(getBoolProp("agent.saveModel", "true"))
                 .saveModel(true)
                 .algorithmName("dqn")
                 .build();

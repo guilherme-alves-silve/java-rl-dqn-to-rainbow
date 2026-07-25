@@ -10,13 +10,14 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
-import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+
+import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 
 /**
  * Architecture based on the link below:
@@ -40,7 +41,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
     public DeepQNetworkMLP(int observations,
                            int actions,
                            NDManager manager) {
-        this(observations, actions, null, null, manager, Device.cpu());
+        this(observations, actions, null, null, manager, manager.getDevice());
     }
 
     public DeepQNetworkMLP(int observations,
@@ -63,11 +64,11 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
         this.manager = manager;
         this.model = Model.newInstance("dqn_mlp", device);
         this.net = new SequentialBlock();
-        net.add(Linear.builder().setUnits(128).optBias(true).build())
-            .add(Activation::relu)
-            .add(Linear.builder().setUnits(128).optBias(true).build())
-            .add(Activation::relu)
-            .add(Linear.builder().setUnits(actions).optBias(true).build());
+        net.add(linear(128))
+           .add(Activation::relu)
+           .add(linear(128))
+           .add(Activation::relu)
+           .add(linear(actions));
         model.setBlock(net);
 
         this.parameterStore = new ParameterStore(manager, false);
