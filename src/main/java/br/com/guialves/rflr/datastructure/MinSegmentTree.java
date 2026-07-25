@@ -12,7 +12,7 @@ public class MinSegmentTree {
     private final Node root;
 
     public MinSegmentTree(int size) {
-        this(size, Float.MAX_VALUE);
+        this(size, Float.POSITIVE_INFINITY);
     }
 
     public MinSegmentTree(int size, float initValue) {

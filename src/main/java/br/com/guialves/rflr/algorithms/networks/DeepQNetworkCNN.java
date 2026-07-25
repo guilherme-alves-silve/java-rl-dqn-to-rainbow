@@ -19,6 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
+import static br.com.guialves.rflr.djlutils.DJLLayers.conv2d;
+import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
+
 @Slf4j
 public class DeepQNetworkCNN implements IDeepQNetwork {
 
@@ -53,31 +56,19 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
         this.modelPath = modelPath;
         this.prefix = prefix;
         this.manager = manager;
-        this.model = Model.newInstance("dqn_cnn");
+        this.model = Model.newInstance("dqn_cnn", manager.getDevice());
         this.net = new SequentialBlock();
 
-        net.add(Conv2d.builder()
-                        .setFilters(32)
-                        .setKernelShape(new Shape(8, 8))
-                        .optStride(new Shape(4, 4))
-                        .build())
+        net.add(conv2d(32, 8, 4))
                 .add(Activation::relu)
-                .add(Conv2d.builder()
-                        .setFilters(64)
-                        .setKernelShape(new Shape(4, 4))
-                        .optStride(new Shape(2, 2))
-                        .build())
+                .add(conv2d(64, 4, 2))
                 .add(Activation::relu)
-                .add(Conv2d.builder()
-                        .setFilters(64)
-                        .setKernelShape(new Shape(3, 3))
-                        .optStride(new Shape(1, 1))
-                        .build())
+                .add(conv2d(64, 3, 1))
                 .add(Activation::relu)
                 .add(Blocks.batchFlattenBlock())
-                .add(Linear.builder().setUnits(512).build())
+                .add(linear(512))
                 .add(Activation::relu)
-                .add(Linear.builder().setUnits(actions).build());
+                .add(linear(actions));
 
         model.setBlock(net);
 
