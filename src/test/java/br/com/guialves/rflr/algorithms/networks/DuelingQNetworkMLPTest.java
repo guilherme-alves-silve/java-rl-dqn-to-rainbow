@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DuelingQNetworkMLPTest {
 
-    private static final float DELTA = 1e-4f;
+    private static final float DELTA = 1e-6f;
     private static NDManager manager;
 
     @BeforeAll

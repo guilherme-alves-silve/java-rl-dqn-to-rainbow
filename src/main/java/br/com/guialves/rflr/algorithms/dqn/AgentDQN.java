@@ -19,7 +19,7 @@ import java.util.function.Supplier;
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 
 @Slf4j
-public class AgentDQN extends AbstractAgent<Experience> {
+public class AgentDQN extends AbstractAgent {
 
     private final int[] the2ndAxis = new int[] {1};
 
@@ -29,15 +29,6 @@ public class AgentDQN extends AbstractAgent<Experience> {
                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
-    }
-
-    @Override
-    protected Experience newExperience(NDArray state,
-                                       ActionSpaceType.ActionResult action,
-                                       double reward,
-                                       NDArray nextState,
-                                       boolean done) {
-        return new Experience(state, action, reward, nextState, done);
     }
 
     /**
@@ -52,9 +43,9 @@ public class AgentDQN extends AbstractAgent<Experience> {
      */
     @Override
     protected float trainOnline(int batchSize,
-                                IReplayBuffer<Experience> replayBuffer,
+                                IReplayBuffer replayBuffer,
                                 Loss lossFunc) {
-        if (replayBuffer.size() < batchSize) return Float.NaN;
+        if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {

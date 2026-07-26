@@ -22,6 +22,7 @@ public record RLConfig(
         float discountFactor, // or gamma
         int updateQTargetAtTimeN,
         int batchSize,
+        int nStep,
         int framesLimit,
         int bufferCapacity,
         boolean saveModel,

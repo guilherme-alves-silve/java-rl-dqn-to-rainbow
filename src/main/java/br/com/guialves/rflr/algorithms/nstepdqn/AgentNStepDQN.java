@@ -1,9 +1,10 @@
-package br.com.guialves.rflr.algorithms.duelingdqn;
+package br.com.guialves.rflr.algorithms.nstepdqn;
 
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.NStepExperienceReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -16,14 +17,14 @@ import java.util.function.Supplier;
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 
 @Slf4j
-public class AgentDuelingDQN extends AbstractAgent {
+public class AgentNStepDQN extends AbstractAgent {
 
-    private final int[] the2ndAxis = new int[] {1};
+    private static final int[] AXIS_COLUMN = new int[] {1};
 
-    public AgentDuelingDQN(float epsilon, int updateQTargetAtTimeN,
-                           float minEpsilon, float epsilonDecay,
-                           float gamma, IEnv env, Optimizer optimizer,
-                           Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentNStepDQN(float epsilon, int updateQTargetAtTimeN,
+                         float minEpsilon, float epsilonDecay,
+                         float gamma, IEnv env, Optimizer optimizer,
+                         Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
     }
@@ -35,14 +36,17 @@ public class AgentDuelingDQN extends AbstractAgent {
      * Reference:
      * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-scratch.html">DJL Linear Regression from Scratch</a>
      * @param batchSize Number of experiences to sample from the replay buffer for each training step
-     * @param replayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
+     * @param ireplayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
     protected float trainOnline(int batchSize,
-                                IReplayBuffer replayBuffer,
+                                IReplayBuffer ireplayBuffer,
                                 Loss lossFunc) {
-        if (!replayBuffer.enough(batchSize)) return Float.NaN;
+        if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
+        if (!(ireplayBuffer instanceof NStepExperienceReplayBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass NStepExperienceReplayBuffer!");
+        }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
@@ -50,9 +54,10 @@ public class AgentDuelingDQN extends AbstractAgent {
             var dones = arrays[1];
 
             // max Q(s', a')
-            var maxNextQValue = nextQValue.max(the2ndAxis, true);
-            // gamma * max Q(s', a')
-            var discountNextQValue = maxNextQValue.mul(gamma);
+            var maxNextQValue = nextQValue.max(AXIS_COLUMN, true);
+            float gammaNBootstramp = (float) Math.pow(gamma, replayBuffer.nStep());
+            // gamma^n * max Q(s', a')
+            var discountNextQValue = maxNextQValue.mul(gammaNBootstramp);
             // (1 - done)
             var mask = dones.neg().add(1);
             // r + gamma * max Q(s', a') * (1 - done)

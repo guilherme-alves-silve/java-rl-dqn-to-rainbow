@@ -20,7 +20,7 @@ import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 
 @Slf4j
-public class AgentDDQN extends AbstractAgent<Experience> {
+public class AgentDDQN extends AbstractAgent {
 
     public AgentDDQN(float epsilon, int updateQTargetAtTimeN,
                     float minEpsilon, float epsilonDecay,
@@ -28,15 +28,6 @@ public class AgentDDQN extends AbstractAgent<Experience> {
                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
-    }
-
-    @Override
-    protected Experience newExperience(NDArray state,
-                                       ActionSpaceType.ActionResult action,
-                                       double reward,
-                                       NDArray nextState,
-                                       boolean done) {
-        return new Experience(state, action, reward, nextState, done);
     }
 
     /**
@@ -50,8 +41,8 @@ public class AgentDDQN extends AbstractAgent<Experience> {
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
-    protected float trainOnline(int batchSize, IReplayBuffer<Experience> replayBuffer, Loss lossFunc) {
-        if (replayBuffer.size() < batchSize) return Float.NaN;
+    protected float trainOnline(int batchSize, IReplayBuffer replayBuffer, Loss lossFunc) {
+        if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = scoped(arrays -> {

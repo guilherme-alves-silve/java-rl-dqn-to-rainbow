@@ -10,8 +10,10 @@
   - Main author: Jinwoo Park (Curt)
 - [Deep Reinforcement Learning Hands-On, 3rd Edition](https://www.packtpub.com/en-us/product/deep-reinforcement-learning-hands-on-9781835882719)
   - Main author: Maxim Lapan
+  - [Github](https://github.com/PacktPublishing/Deep-Reinforcement-Learning-Hands-On-Third-Edition/tree/main/Chapter08)
 - [Modern Computer Vision with PyTorch, 2nd Edition](https://www.packtpub.com/en-us/product/modern-computer-vision-with-pytorch-9781803240930)
   - Main authors: V Kishore Ayyadevara, Yeshwanth Reddy
+  - [Github](https://github.com/PacktPublishing/Modern-Computer-Vision-with-PyTorch-2E/blob/main/Chapter14/)
 
 ## Overview
 
@@ -23,8 +25,8 @@ The series progresses in three articles:
 2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
 - [x] DQN
 - [x] Double DQN
-- [ ] PER
-- [ ] Dueling DQN
+- [x] PER
+- [x] Dueling DQN
 - [ ] n-Step
 - [ ] Noisy Networks
 - [ ] C51

@@ -7,9 +7,9 @@ import ai.djl.ndarray.NDManager;
 
 import java.util.function.Function;
 
-public interface IReplayBuffer<T extends IExperience> extends AutoCloseable {
+public interface IReplayBuffer extends AutoCloseable {
 
-    void store(T exp);
+    void store(Experience exp);
 
     boolean enough(int batchSize);
 
@@ -45,8 +45,8 @@ public interface IReplayBuffer<T extends IExperience> extends AutoCloseable {
      * @return concatenated NDArray along axis 0
      */
     default NDArray newAttachedList(final NDManager subManager,
-                                    final IExperience[] batch,
-                                    final Function<IExperience, NDArray> mapper) {
+                                    final Experience[] batch,
+                                    final Function<Experience, NDArray> mapper) {
         var arrays = new NDList(batch.length);
         for (var exp : batch) {
             var mapped = mapper.apply(exp);

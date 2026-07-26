@@ -2,7 +2,6 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import br.com.guialves.rflr.python.numpy.NumPyByteBuffer;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import org.bytedeco.cpython.PyObject;
 
@@ -175,6 +174,20 @@ public enum ActionSpaceType {
 
             refDecSafe(pyObj);
             closed = true;
+        }
+
+        public ActionResult duplicate() {
+            if (closed) {
+                throw new IllegalStateException("Cannot duplicate a closed ActionResult!");
+            }
+
+            if (isPyNull(pyObj)) {
+                throw new IllegalStateException(
+                        "Cannot duplicate: PyObject is null or invalid.");
+            }
+
+            incRef(pyObj);
+            return new ActionResult(pyObj, spaceType);
         }
 
         /**

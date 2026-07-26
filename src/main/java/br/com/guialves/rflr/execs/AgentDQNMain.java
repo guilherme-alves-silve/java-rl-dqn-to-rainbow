@@ -38,10 +38,10 @@ public class AgentDQNMain {
                 buildDQN(config, env, optimizer, plotTrackers));
     }
 
-    private static IAgent<?> buildDQN(RLConfig config,
-                                     IEnv env,
-                                     Optimizer optimizer,
-                                     PlotTrackers plotTrackers) {
+    private static IAgent buildDQN(RLConfig config,
+                                  IEnv env,
+                                  Optimizer optimizer,
+                                  PlotTrackers plotTrackers) {
         return new AgentDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),

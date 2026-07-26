@@ -36,4 +36,14 @@ class AgentExecsMainTest {
     void shouldRunAgentDQNPERMain() {
         assertDoesNotThrow(AgentDQNPERMain::main);
     }
+
+    @Test
+    void shouldRunAgentDuelingDQNMain() {
+        assertDoesNotThrow(AgentDuelingDQNMain::main);
+    }
+
+    @Test
+    void shouldRunAgentNStepDQNMain() {
+        assertDoesNotThrow(AgentNStepDQNMain::main);
+    }
 }

@@ -24,8 +24,9 @@ import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
 
 /**
- * Architecture based on the link below:
- * <a href="https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html">...</a>
+ * Architecture based on the links below:
+ * <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/04_dueling.py">Dueling DQN implementation in Python</a>
+ * <a href="https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html">Reinforcement Q-Learning</a>
  * For coding reference:
  * <a href="https://d2l.djl.ai/chapter_deep-learning-computation/custom-layer.html">Custom Layers</a>
  * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-djl.html">Linear Regression</a>

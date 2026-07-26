@@ -22,7 +22,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
 
 @Slf4j
-public class AgentDQNPER extends AbstractAgent<Experience> {
+public class AgentDQNPER extends AbstractAgent {
 
     private static final Float MIN_PRIORITY = 0.000_001f;
     private final int[] the2ndAxis = new int[] {1};
@@ -38,15 +38,6 @@ public class AgentDQNPER extends AbstractAgent<Experience> {
         this.initialBeta = beta;
     }
 
-    @Override
-    protected Experience newExperience(NDArray state,
-                                       ActionSpaceType.ActionResult action,
-                                       double reward,
-                                       NDArray nextState,
-                                       boolean done) {
-        return new Experience(state, action, reward, nextState, done);
-    }
-
     /**
      * Method used to train the Q-online network
      * Observations: In case you want to understand the shape/dimensions of the
@@ -59,9 +50,9 @@ public class AgentDQNPER extends AbstractAgent<Experience> {
      */
     @Override
     protected float trainOnline(int batchSize,
-                                IReplayBuffer<Experience> ireplayBuffer,
+                                IReplayBuffer ireplayBuffer,
                                 Loss lossFunc) {
-        if (ireplayBuffer.size() < batchSize) return Float.NaN;
+        if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
         if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
         }

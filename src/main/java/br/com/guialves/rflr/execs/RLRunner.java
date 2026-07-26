@@ -32,7 +32,7 @@ public class RLRunner {
             return Loss.l2Loss();
         }
 
-        default IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager) {
+        default IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
             return new ExperienceReplayBuffer(config.bufferCapacity(), manager);
         }
     }
