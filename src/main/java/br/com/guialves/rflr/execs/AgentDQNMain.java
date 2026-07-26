@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.execs;
 
-import ai.djl.Device;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.dqn.AgentDQN;
@@ -35,14 +34,13 @@ public class AgentDQNMain {
                 .algorithmName("dqn")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, device, plotTrackers) ->
-                buildDQN(config, env, optimizer, device, plotTrackers));
+        RLRunner.run(config, (env, optimizer, plotTrackers) ->
+                buildDQN(config, env, optimizer, plotTrackers));
     }
 
     private static IAgent<?> buildDQN(RLConfig config,
                                      IEnv env,
                                      Optimizer optimizer,
-                                     Device device,
                                      PlotTrackers plotTrackers) {
         return new AgentDQN(
                 config.maxEpsilon(),
@@ -55,8 +53,7 @@ public class AgentDQNMain {
                 () -> new DeepQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager(),
-                    device
+                    env.manager()
                 ),
                 plotTrackers
         );

@@ -2,8 +2,9 @@ package br.com.guialves.rflr.algorithms.networks;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import br.com.guialves.rflr.algorithms.networks.DeepQNetworkCNN;
+import lombok.Cleanup;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import static br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP.withType;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DeepQNetworkCNNTest {
@@ -33,11 +36,11 @@ class DeepQNetworkCNNTest {
     void testForwardSingleInput() {
 
         int channels = 4;
-        int size = 84;
+        int observations = 84;
         int actions = 6;
 
-        try (var cnn = new DeepQNetworkCNN(channels, size, actions, manager)) {
-            var input = manager.randomUniform(0f, 1f, new Shape(1, channels, size, size));
+        try (var cnn = new DeepQNetworkCNN(channels, observations, actions, manager)) {
+            var input = manager.randomUniform(0f, 1f, new Shape(1, channels, observations, observations));
             var output = cnn.forward(input);
             assertEquals(new Shape(1, actions), output.getShape());
         }
@@ -47,14 +50,14 @@ class DeepQNetworkCNNTest {
     void testForwardBatchInput() {
 
         int channels = 4;
-        int size = 84;
+        int observations = 84;
         int actions = 3;
-        int batchSize = 16;
+        int batchobservations = 16;
 
-        try (var cnn = new DeepQNetworkCNN(channels, size, actions, manager)) {
-            var batch = manager.randomUniform(0f, 1f, new Shape(batchSize, channels, size, size));
+        try (var cnn = new DeepQNetworkCNN(channels, observations, actions, manager)) {
+            var batch = manager.randomUniform(0f, 1f, new Shape(batchobservations, channels, observations, observations));
             var output = cnn.forward(batch);
-            assertEquals(new Shape(batchSize, actions), output.getShape());
+            assertEquals(new Shape(batchobservations, actions), output.getShape());
         }
     }
 
@@ -62,11 +65,11 @@ class DeepQNetworkCNNTest {
     void testDeterministicForward() {
 
         int channels = 4;
-        int size = 84;
+        int observations = 84;
         int actions = 4;
 
-        try (var cnn = new DeepQNetworkCNN(channels, size, actions, manager)) {
-            var input = manager.randomUniform(0f, 1f, new Shape(1, channels, size, size));
+        try (var cnn = new DeepQNetworkCNN(channels, observations, actions, manager)) {
+            var input = manager.randomUniform(0f, 1f, new Shape(1, channels, observations, observations));
             var out1 = cnn.forward(input);
             var out2 = cnn.forward(input);
             assertEquals(out1, out2);
@@ -77,19 +80,19 @@ class DeepQNetworkCNNTest {
     void testSaveAndLoad(@TempDir Path tempDir) throws IOException {
 
         int channels = 4;
-        int size = 84;
+        int observations = 84;
         int actions = 5;
         String prefix = "cnn_test_model";
 
-        var input = manager.randomUniform(0f, 1f, new Shape(1, channels, size, size));
+        var input = manager.randomUniform(0f, 1f, new Shape(1, channels, observations, observations));
 
         NDArray originalOutput;
-        try (var cnn = new DeepQNetworkCNN(channels, size, actions, manager)) {
+        try (var cnn = new DeepQNetworkCNN(channels, observations, actions, manager)) {
             originalOutput = cnn.forward(input).duplicate();
             cnn.save(tempDir, prefix);
         }
 
-        try (var loaded = new DeepQNetworkCNN(channels, size, actions,
+        try (var loaded = new DeepQNetworkCNN(channels, observations, actions,
                 tempDir, prefix, manager)) {
             var loadedOutput = loaded.forward(input);
             assertEquals(originalOutput.getShape(), loadedOutput.getShape());
@@ -106,14 +109,35 @@ class DeepQNetworkCNNTest {
     void testOutputNotNull() {
 
         int channels = 3;
-        int size = 64;
+        int observations = 64;
         int actions = 2;
 
-        try (var cnn = new DeepQNetworkCNN(channels, size, actions, manager)) {
-            var input = manager.zeros(new Shape(1, channels, size, size));
+        try (var cnn = new DeepQNetworkCNN(channels, observations, actions, manager)) {
+            var input = manager.zeros(new Shape(1, channels, observations, observations));
             var output = cnn.forward(input);
             assertNotNull(output);
             assertEquals(actions, output.getShape().get(1));
         }
+    }
+
+    @Test
+    void shouldAvoidMemoryLeak() {
+        int channels = 3;
+        int observations = 64;
+        int actions = 2;
+        int expectedEnd = 11;
+        int expectedAfter = 12;
+
+        @Cleanup var net = new DeepQNetworkCNN(channels, observations, actions, manager);
+        var input = manager.randomNormal(0f, 1f, new Shape(1, channels, observations, observations), DataType.FLOAT32);
+        int between = managedArrayCount(manager);
+        assertEquals(expectedEnd, between);
+        for (int i = 0; i < 10; ++i) {
+            @Cleanup var output = net.forward(input);
+            assertFalse(output.isReleased());
+            int after = managedArrayCount(manager);
+            assertEquals(expectedAfter, after);
+        }
+        assertEquals(expectedEnd, managedArrayCount(manager));
     }
 }

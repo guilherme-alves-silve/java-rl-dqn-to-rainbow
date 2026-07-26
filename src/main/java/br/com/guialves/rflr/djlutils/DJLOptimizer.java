@@ -7,7 +7,7 @@ import lombok.Cleanup;
 public class DJLOptimizer {
 
     private DJLOptimizer() {
-        throw new IllegalStateException("No OptimizerUtils!");
+        throw new IllegalStateException("No DJLOptimizer!");
     }
 
     public static void trainStep(Block block, Optimizer optimizer) {

@@ -11,6 +11,7 @@ import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.EnvStepResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
+import lombok.Cleanup;
 import lombok.experimental.Delegate;
 
 import java.util.ArrayList;
@@ -74,40 +75,44 @@ public class PreProcessingWrapper implements IEnv {
     @Override
     public EnvStepResult step(ActionResult action) {
         var parent = env.manager();
-        try (var sub = parent.newSubManager()) {
-            var frames = new ArrayList<NDArray>();
-            var rewards = new ArrayList<Double>();
+        @Cleanup var sub = parent.newSubManager();
+        var frames = new ArrayList<NDArray>();
+        var rewards = new ArrayList<Double>();
 
-            boolean term = false;
-            boolean trunc = false;
-            Map<Object, Object> info = null;
+        boolean term = false;
+        boolean trunc = false;
+        Map<Object, Object> info = null;
 
-            for (int i = 0; i < concatenate; i++) {
-                var skipResult = skipFrames(action, sub);
+        for (int i = 0; i < concatenate; i++) {
+            var skipResult = skipFrames(action, sub);
 
-                try (var grayState = grayscaleFrame(skipResult.state())) {
-                    var resizedState = resizeFrame(grayState);
-                    frames.add(resizedState);
-                }
-
-                rewards.add(skipResult.reward());
-                term  = skipResult.term();
-                trunc = skipResult.trunc();
-                info  = skipResult.info();
-
-                if (term || trunc) {
-                    break;
-                }
+            try (var grayState = grayscaleFrame(skipResult.state())) {
+                var resizedState = resizeFrame(grayState);
+                frames.add(resizedState);
             }
 
-            var result = finishConcatenateFrames(frames, rewards);
-            NDArray state = result.getKey();
-            double totalReward = result.getValue();
+            rewards.add(skipResult.reward());
+            term  = skipResult.term();
+            trunc = skipResult.trunc();
+            info  = skipResult.info();
 
-            // Promote the surviving array out of sub before sub closes
-            state.attach(parent);
-            return new EnvStepResult(totalReward, term, trunc, info, state);
+            if (term || trunc) {
+                break;
+            }
         }
+
+        var result = finishConcatenateFrames(frames, rewards);
+        NDArray state = result.getKey();
+        double totalReward = result.getValue();
+
+        return new EnvStepResult(
+            totalReward,
+            term,
+            trunc,
+            info,
+            // Promote the surviving array out of sub before sub closes
+            sub.ret(state)
+        );
     }
 
     private EnvStepResult skipFrames(ActionResult action, NDManager sub) {

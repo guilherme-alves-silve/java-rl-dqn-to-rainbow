@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.execs;
 
-import ai.djl.Device;
 import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
@@ -43,8 +42,8 @@ public class AgentDQNPERMain {
         RLRunner.run(config, new RLRunner.AgentFactory() {
 
             @Override
-            public IAgent<?> create(IEnv env, Optimizer optimizer, Device device, PlotTrackers plotTrackers) {
-                return buildDQNPER(config, env, optimizer, device, plotTrackers);
+            public IAgent<?> create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers) {
+                return buildDQNPER(config, env, optimizer, plotTrackers);
             }
 
             @Override
@@ -62,7 +61,6 @@ public class AgentDQNPERMain {
     private static IAgent<?> buildDQNPER(RLConfig config,
                                          IEnv env,
                                          Optimizer optimizer,
-                                         Device device,
                                          PlotTrackers plotTrackers) {
         float initialBeta = 0.6f;
         return new AgentDQNPER(
@@ -77,8 +75,7 @@ public class AgentDQNPERMain {
                 () -> new DeepQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager(),
-                    device
+                    env.manager()
                 ),
                 plotTrackers
         );
