@@ -52,7 +52,7 @@ public class AgentDQNPER extends AbstractAgent {
     protected float trainOnline(int batchSize,
                                 IReplayBuffer ireplayBuffer,
                                 Loss lossFunc) {
-        if (ireplayBuffer.size() < batchSize) return Float.NaN;
+        if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
         if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
         }

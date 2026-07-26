@@ -45,6 +45,8 @@ public class AgentNStepDQN extends AbstractAgent {
     protected float trainOnline(int batchSize,
                                 IReplayBuffer replayBuffer,
                                 Loss lossFunc) {
+        if (!replayBuffer.enough(batchSize)) return Float.NaN;
+
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
             var rewards = arrays[0];

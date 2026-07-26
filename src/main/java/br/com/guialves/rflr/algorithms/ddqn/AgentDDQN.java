@@ -42,7 +42,7 @@ public class AgentDDQN extends AbstractAgent {
      */
     @Override
     protected float trainOnline(int batchSize, IReplayBuffer replayBuffer, Loss lossFunc) {
-        if (replayBuffer.size() < batchSize) return Float.NaN;
+        if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = scoped(arrays -> {
