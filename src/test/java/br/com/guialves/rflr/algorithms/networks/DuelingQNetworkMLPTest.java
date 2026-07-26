@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DuelingQNetworkMLPTest {
 
+    private static final float DELTA = 1e-4f;
     private static NDManager manager;
 
     @BeforeAll
@@ -80,6 +81,22 @@ class DuelingQNetworkMLPTest {
         assertEquals(expectedEnd, managedArrayCount(sub));
     }
 
+    /**
+     * Verifies the Dueling DQN mean decomposition:
+     *
+     * <pre>
+     * Q(s, a) = V(s) + (A(s, a) - mean(A))
+     *
+     * mean(Q) = V
+     *
+     * Q - mean(Q) = A - mean(A)
+     *
+     * mean(A - mean(A)) = 0
+     * </pre>
+     *
+     * Therefore, the recovered normalized advantage must have zero mean across
+     * the action dimension.
+     */
     @Test
     void shouldCheckIfAdvantageHasZeroMean() {
         int obs = 8;
@@ -88,21 +105,37 @@ class DuelingQNetworkMLPTest {
         var input = manager.randomUniform(0f, 1f, new Shape(64, obs));
         var q = net.forward(input);
         var meanQ = q.mean(new int[] {1}, true);
-        var centeredAdvantage = q.sub(meanQ);
-        var advMean = centeredAdvantage.mean(new int[] {1});
-        assertTrue(advMean.abs().max().getFloat() < 1e-4f);
+        var recoveredAdvantage = q.sub(meanQ);
+        var advMean = recoveredAdvantage.mean(new int[] {1});
+        assertTrue(advMean.abs().max().getFloat() < DELTA);
     }
 
+    /**
+     * Verifies the Dueling DQN max decomposition:
+     *
+     * <pre>
+     * Q(s, a) = V(s) + (A(s, a) - max(A))
+     *
+     * max(Q) = V
+     *
+     * Q - max(Q) = A - max(A)
+     *
+     * max(A - max(A)) = 0
+     * </pre>
+     *
+     * Therefore, the recovered normalized advantage must have zero maximum across
+     * the action dimension.
+     */
     @Test
     void shouldCheckIfAdvantageHasZeroMax() {
         int obs = 8;
         int actions = 4;
-        @Cleanup var net = DuelingQNetworkMLP.withMeanType(obs, actions, manager);
+        @Cleanup var net = DuelingQNetworkMLP.withMaxType(obs, actions, manager);
         var input = manager.randomUniform(0f, 1f, new Shape(64, obs));
         var q = net.forward(input);
         var maxQ = q.max(new int[] {1}, true);
-        var centeredAdvantage = q.sub(maxQ);
-        var advMax = centeredAdvantage.max(new int[] {1});
-        assertTrue(advMax.abs().max().getFloat() < 1e-4f);
+        var recoveredAdvantage = q.sub(maxQ);
+        var advMax = recoveredAdvantage.max(new int[] {1});
+        assertTrue(advMax.abs().max().getFloat() < DELTA);
     }
 }
