@@ -13,6 +13,7 @@ import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
 import br.com.guialves.rflr.djlutils.DJLUtils;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,13 +21,15 @@ import java.nio.file.Path;
 import java.util.function.BinaryOperator;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
 
 /**
  * Architecture based on the link below:
  * <a href="https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html">...</a>
  * For coding reference:
- * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-djl.html">...</a>
- * <a href="https://d2l.djl.ai/chapter_multilayer-perceptrons/mlp-djl.html">...</a>
+ * <a href="https://d2l.djl.ai/chapter_deep-learning-computation/custom-layer.html">Custom Layers</a>
+ * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-djl.html">Linear Regression</a>
+ * <a href="https://d2l.djl.ai/chapter_multilayer-perceptrons/mlp-djl.html">Multilayer Perceptrons</a>
  */
 @Slf4j
 public class DuelingQNetworkMLP implements IDeepQNetwork {
@@ -43,16 +46,23 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
         MEAN, MAX
     }
 
-    public static DuelingQNetworkMLP withMeanCalc(int observations,
+    public static DuelingQNetworkMLP withMeanType(int observations,
                                                   int actions,
                                                   NDManager manager) {
         return new DuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MEAN);
     }
 
-    public static DuelingQNetworkMLP withMaxCalc(int observations,
+    public static DuelingQNetworkMLP withMaxType(int observations,
                                                  int actions,
                                                  NDManager manager) {
         return new DuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MAX);
+    }
+
+    public static DuelingQNetworkMLP withType(int observations,
+                                              int actions,
+                                              NDManager manager,
+                                              DuelingType duelingType) {
+        return new DuelingQNetworkMLP(observations, actions, null, null, manager, duelingType);
     }
 
     public DuelingQNetworkMLP(int observations,
@@ -68,7 +78,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
                               Path modelPath,
                               String prefix,
                               NDManager manager,
-                              DuelingType duelingType) {
+                              @NonNull DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
         this.manager = manager;
@@ -94,7 +104,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return net.forward(parameterStore, input, training);
+        return safeForwardSingle(manager, net, parameterStore, input, training);
     }
 
     @Override
@@ -125,7 +135,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DuelingQNetworkMLP(observations, actions, manager, device);
+        var cloned = new DuelingQNetworkMLP(observations, actions, manager, duelingType());
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
@@ -149,12 +159,14 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
         private final SequentialBlock valueHead;
         private final SequentialBlock advantageHead;
 
+        private static final int[] AXIS_PER_LINE = new int[] { 1 };
+        private static final boolean KEEP_DIMS = true;
         /**
          * Q-Value calculator for Dueling DQN using the mean operation:
          *  Q(s, a) = V(s) + (A(s, a) - mean A(s, a'))
          */
         static final BinaryOperator<NDArray> Q_VALUE_MEAN = (value, advantage) -> {
-            var subMean = advantage.subi(advantage.mean());
+            var subMean = advantage.subi(advantage.mean(AXIS_PER_LINE, KEEP_DIMS));
             return value.add(subMean);
         };
 
@@ -163,7 +175,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
          *  Q(s, a) = V(s) + (A(s, a) - max A(s, a'))
          */
         static final BinaryOperator<NDArray> Q_VALUE_MAX = (value, advantage) -> {
-            var subMean = advantage.subi(advantage.max());
+            var subMean = advantage.subi(advantage.max(AXIS_PER_LINE, KEEP_DIMS));
             return value.add(subMean);
         };
 

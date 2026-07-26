@@ -10,8 +10,6 @@ import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.nn.Blocks;
 import ai.djl.nn.SequentialBlock;
-import ai.djl.nn.convolutional.Conv2d;
-import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
@@ -21,6 +19,7 @@ import java.nio.file.Path;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.conv2d;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
 
 @Slf4j
 public class DeepQNetworkCNN implements IDeepQNetwork {
@@ -28,7 +27,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     private boolean training;
     private final NDManager manager;
     private final int channels;
-    private final int size;
+    private final int observations;
     private final int actions;
     private final Path modelPath;
     private final String prefix;
@@ -37,21 +36,21 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     private final ParameterStore parameterStore;
 
     public DeepQNetworkCNN(int channels,
-                           int size,
+                           int observations,
                            int actions,
                            NDManager manager) {
-        this(channels, size, actions, null, null, manager);
+        this(channels, observations, actions, null, null, manager);
     }
 
     @SneakyThrows
     public DeepQNetworkCNN(int channels,
-                           int size,
+                           int observations,
                            int actions,
                            Path modelPath,
                            String prefix,
                            NDManager manager) {
         this.channels = channels;
-        this.size = size;
+        this.observations = observations;
         this.actions = actions;
         this.modelPath = modelPath;
         this.prefix = prefix;
@@ -82,7 +81,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
             // Atari input: (batch, channels, height, width)
             net.initialize(manager,
                     DataType.FLOAT32,
-                    new Shape(1, channels, size, size));
+                    new Shape(1, channels, observations, observations));
             DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
@@ -90,7 +89,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return net.forward(parameterStore, input, training);
+        return safeForwardSingle(manager, net, parameterStore, input, training);
     }
 
     @Override
@@ -126,7 +125,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DeepQNetworkCNN(channels, size, actions,
+        var cloned = new DeepQNetworkCNN(channels, observations, actions,
                                          modelPath, prefix, manager);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;

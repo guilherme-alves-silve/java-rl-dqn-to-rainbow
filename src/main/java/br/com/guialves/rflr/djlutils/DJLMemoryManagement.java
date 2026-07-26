@@ -2,7 +2,10 @@ package br.com.guialves.rflr.djlutils;
 
 import ai.djl.ndarray.BaseNDManager;
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import ai.djl.nn.Block;
+import ai.djl.training.ParameterStore;
 import lombok.Cleanup;
 
 import java.util.function.BiFunction;
@@ -107,6 +110,29 @@ public class DJLMemoryManagement {
             }
             return result;
         }
+    }
+
+    public static NDList safeForwardSingle(NDManager manager,
+                                           Block block,
+                                           ParameterStore parameterStore,
+                                           NDList inputs,
+                                           boolean training) {
+        if (inputs.size() != 1) throw new IllegalArgumentException("The dueling dqn just accepts one input!");
+        @Cleanup var sub = manager.newSubManager();
+        inputs.getFirst().tempAttach(sub);
+        var output = block.forward(parameterStore, inputs, training);
+        output.attach(manager);
+        return output;
+    }
+
+    public static NDList safeForward(NDManager manager,
+                                     Block block,
+                                     ParameterStore parameterStore,
+                                     NDList inputs,
+                                     boolean training) {
+        @Cleanup var sub = manager.newSubManager();
+        inputs.tempAttach(sub);
+        return block.forward(parameterStore, inputs, training);
     }
 
     public static void debugDump(NDManager manager) {

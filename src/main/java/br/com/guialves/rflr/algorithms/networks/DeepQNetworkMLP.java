@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.algorithms.networks;
 
-import ai.djl.Device;
 import ai.djl.Model;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
@@ -18,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
 
 /**
  * Architecture based on the link below:
@@ -36,19 +36,11 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
     private final Model model;
     private final SequentialBlock net;
     private final ParameterStore parameterStore;
-    private final Device device;
 
     public DeepQNetworkMLP(int observations,
                            int actions,
                            NDManager manager) {
-        this(observations, actions, null, null, manager, manager.getDevice());
-    }
-
-    public DeepQNetworkMLP(int observations,
-                           int actions,
-                           NDManager manager,
-                           Device device) {
-        this(observations, actions, null, null, manager, device);
+        this(observations, actions, null, null, manager);
     }
 
     @SneakyThrows
@@ -56,13 +48,11 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
                            int actions,
                            Path modelPath,
                            String prefix,
-                           NDManager manager,
-                           Device device) {
+                           NDManager manager) {
         this.observations = observations;
         this.actions = actions;
-        this.device = device;
         this.manager = manager;
-        this.model = Model.newInstance("dqn_mlp", device);
+        this.model = Model.newInstance("dqn_mlp", manager.getDevice());
         this.net = new SequentialBlock();
         net.add(linear(128))
            .add(Activation::relu)
@@ -85,7 +75,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return net.forward(parameterStore, input, training);
+        return safeForwardSingle(manager, net, parameterStore, input, training);
     }
 
     @Override
@@ -116,7 +106,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DeepQNetworkMLP(observations, actions, manager, device);
+        var cloned = new DeepQNetworkMLP(observations, actions, manager);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
