@@ -79,4 +79,30 @@ class DuelingQNetworkMLPTest {
         }
         assertEquals(expectedEnd, managedArrayCount(sub));
     }
+
+    @Test
+    void shouldCheckIfAdvantageHasZeroMean() {
+        int obs = 8;
+        int actions = 4;
+        @Cleanup var net = DuelingQNetworkMLP.withMeanType(obs, actions, manager);
+        var input = manager.randomUniform(0f, 1f, new Shape(64, obs));
+        var q = net.forward(input);
+        var meanQ = q.mean(new int[] {1}, true);
+        var centeredAdvantage = q.sub(meanQ);
+        var advMean = centeredAdvantage.mean(new int[] {1});
+        assertTrue(advMean.abs().max().getFloat() < 1e-4f);
+    }
+
+    @Test
+    void shouldCheckIfAdvantageHasZeroMax() {
+        int obs = 8;
+        int actions = 4;
+        @Cleanup var net = DuelingQNetworkMLP.withMeanType(obs, actions, manager);
+        var input = manager.randomUniform(0f, 1f, new Shape(64, obs));
+        var q = net.forward(input);
+        var maxQ = q.max(new int[] {1}, true);
+        var centeredAdvantage = q.sub(maxQ);
+        var advMax = centeredAdvantage.max(new int[] {1});
+        assertTrue(advMax.abs().max().getFloat() < 1e-4f);
+    }
 }
