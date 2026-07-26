@@ -5,6 +5,8 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.util.ArrayList;
+
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -570,12 +572,49 @@ class ActionSpaceTypeTest {
         @DisplayName("Should not leak memory on repeated operations")
         void testNoMemoryLeak() {
             assertDoesNotThrow(() -> {
-                for (int i = 0; i < 10000; i++) {
+                int size = 10000;
+                var closedElements = new ArrayList<ActionResult>(size);
+                for (int i = 0; i < size; i++) {
                     try (var action = DISCRETE.get(i)) {
                         // Action is automatically closed
+                        closedElements.add(action);
                     }
                 }
+                closedElements.forEach(element -> assertTrue(element.closed()));
             });
+        }
+
+        @Test
+        @DisplayName("Should duplicate action")
+        void testDuplicateAction() {
+            var action = DISCRETE.get(1);
+            assertTrue(action.valid());
+            assertFalse(action.closed());
+
+            var duplicated = action.duplicate();
+            assertTrue(duplicated.valid());
+            assertFalse(duplicated.closed());
+
+            action.close();
+            assertFalse(action.valid());
+            assertTrue(action.closed());
+
+            assertTrue(duplicated.valid());
+            assertFalse(duplicated.closed());
+        }
+
+        @Test
+        @DisplayName("Should duplicate action")
+        void testActionMustNotDuplicateFromClosedAction() {
+            var expectedMsg = "Cannot duplicate a closed ActionResult!";
+
+            var action = DISCRETE.get(1);
+            assertTrue(action.valid());
+            assertFalse(action.closed());
+            action.close();
+
+            var exception = assertThrows(IllegalStateException.class, action::duplicate);
+            assertEquals(expectedMsg, exception.getMessage());
         }
 
         @Test
