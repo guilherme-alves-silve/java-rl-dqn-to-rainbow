@@ -36,8 +36,8 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
                                        NDManager manager,
                                        ExperienceSampler sampler) {
         super(capacity, manager, sampler);
-        if (nStep < 1) throw new IllegalArgumentException("nStep must at least 1!");
-        if (gamma <= 0 || gamma > 1) throw new IllegalArgumentException("gamma must be between range (0, 1]!");
+        if (nStep < 1) throw new IllegalArgumentException("nStep must at least 1: " + nStep);
+        if (gamma <= 0 || gamma > 1) throw new IllegalArgumentException("gamma must be between range (0, 1]: " + gamma);
         this.nStep = nStep;
         this.gamma = gamma;
         this.nStepDeque = new ArrayDeque<>(nStep);
@@ -52,8 +52,22 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
     public void store(Experience exp) {
 
         nStepDeque.addLast(exp);
-        if (nStepDeque.size() < nStep) return;
 
+        if (!exp.done()) {
+            if (nStepDeque.size() == nStep) {
+                emitExperience();
+                nStepDeque.pollFirst().close();
+            }
+            return;
+        }
+
+        while (!nStepDeque.isEmpty()) {
+            emitExperience();
+            nStepDeque.pollFirst().close();
+        }
+    }
+
+    private void emitExperience() {
         double nStepReward = 0f;
         var oldest = nStepDeque.getFirst();
         int k = 0;
@@ -74,7 +88,6 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
                 nStepReward, newNextState, done);
 
         super.store(nStepExperience);
-        nStepDeque.pollFirst().close();
     }
 
     public int nStep() {

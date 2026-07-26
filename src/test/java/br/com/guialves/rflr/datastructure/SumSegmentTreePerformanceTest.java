@@ -21,6 +21,7 @@ class SumSegmentTreePerformanceTest {
     private static final int OPERATIONS  = 500_000;
     private static final float INIT      = 1.0f;
     private static final long  SEED      = 42L;
+    private static final float DELTA     = 1e-6f;
 
     @Test
     void benchmarkUpdate() {
@@ -60,8 +61,8 @@ class SumSegmentTreePerformanceTest {
             flat.update(i, p);
         }
 
-        float nodeDelta = node.sum() * 1e-6f;
-        float flatDelta = flat.sum() * 1e-6f;
+        float nodeDelta = node.sum() * DELTA;
+        float flatDelta = flat.sum() * DELTA;
 
         long nodeTime = timeSample(node, OPERATIONS, nodeDelta);
         long flatTime = timeSample(flat, OPERATIONS, flatDelta);
@@ -90,7 +91,7 @@ class SumSegmentTreePerformanceTest {
     }
 
     private long timeMixed(ISumSegmentTree tree, int batchSize, int steps, Random rng) {
-        float delta = tree.sum() * 1e-6f;
+        float delta = tree.sum() * DELTA;
         long start = System.nanoTime();
 
         for (int step = 0; step < steps; step++) {
