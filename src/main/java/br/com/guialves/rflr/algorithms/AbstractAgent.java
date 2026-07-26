@@ -3,7 +3,7 @@ package br.com.guialves.rflr.algorithms;
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
-import br.com.guialves.rflr.algorithms.buffer.IExperience;
+import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLUtils;
@@ -28,7 +28,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
-public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> {
+public abstract class AbstractAgent implements IAgent {
 
     protected final ActionSpaceType actionSpaceType;
 
@@ -71,7 +71,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
     public void train(int batchSize,
                       long framesLimit,
                       int framesSkip,
-                      IReplayBuffer<T> replayBuffer,
+                      IReplayBuffer replayBuffer,
                       Loss lossFunc) {
 
         requireNonNull(replayBuffer, "replayBuffer cannot be null!");
@@ -105,7 +105,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
                 var done = stepResult.done();
                 var info = stepResult.info();
                 if (!info.isEmpty()) lastInfo = info;
-                var exp = newExperience(state.duplicate(), action, reward,
+                var exp = new Experience(state.duplicate(), action, reward,
                         nextState.duplicate(), done);
                 replayBuffer.store(exp);
 
@@ -150,12 +150,6 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
         // Empty, it's a template method
     }
 
-    protected abstract T newExperience(NDArray state,
-                                       ActionSpaceType.ActionResult action,
-                                       double reward,
-                                       NDArray nextState,
-                                       boolean done);
-
     /**
      * @return true if the agent is in evaluation mode
      */
@@ -178,7 +172,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
     }
 
     protected abstract float trainOnline(int batchSize,
-                                         IReplayBuffer<T> replayBuffer,
+                                         IReplayBuffer replayBuffer,
                                          Loss lossFunc);
 
     protected void updateTargetNetworkAtN(int frames) {
@@ -223,7 +217,7 @@ public abstract class AbstractAgent<T extends IExperience> implements IAgent<T> 
         for (int tries = 0; tries < maxTries; ++tries) {
             @Cleanup var sub = env.newSubManager();
             if (!(env.reset(sub) instanceof EnvResetResult(var state, var _)))
-                throw new IllegalStateException();
+                throw new IllegalStateException("Must be of type EnvResetResult!");
 
             double totalReward = 0d;
             boolean done;

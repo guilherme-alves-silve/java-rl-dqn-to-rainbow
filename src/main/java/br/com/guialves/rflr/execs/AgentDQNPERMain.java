@@ -42,7 +42,7 @@ public class AgentDQNPERMain {
         RLRunner.run(config, new RLRunner.AgentFactory() {
 
             @Override
-            public IAgent<?> create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers) {
+            public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers) {
                 return buildDQNPER(config, env, optimizer, plotTrackers);
             }
 
@@ -52,16 +52,16 @@ public class AgentDQNPERMain {
             }
 
             @Override
-            public IReplayBuffer<?> replayBuffer(RLConfig config, NDManager manager) {
+            public IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
                 return new PrioritizedReplayBuffer(config.bufferCapacity(), alpha, manager);
             }
         });
     }
 
-    private static IAgent<?> buildDQNPER(RLConfig config,
-                                         IEnv env,
-                                         Optimizer optimizer,
-                                         PlotTrackers plotTrackers) {
+    private static IAgent buildDQNPER(RLConfig config,
+                                      IEnv env,
+                                      Optimizer optimizer,
+                                      PlotTrackers plotTrackers) {
         float initialBeta = 0.6f;
         return new AgentDQNPER(
                 config.maxEpsilon(),

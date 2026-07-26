@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
  *  @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
  *  @see <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/03_per.py">PER Python implementation</a>
  */
-public class PrioritizedReplayBuffer implements IReplayBuffer<Experience> {
+public class PrioritizedReplayBuffer implements IReplayBuffer {
 
     public static final float DEFAULT_BETA = 0.4f;
     private static final float MIN_DELTA = 0.000_000_001f;

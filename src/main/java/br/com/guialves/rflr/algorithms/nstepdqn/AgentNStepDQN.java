@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.algorithms.dqn;
+package br.com.guialves.rflr.algorithms.nstepdqn;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
@@ -19,14 +19,14 @@ import java.util.function.Supplier;
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 
 @Slf4j
-public class AgentDQN extends AbstractAgent {
+public class AgentNStepDQN extends AbstractAgent {
 
     private final int[] the2ndAxis = new int[] {1};
 
-    public AgentDQN(float epsilon, int updateQTargetAtTimeN,
-                    float minEpsilon, float epsilonDecay,
-                    float gamma, IEnv env, Optimizer optimizer,
-                    Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentNStepDQN(float epsilon, int updateQTargetAtTimeN,
+                         float minEpsilon, float epsilonDecay,
+                         float gamma, IEnv env, Optimizer optimizer,
+                         Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
     }
@@ -45,8 +45,6 @@ public class AgentDQN extends AbstractAgent {
     protected float trainOnline(int batchSize,
                                 IReplayBuffer replayBuffer,
                                 Loss lossFunc) {
-        if (replayBuffer.size() < batchSize) return Float.NaN;
-
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
             var rewards = arrays[0];

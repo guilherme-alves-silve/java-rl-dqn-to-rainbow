@@ -31,17 +31,17 @@ public class AgentDuelingDQNMain {
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
                 .saveModel(true)
-                .algorithmName("dqn")
+                .algorithmName("dueling_dqn")
                 .build();
 
         RLRunner.run(config, (env, optimizer, plotTrackers) ->
                 buildDuelingDQN(config, env, optimizer, plotTrackers));
     }
 
-    private static IAgent<?> buildDuelingDQN(RLConfig config,
-                                             IEnv env,
-                                             Optimizer optimizer,
-                                             PlotTrackers plotTrackers) {
+    private static IAgent buildDuelingDQN(RLConfig config,
+                                          IEnv env,
+                                          Optimizer optimizer,
+                                          PlotTrackers plotTrackers) {
         return new AgentDuelingDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),

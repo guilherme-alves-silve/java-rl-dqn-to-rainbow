@@ -37,7 +37,7 @@ public class AgentDDQNMain {
                 buildDDQN(config, env, optimizer, plotTrackers));
     }
 
-    private static IAgent<?> buildDDQN(RLConfig config,
+    private static IAgent buildDDQN(RLConfig config,
                                        IEnv env,
                                        Optimizer optimizer,
                                        PlotTrackers plotTrackers) {

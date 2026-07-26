@@ -1,14 +1,11 @@
 package br.com.guialves.rflr.algorithms.duelingdqn;
 
-import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
-import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
-import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -19,7 +16,7 @@ import java.util.function.Supplier;
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 
 @Slf4j
-public class AgentDuelingDQN extends AbstractAgent<Experience> {
+public class AgentDuelingDQN extends AbstractAgent {
 
     private final int[] the2ndAxis = new int[] {1};
 
@@ -29,15 +26,6 @@ public class AgentDuelingDQN extends AbstractAgent<Experience> {
                            Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
-    }
-
-    @Override
-    protected Experience newExperience(NDArray state,
-                                       ActionSpaceType.ActionResult action,
-                                       double reward,
-                                       NDArray nextState,
-                                       boolean done) {
-        return new Experience(state, action, reward, nextState, done);
     }
 
     /**
@@ -52,7 +40,7 @@ public class AgentDuelingDQN extends AbstractAgent<Experience> {
      */
     @Override
     protected float trainOnline(int batchSize,
-                                IReplayBuffer<Experience> replayBuffer,
+                                IReplayBuffer replayBuffer,
                                 Loss lossFunc) {
         if (replayBuffer.size() < batchSize) return Float.NaN;
 

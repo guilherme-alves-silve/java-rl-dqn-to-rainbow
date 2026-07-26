@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.algorithms.buffer;
 
-import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import lombok.extern.slf4j.Slf4j;
@@ -18,13 +17,12 @@ import static java.util.Objects.requireNonNull;
  * <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/01_dqn.py">rainbow-is-all-you-need/01_dqn.py</a>
  */
 @Slf4j
-public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
+public class ExperienceReplayBuffer implements IReplayBuffer {
 
     private final Experience[] experiences;
     private final NDManager thisSubManager;
     private final ExperienceSampler sampler;
     private final int capacity;
-    private final Device device;
     private int size;
     private int pos;
 
@@ -40,7 +38,6 @@ public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
         this.experiences = new Experience[capacity];
         this.thisSubManager = requireNonNull(manager).newSubManager();
         this.sampler = requireNonNull(sampler);
-        this.device = requireNonNull(manager.getDevice());
         this.pos = 0;
     }
 
@@ -73,10 +70,10 @@ public class ExperienceReplayBuffer implements IReplayBuffer<Experience> {
         var sub = thisSubManager.newSubManager();
         var batch = sampler.sample(experiences, batchSize, size, false);
 
-        var states = newAttachedList(sub, batch, IExperience::state);
+        var states = newAttachedList(sub, batch, Experience::state);
         var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
         var rewards = djlMapToFloat32(sub, batch, Experience::reward);
-        var nextStates = newAttachedList(sub, batch, IExperience::nextState);
+        var nextStates = newAttachedList(sub, batch, Experience::nextState);
         var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
 
         return new VecExperience(
