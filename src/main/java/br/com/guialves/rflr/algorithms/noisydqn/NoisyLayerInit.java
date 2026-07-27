@@ -35,6 +35,7 @@ import lombok.Getter;
  */
 public class NoisyLayerInit implements Initializer {
 
+    private static final float BASE_INIT = 1f;
     private static final float SIGMA_INIT = 0.5f;
 
     public enum InitType {
@@ -64,9 +65,8 @@ public class NoisyLayerInit implements Initializer {
         float p = (float) Math.sqrt(size);
         return switch (type) {
             case MU -> {
-                float high = 1f/p;
-                float low = -high;
-                yield manager.randomUniform(low, high, shape, dataType);
+                float mu_range = BASE_INIT / p;
+                yield manager.randomUniform(-mu_range, mu_range, shape, dataType);
             }
             case SIGMA -> manager.full(shape, SIGMA_INIT/p, dataType);
         };

@@ -2,10 +2,10 @@ package br.com.guialves.rflr.algorithms.noisydqn;
 
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.nn.Parameter;
+import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
 
@@ -55,7 +55,7 @@ import ai.djl.util.PairList;
  * </ul>
  *
  * <p>The noise is re-sampled on every forward call. The agent should call
- * {@link #resetNoise()} before each optimisation step (training) and before each
+ * {@link #resetNoise()} before each optimization step (training) and before each
  * action selection (inference) to drive exploration with a fresh noise sample.
  * <p>Reference:
  *  <a href="https://arxiv.org/abs/1706.10295">Noisy Networks for Exploration</a>.
@@ -113,44 +113,54 @@ public class NoisyLayer extends AbstractBlock {
             // b = \mu^b + \sigma^b \odot \epsilon^b
             var b = bMu.add(bSigma.mul(noise.epsBias()));
             // y = w \cdot x + b, in ML is, x \cdot w + b
-            return new NDList(input.dot(w).add(b));
+            return Linear.linear(input, w, b);
         }
 
-        return new NDList(input.dot(wMu).add(bMu));
+        return Linear.linear(input, wMu, bMu);
     }
 
+    /**
+     * The method initialize of the AbstractBlock
+     * will call first the prepare method, initialize of
+     * each parameter, then initializeChildBlocks,
+     * but in this case, initializeChildBlocks was not
+     * necessary.
+     * @param inputShapes the shapes of inputs
+     */
     @Override
     public void prepare(Shape[] inputShapes) {
-        long inFeatures = inputShapes[0].getLastDimension();
+        int inFeatures = (int) inputShapes[0].getLastDimension();
         var weightShape = new Shape(outFeatures, inFeatures);
         var biasShape = new Shape(outFeatures);
         weightMu.setShape(weightShape);
         weightSigma.setShape(weightShape);
         biasMu.setShape(biasShape);
         biasSigma.setShape(biasShape);
-    }
 
-    @Override
-    protected void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
-        int inFeatures = (int) inputShapes[0].getLastDimension();
+        // muW, muB ~ U(-1 / sqrt(p_in), 1 / sqrt(p_in))
         weightMu.setInitializer(NoisyLayerInit.ofMu(inFeatures));
-        weightSigma.setInitializer(NoisyLayerInit.ofSigma(inFeatures));
         biasMu.setInitializer(NoisyLayerInit.ofMu(inFeatures));
-        biasSigma.setInitializer(NoisyLayerInit.ofSigma(inFeatures));
+        // sigmaW = 0.5 / sqrt(p_in)
+        weightSigma.setInitializer(NoisyLayerInit.ofSigma(inFeatures));
+        // sigmaB = 0.5 / sqrt(p_out) -> it's asymmetric
+        biasSigma.setInitializer(NoisyLayerInit.ofSigma(outFeatures));
     }
 
     @Override
     public Shape[] getOutputShapes(Shape[] inputShapes) {
+        // example: (batchSize, height, width)
         long batchSize = inputShapes[0].get(0);
         return new Shape[] {new Shape(batchSize, outFeatures)};
     }
 
     public void resetNoise() {
+        if (null == noise) return;
         noise.close();
+        noise = null;
     }
 
     private void ensureNoiseIsSampled(NDManager manager, int inFeatures, int outFeatures) {
-        if (noise != null) noise.close();
+        if (noise != null) return;
         noise = FactorizedNoise.sampleNoiseOuter(manager, inFeatures, outFeatures);
     }
 }
