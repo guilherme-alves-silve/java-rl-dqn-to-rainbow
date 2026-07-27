@@ -62,6 +62,7 @@ public abstract class AbstractAgent implements IAgent {
         this.onlineNet = networkFactory.get();
         this.plotTrackers = plotTrackers;
         this.targetNet = onlineNet.clone();
+        this.targetNet.eval();
         DJLUtils.freeze(this.targetNet.getBlock());
         this.optimizer = optimizer;
         this.actionSpaceType = env.actionSpaceType();
@@ -91,7 +92,7 @@ public abstract class AbstractAgent implements IAgent {
         do {
             var stateAndInfoMap = env.reset();
             @Cleanup var state = stateAndInfoMap.state();
-            var episodeRewards = new ArrayList<>();
+            var episodeRewards = new ArrayList<Double>();
             float episodeLossSum = 0f;
             int episodeSteps = 0;
 
@@ -110,7 +111,7 @@ public abstract class AbstractAgent implements IAgent {
                 replayBuffer.store(exp);
 
                 var lossItem = trainOnline(batchSize, replayBuffer, lossFunc);
-                if (!Float.isNaN(lossItem)) {
+                if (trained(lossItem)) {
                     episodeLossSum += lossItem;
                     ++episodeSteps;
                 }
@@ -123,6 +124,7 @@ public abstract class AbstractAgent implements IAgent {
                     ++episodes;
                     float avgLoss = episodeSteps > 0 ? episodeLossSum / episodeSteps : 0;
                     plotTrackers.add(epsilon, episodeRewards, avgLoss);
+                    close(state, nextState);
                     break;
                 }
 
@@ -136,11 +138,15 @@ public abstract class AbstractAgent implements IAgent {
         } while ((frames < framesLimit));
         plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
 
-        debugDump(env.manager());
+        debugDump(parent);
 
         if (getBoolProp("agent.showAllMetrics")) {
             plotTrackers.showAllMetrics();
         }
+    }
+
+    private boolean trained(float lossItem) {
+        return !Float.isNaN(lossItem);
     }
 
     /**

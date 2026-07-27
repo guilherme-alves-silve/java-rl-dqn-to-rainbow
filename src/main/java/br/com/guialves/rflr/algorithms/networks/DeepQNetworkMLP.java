@@ -10,6 +10,7 @@ import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
+import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
 
 /**

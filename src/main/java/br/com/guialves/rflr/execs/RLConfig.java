@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.execs;
 
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
@@ -27,6 +28,7 @@ public record RLConfig(
         int bufferCapacity,
         boolean saveModel,
         String algorithmName,
+        DuelingType duelingType,
         Path path
 ) {
 

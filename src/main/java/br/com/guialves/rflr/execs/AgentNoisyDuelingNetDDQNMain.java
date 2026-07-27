@@ -3,12 +3,14 @@ package br.com.guialves.rflr.execs;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.networks.NoisyDuelingQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.algorithms.noisydqn.AgentNoisyDuelingNetDDQN;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
+import static java.lang.System.getProperty;
 
 /**
  * Reference:
@@ -30,6 +32,7 @@ public class AgentNoisyDuelingNetDDQNMain {
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
+                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .saveModel(true)
                 .algorithmName("noisy_dueling_nets_ddqn")
                 .build();
@@ -50,10 +53,11 @@ public class AgentNoisyDuelingNetDDQNMain {
                 config.discountFactor(), // gamma
                 env,
                 optimizer,
-                () -> NoisyDuelingQNetworkMLP.withMeanType(
+                () -> new NoisyDuelingQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager()
+                    env.manager(),
+                    config.duelingType()
                 ),
                 plotTrackers
         );

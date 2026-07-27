@@ -34,7 +34,7 @@ public class DuelingLayer extends AbstractBlock {
      *  Q(s, a) = V(s) + (A(s, a) - mean A(s, a'))
      */
     private static final BinaryOperator<NDArray> Q_VALUE_MEAN = (value, advantage) -> {
-        var subMean = advantage.subi(advantage.mean(AXIS_PER_LINE, KEEP_DIMS));
+        var subMean = advantage.sub(advantage.mean(AXIS_PER_LINE, KEEP_DIMS));
         return value.add(subMean);
     };
 
@@ -43,9 +43,10 @@ public class DuelingLayer extends AbstractBlock {
      *  Q(s, a) = V(s) + (A(s, a) - max A(s, a'))
      */
     private static final BinaryOperator<NDArray> Q_VALUE_MAX = (value, advantage) -> {
-        var subMean = advantage.subi(advantage.max(AXIS_PER_LINE, KEEP_DIMS));
+        var subMean = advantage.sub(advantage.max(AXIS_PER_LINE, KEEP_DIMS));
         return value.add(subMean);
     };
+
     @Getter
     private final DuelingType duelingType;
 

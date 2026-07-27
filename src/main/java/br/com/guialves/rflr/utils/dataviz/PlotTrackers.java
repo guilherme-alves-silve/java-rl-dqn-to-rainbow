@@ -55,7 +55,7 @@ public class PlotTrackers {
         PlotTrackersTablesaw.showAllMetrics(episodeEpsilons, meanEpisodeRewards, meanEpisodeLoss);
     }
 
-    public void add(float epsilon, ArrayList<Object> episodeRewards, float avgLoss) {
+    public void add(float epsilon, List<Double> episodeRewards, float avgLoss) {
         float avgReward = (float) episodeRewards.stream()
                 .mapToDouble(reward -> (double) reward)
                 .average()

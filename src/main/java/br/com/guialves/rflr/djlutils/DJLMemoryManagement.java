@@ -43,6 +43,7 @@ public class DJLMemoryManagement {
     public static NDArray scoped(final UnaryOperator<NDArray> block,
                                  final NDArray input) {
         try (var sub = input.getManager().newSubManager()) {
+            sub.setName("scoped(input)-" + sub.getName());
             input.tempAttach(sub);
             var result = block.apply(input);
             if (result == input) {
@@ -66,6 +67,7 @@ public class DJLMemoryManagement {
         }
 
         try (var sub = a.getManager().newSubManager()) {
+            sub.setName("scoped(a,b)-" + sub.getName());
             sub.tempAttachAll(a, b);
 
             var result = sub.ret(block.apply(a, b));
@@ -81,6 +83,7 @@ public class DJLMemoryManagement {
         if (arrays.length == 0) throw new IllegalArgumentException("arrays must contain elements!");
 
         try (var sub = arrays[0].getManager().newSubManager()) {
+            sub.setName("scoped(arrays)-" + sub.getName());
             sub.tempAttachAll(arrays);
 
             var result = sub.ret(block.apply(arrays));
@@ -99,6 +102,7 @@ public class DJLMemoryManagement {
         if (arrays.length == 0) throw new IllegalArgumentException("arrays must contain elements!");
 
         try (var sub = arrays[0].getManager().newSubManager()) {
+            sub.setName("scoped(a,arrays)-" + sub.getName());
             a.tempAttach(sub);
             sub.tempAttachAll(arrays);
 
@@ -123,16 +127,6 @@ public class DJLMemoryManagement {
         var output = block.forward(parameterStore, inputs, training);
         output.attach(manager);
         return output;
-    }
-
-    public static NDList safeForward(NDManager manager,
-                                     Block block,
-                                     ParameterStore parameterStore,
-                                     NDList inputs,
-                                     boolean training) {
-        @Cleanup var sub = manager.newSubManager();
-        inputs.tempAttach(sub);
-        return block.forward(parameterStore, inputs, training);
     }
 
     public static void debugDump(NDManager manager) {

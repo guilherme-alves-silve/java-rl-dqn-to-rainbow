@@ -1,14 +1,11 @@
 package br.com.guialves.rflr.algorithms.dqn;
 
-import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
-import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
-import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -17,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 
 @Slf4j
 public class AgentDQN extends AbstractAgent {
