@@ -5,12 +5,9 @@ import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.training.GradientCollector;
 import ai.djl.training.loss.Loss;
-import lombok.Cleanup;
 
 import java.util.function.Function;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
 import static br.com.guialves.rflr.gymnasium4j.EngineUtils.gradient;
 
 /**
@@ -55,8 +52,9 @@ public class DJLLoss {
                                      final NDArray... arrays) {
         try (var sub = manager.newSubManager();
              var gradCol = gradient()) {
-            @Cleanup var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
-            return scopedToFloat(it -> it.stopGradient().mean(), lossesVal);
+            sub.setName("scopedback-" + sub.getName());
+            var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
+            return lossesVal.stopGradient().mean().getFloat();
         }
     }
 
@@ -79,8 +77,9 @@ public class DJLLoss {
                                           final NDArray... arrays) {
         try (var sub = manager.newSubManager();
              var gradCol = gradient()) {
+            sub.setName("scopedback-" + sub.getName());
             var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
-            return manager.ret(scoped(NDArray::stopGradient, lossesVal));
+            return manager.ret(lossesVal.stopGradient());
         }
     }
 
@@ -106,7 +105,7 @@ public class DJLLoss {
                                     NDArray[] arrays) {
         yTarget.tempAttach(sub);
         sub.tempAttachAll(arrays);
-        @Cleanup var yPred = yPredBlock.apply(arrays);
+        var yPred = yPredBlock.apply(arrays);
         yPred.tempAttach(sub);
         var lossesVal = lossFunc.evaluate(new NDList(yTarget), new NDList(yPred));
         gradCol.backward(lossesVal);

@@ -18,10 +18,18 @@ public interface INetwork extends AutoCloseable {
     NDManager manager();
 
     default NDArray forward(NDArray input, final UnaryOperator<NDArray> block) {
-        return scoped(it -> block.apply(forward(it)), input);
+        return scoped(it -> {
+            var out = forward(it);
+            out.tempAttach(it.getManager());
+            return block.apply(out);
+        }, input);
     }
 
     default NDArray forward(NDArray input, final BiFunction<NDArray, NDArray[], NDArray> block, final NDArray... arrays) {
-        return scoped((itInput, itArrays) -> block.apply(forward(itInput), itArrays), input, arrays);
+        return scoped((itInput, itArrays) -> {
+            var out = forward(itInput);
+            out.tempAttach(itInput.getManager());
+            return block.apply(out, itArrays);
+        }, input, arrays);
     }
 }

@@ -4,11 +4,13 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.duelingdqn.AgentDuelingDQN;
 import br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
+import static java.lang.System.getProperty;
 
 /**
  * Reference:
@@ -30,6 +32,7 @@ public class AgentDuelingDQNMain {
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
+                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .saveModel(true)
                 .algorithmName("dueling_dqn")
                 .build();
@@ -51,10 +54,11 @@ public class AgentDuelingDQNMain {
                 env,
                 optimizer,
                 // You can change to max if you want
-                () -> DuelingQNetworkMLP.withMeanType(
+                () -> new DuelingQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager()
+                    env.manager(),
+                    config.duelingType()
                 ),
                 plotTrackers
         );
