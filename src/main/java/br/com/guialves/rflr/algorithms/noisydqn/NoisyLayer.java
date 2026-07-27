@@ -65,6 +65,10 @@ public class NoisyLayer extends AbstractBlock {
 
     private static final byte VERSION = 1;
 
+    public static NoisyLayer noisyLayer(int outFeatures) {
+        return new NoisyLayer(outFeatures);
+    }
+
     private final int outFeatures;
     private final Parameter weightMu;
     private final Parameter weightSigma;
@@ -154,13 +158,12 @@ public class NoisyLayer extends AbstractBlock {
     }
 
     public void resetNoise() {
-        if (null == noise) return;
-        noise.close();
+        if (noise != null && !noise.isRelease()) noise.close();
         noise = null;
     }
 
     private void ensureNoiseIsSampled(NDManager manager, int inFeatures, int outFeatures) {
         if (noise != null) return;
-        noise = FactorizedNoise.sampleNoiseOuter(manager, inFeatures, outFeatures);
+        this.noise = FactorizedNoise.sampleNoiseOuter(manager, inFeatures, outFeatures);
     }
 }

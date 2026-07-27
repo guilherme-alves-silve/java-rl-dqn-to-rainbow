@@ -30,7 +30,7 @@ The series progresses in three articles:
 - [x] PER
 - [x] Dueling DQN
 - [x] n-Step
-- [ ] Noisy Networks
+- [x] Noisy Networks
 - [ ] C51
 - [ ] Rainbow
 3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN

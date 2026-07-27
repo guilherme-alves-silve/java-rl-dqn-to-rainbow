@@ -49,5 +49,9 @@ public class FactorizedNoise {
             epsWeight.close();
             epsBias.close();
         }
+
+        public boolean isRelease() {
+            return epsWeight.isReleased() && epsBias.isReleased();
+        }
     }
 }
