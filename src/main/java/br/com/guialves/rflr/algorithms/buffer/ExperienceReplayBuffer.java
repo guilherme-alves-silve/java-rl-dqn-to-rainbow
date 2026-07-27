@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 public class ExperienceReplayBuffer implements IReplayBuffer {
 
     private final Experience[] experiences;
-    protected final NDManager thisSubManager;
+    private final NDManager thisSubManager;
     private final ExperienceSampler sampler;
     private final int capacity;
     private int size;
