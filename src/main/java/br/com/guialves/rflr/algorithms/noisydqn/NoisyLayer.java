@@ -2,6 +2,7 @@ package br.com.guialves.rflr.algorithms.noisydqn;
 
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.AbstractBlock;
 import ai.djl.nn.Parameter;
@@ -121,12 +122,21 @@ public class NoisyLayer extends AbstractBlock {
     @Override
     public void prepare(Shape[] inputShapes) {
         long inFeatures = inputShapes[0].getLastDimension();
-        Shape weightShape = new Shape(outFeatures, inFeatures);
-        Shape biasShape = new Shape(outFeatures);
+        var weightShape = new Shape(outFeatures, inFeatures);
+        var biasShape = new Shape(outFeatures);
         weightMu.setShape(weightShape);
         weightSigma.setShape(weightShape);
         biasMu.setShape(biasShape);
         biasSigma.setShape(biasShape);
+    }
+
+    @Override
+    protected void initializeChildBlocks(NDManager manager, DataType dataType, Shape... inputShapes) {
+        int inFeatures = (int) inputShapes[0].getLastDimension();
+        weightMu.setInitializer(NoisyLayerInit.ofMu(inFeatures));
+        weightSigma.setInitializer(NoisyLayerInit.ofSigma(inFeatures));
+        biasMu.setInitializer(NoisyLayerInit.ofMu(inFeatures));
+        biasSigma.setInitializer(NoisyLayerInit.ofSigma(inFeatures));
     }
 
     @Override

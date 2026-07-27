@@ -187,7 +187,6 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
             this.qValueCalc = switch (duelingType) {
                 case MEAN -> Q_VALUE_MEAN;
                 case MAX -> Q_VALUE_MAX;
-                default -> throw new UnsupportedOperationException("Type " + duelingType + " is not supported!");
             };
             this.featureBackbone = new SequentialBlock();
             featureBackbone.add(linear(128))
