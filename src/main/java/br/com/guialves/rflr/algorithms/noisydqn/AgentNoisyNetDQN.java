@@ -6,7 +6,7 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.algorithms.networks.NoisyNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -22,8 +22,8 @@ import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 public class AgentNoisyNetDQN extends AbstractAgent {
 
     private final int[] the2ndAxis = new int[] {1};
-    private final NoisyNetworkMLP onlineNoisyNet;
-    private final NoisyNetworkMLP targetNoisyNet;
+    private final NoisyQNetworkMLP onlineNoisyNet;
+    private final NoisyQNetworkMLP targetNoisyNet;
 
     public AgentNoisyNetDQN(float epsilon, int updateQTargetAtTimeN,
                             float minEpsilon, float epsilonDecay,
@@ -31,12 +31,12 @@ public class AgentNoisyNetDQN extends AbstractAgent {
                             Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
-        if (!(onlineNet instanceof NoisyNetworkMLP)) {
+        if (!(onlineNet instanceof NoisyQNetworkMLP)) {
             throw new IllegalArgumentException("Invalid network type! Must be of type NoisyNetworkMLP!");
         }
 
-        this.onlineNoisyNet = (NoisyNetworkMLP) onlineNet;
-        this.targetNoisyNet = (NoisyNetworkMLP) targetNet;
+        this.onlineNoisyNet = (NoisyQNetworkMLP) onlineNet;
+        this.targetNoisyNet = (NoisyQNetworkMLP) targetNet;
     }
 
     /**

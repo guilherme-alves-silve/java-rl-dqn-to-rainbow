@@ -3,6 +3,7 @@ package br.com.guialves.rflr.algorithms.networks;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import lombok.Cleanup;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,8 +61,8 @@ class DuelingQNetworkMLPTest {
     }
 
     @ParameterizedTest(name = "[{index}] size={arguments}")
-    @EnumSource(DuelingQNetworkMLP.DuelingType.class)
-    void shouldAvoidMemoryLeak(DuelingQNetworkMLP.DuelingType duelingType) {
+    @EnumSource(DuelingType.class)
+    void shouldAvoidMemoryLeak(DuelingType duelingType) {
         @Cleanup var sub = manager.newSubManager();
         int observation = 8;
         int actions = 4;

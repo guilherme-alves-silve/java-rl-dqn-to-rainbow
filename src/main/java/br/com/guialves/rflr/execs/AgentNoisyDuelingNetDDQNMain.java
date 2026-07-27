@@ -2,8 +2,8 @@ package br.com.guialves.rflr.execs;
 
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
-import br.com.guialves.rflr.algorithms.noisydqn.AgentNoisyNetDQN;
+import br.com.guialves.rflr.algorithms.networks.NoisyDuelingQNetworkMLP;
+import br.com.guialves.rflr.algorithms.noisydqn.AgentNoisyDuelingNetDDQN;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
@@ -14,7 +14,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
-public class AgentNoisyNetDQNMain {
+public class AgentNoisyDuelingNetDDQNMain {
     static void main() {
 
         var config = RLConfig.builder()
@@ -31,18 +31,18 @@ public class AgentNoisyNetDQNMain {
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
                 .saveModel(true)
-                .algorithmName("noisy_nets_dqn")
+                .algorithmName("noisy_dueling_nets_ddqn")
                 .build();
 
         RLRunner.run(config, (env, optimizer, plotTrackers) ->
-                buildNoisyNetDQN(config, env, optimizer, plotTrackers));
+                buildNoisyDuelingNetDDQN(config, env, optimizer, plotTrackers));
     }
 
-    private static IAgent buildNoisyNetDQN(RLConfig config,
-                                           IEnv env,
-                                           Optimizer optimizer,
-                                           PlotTrackers plotTrackers) {
-        return new AgentNoisyNetDQN(
+    private static IAgent buildNoisyDuelingNetDDQN(RLConfig config,
+                                                   IEnv env,
+                                                   Optimizer optimizer,
+                                                   PlotTrackers plotTrackers) {
+        return new AgentNoisyDuelingNetDDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
@@ -50,7 +50,7 @@ public class AgentNoisyNetDQNMain {
                 config.discountFactor(), // gamma
                 env,
                 optimizer,
-                () -> new NoisyQNetworkMLP(
+                () -> NoisyDuelingQNetworkMLP.withMeanType(
                     config.observations(),
                     config.actions(),
                     env.manager()

@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.algorithms.noisydqn;
+package br.com.guialves.rflr.algorithms.networks.layers;
 
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;

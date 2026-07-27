@@ -51,4 +51,9 @@ class AgentExecsMainTest {
     void shouldRunAgentNoisyNetDQNMain() {
         assertDoesNotThrow(AgentNoisyNetDQNMain::main);
     }
+
+    @Test
+    void shouldRunAgentNoisyDuelingNetDDQNMain() {
+        assertDoesNotThrow(AgentNoisyDuelingNetDDQNMain::main);
+    }
 }

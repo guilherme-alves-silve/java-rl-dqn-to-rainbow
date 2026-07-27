@@ -3,6 +3,7 @@ package br.com.guialves.rflr.algorithms.noisydqn;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
+import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayerInit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

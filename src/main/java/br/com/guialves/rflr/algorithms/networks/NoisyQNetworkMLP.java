@@ -10,14 +10,14 @@ import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
-import br.com.guialves.rflr.algorithms.noisydqn.NoisyLayer;
+import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
-import static br.com.guialves.rflr.algorithms.noisydqn.NoisyLayer.noisyLayer;
+import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
 
@@ -27,7 +27,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingl
  *  <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/05_noisy_net.py">Python - Noisy Net</a>
  */
 @Slf4j
-public class NoisyNetworkMLP implements IDeepQNetwork {
+public class NoisyQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
     private final NDManager manager;
@@ -39,18 +39,18 @@ public class NoisyNetworkMLP implements IDeepQNetwork {
     private final NoisyLayer noisyLayer2;
     private final ParameterStore parameterStore;
 
-    public NoisyNetworkMLP(int observations,
-                           int actions,
-                           NDManager manager) {
+    public NoisyQNetworkMLP(int observations,
+                            int actions,
+                            NDManager manager) {
         this(observations, actions, null, null, manager);
     }
 
     @SneakyThrows
-    public NoisyNetworkMLP(int observations,
-                           int actions,
-                           Path modelPath,
-                           String prefix,
-                           NDManager manager) {
+    public NoisyQNetworkMLP(int observations,
+                            int actions,
+                            Path modelPath,
+                            String prefix,
+                            NDManager manager) {
         this.observations = observations;
         this.actions = actions;
         this.manager = manager;
@@ -115,7 +115,7 @@ public class NoisyNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new NoisyNetworkMLP(observations, actions, manager);
+        var cloned = new NoisyQNetworkMLP(observations, actions, manager);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
