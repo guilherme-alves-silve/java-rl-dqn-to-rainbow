@@ -41,7 +41,13 @@ public class FactorizedNoise {
         );
     }
 
-    public record Noise(NDArray epsWeight, NDArray epsBias) {
+    public record Noise(NDArray epsWeight,
+                        NDArray epsBias) implements AutoCloseable {
 
+        @Override
+        public void close() {
+            epsWeight.close();
+            epsBias.close();
+        }
     }
 }
