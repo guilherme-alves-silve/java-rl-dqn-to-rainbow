@@ -6,30 +6,31 @@ import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
+import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingLayer;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
+import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
 import br.com.guialves.rflr.djlutils.DJLUtils;
-import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
+import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
+import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
 
 /**
- * Architecture based on the links below:
- * <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/04_dueling.py">Dueling DQN implementation in Python</a>
- * <a href="https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html">Reinforcement Q-Learning</a>
- * For coding reference:
- * <a href="https://d2l.djl.ai/chapter_deep-learning-computation/custom-layer.html">Custom Layers</a>
- * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-djl.html">Linear Regression</a>
- * <a href="https://d2l.djl.ai/chapter_multilayer-perceptrons/mlp-djl.html">Multilayer Perceptrons</a>
+ * After each update, it's recommended that you call the method {@code resetNoise()}
+ * Reference:
+ *  <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/05_noisy_net.py">Python - Noisy Net</a>
  */
 @Slf4j
-public class DuelingQNetworkMLP implements IDeepQNetwork {
+public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
     private final NDManager manager;
@@ -37,46 +38,57 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
     private final int actions;
     private final Model model;
     private final DuelingLayer net;
+    private final DuelingType duelingType;
+    private final List<NoisyLayer> noisyLayers;
     private final ParameterStore parameterStore;
 
-    public static DuelingQNetworkMLP withMeanType(int observations,
+    public static NoisyDuelingQNetworkMLP withMeanType(int observations,
                                                   int actions,
                                                   NDManager manager) {
-        return new DuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MEAN);
+        return new NoisyDuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MEAN);
     }
 
-    public static DuelingQNetworkMLP withMaxType(int observations,
+    public static NoisyDuelingQNetworkMLP withMaxType(int observations,
                                                  int actions,
                                                  NDManager manager) {
-        return new DuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MAX);
+        return new NoisyDuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MAX);
     }
 
-    public static DuelingQNetworkMLP withType(int observations,
-                                              int actions,
-                                              NDManager manager,
-                                              DuelingType duelingType) {
-        return new DuelingQNetworkMLP(observations, actions, null, null, manager, duelingType);
-    }
-
-    public DuelingQNetworkMLP(int observations,
-                              int actions,
-                              NDManager manager,
-                              DuelingType duelingType) {
+    public NoisyDuelingQNetworkMLP(int observations,
+                                   int actions,
+                                   NDManager manager,
+                                   DuelingType duelingType) {
         this(observations, actions, null, null, manager, duelingType);
     }
 
     @SneakyThrows
-    public DuelingQNetworkMLP(int observations,
-                              int actions,
-                              Path modelPath,
-                              String prefix,
-                              NDManager manager,
-                              @NonNull DuelingType duelingType) {
+    public NoisyDuelingQNetworkMLP(int observations,
+                                   int actions,
+                                   Path modelPath,
+                                   String prefix,
+                                   NDManager manager,
+                                   DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
         this.manager = manager;
-        this.model = Model.newInstance("dueling_mlp", manager.getDevice());
-        this.net = new DuelingLayer(actions, duelingType);
+        this.duelingType = duelingType;
+        this.noisyLayers = new ArrayList<>();
+        this.model = Model.newInstance("noisy_dueling_net_dqn_mlp", manager.getDevice());
+        this.net = new DuelingLayer(
+                actions,
+                duelingType,
+                featureBackbone ->
+                        featureBackbone.add(linear(128))
+                            .add(Activation::relu)
+                            .add(addAndGet(noisyLayers, noisyLayer(128)))
+                            .add(Activation::relu)
+                            .add(addAndGet(noisyLayers, noisyLayer(128)))
+                            .add(Activation::relu),
+                valueHead ->
+                        valueHead.add(addAndGet(noisyLayers, noisyLayer(1))),
+                advantageHead ->
+                        advantageHead.add(addAndGet(noisyLayers, noisyLayer(actions)))
+        );
         model.setBlock(net);
 
         this.parameterStore = new ParameterStore(manager, false);
@@ -91,8 +103,13 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
         }
     }
 
-    public DuelingType duelingType() {
-        return net.duelingType();
+    private Block addAndGet(List<NoisyLayer> list, NoisyLayer noisyLayer) {
+        list.add(noisyLayer);
+        return noisyLayer;
+    }
+
+    public void resetNoise() {
+        noisyLayers.forEach(NoisyLayer::resetNoise);
     }
 
     @Override
@@ -128,7 +145,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DuelingQNetworkMLP(observations, actions, manager, duelingType());
+        var cloned = new NoisyDuelingQNetworkMLP(observations, actions, manager, duelingType);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

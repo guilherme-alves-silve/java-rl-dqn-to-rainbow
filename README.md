@@ -4,10 +4,12 @@
 - [How to Never Forget Deep Q-Networks: Memory Palaces Meet Reinforcement Learning](https://neuralpalace.substack.com/p/how-to-never-forget-deep-q-networks)
 - [Connecting Java Reinforcement Learning to Python Gymnasium](https://guilhermealvessilveira.substack.com/p/connecting-java-reinforcement-learning)
 
-## Codes and books
+## Codes and books used as reference
 
 - [Rainbow is All you need](https://github.com/Curt-Park/rainbow-is-all-you-need/)
   - Main author: Jinwoo Park (Curt)
+- [DQN Adventure: from Zero to State of the Art](https://github.com/higgsfield/RL-Adventure/)
+  - Main author: Yerzat Dulat (higgsfield)
 - [Deep Reinforcement Learning Hands-On, 3rd Edition](https://www.packtpub.com/en-us/product/deep-reinforcement-learning-hands-on-9781835882719)
   - Main author: Maxim Lapan
   - [Github](https://github.com/PacktPublishing/Deep-Reinforcement-Learning-Hands-On-Third-Edition/tree/main/Chapter08)
@@ -27,8 +29,8 @@ The series progresses in three articles:
 - [x] Double DQN
 - [x] PER
 - [x] Dueling DQN
-- [ ] n-Step
-- [ ] Noisy Networks
+- [x] n-Step
+- [x] Noisy Networks
 - [ ] C51
 - [ ] Rainbow
 3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN

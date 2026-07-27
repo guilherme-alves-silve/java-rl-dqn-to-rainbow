@@ -1,12 +1,14 @@
-package br.com.guialves.rflr.algorithms.duelingdqn;
+package br.com.guialves.rflr.algorithms.noisydqn;
 
+import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
+import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
+import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -17,19 +19,24 @@ import java.util.function.Supplier;
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 
 @Slf4j
-public class AgentDuelingDQN extends AbstractAgent {
+public class AgentNoisyNetDQN extends AbstractAgent {
 
     private final int[] the2ndAxis = new int[] {1};
+    private final NoisyQNetworkMLP onlineNoisyNet;
+    private final NoisyQNetworkMLP targetNoisyNet;
 
-    public AgentDuelingDQN(float epsilon, int updateQTargetAtTimeN,
-                           float minEpsilon, float epsilonDecay,
-                           float gamma, IEnv env, Optimizer optimizer,
-                           Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentNoisyNetDQN(float epsilon, int updateQTargetAtTimeN,
+                            float minEpsilon, float epsilonDecay,
+                            float gamma, IEnv env, Optimizer optimizer,
+                            Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, networkFactory, plotTrackers);
-        if (!(onlineNet instanceof DuelingQNetworkMLP)) {
-            throw new IllegalArgumentException("Invalid network type! Must be of type DuelingQNetworkMLP!");
+        if (!(onlineNet instanceof NoisyQNetworkMLP)) {
+            throw new IllegalArgumentException("Invalid network type! Must be of type NoisyNetworkMLP!");
         }
+
+        this.onlineNoisyNet = (NoisyQNetworkMLP) onlineNet;
+        this.targetNoisyNet = (NoisyQNetworkMLP) targetNet;
     }
 
     /**
@@ -47,9 +54,11 @@ public class AgentDuelingDQN extends AbstractAgent {
                                 IReplayBuffer replayBuffer,
                                 Loss lossFunc) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
+        onlineNoisyNet.resetNoise();
+        targetNoisyNet.resetNoise();
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
+        @Cleanup var targetQValue = targetNoisyNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
             var rewards = arrays[0];
             var dones = arrays[1];
 
@@ -69,10 +78,26 @@ public class AgentDuelingDQN extends AbstractAgent {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)
-            return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineNoisyNet.forward(states, qValue -> qValue.gather(actions, 1));
         }, samples.states(), samples.actions());
 
-        DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
+        DJLOptimizer.trainStep(onlineNoisyNet.getBlock(), optimizer);
         return lossItem;
+    }
+
+    /**
+     * The noisy networks parameters epsilon are re-sampled
+     * before every action too, as explained in the section 3.1
+     * of the paper.
+     * @param state actual state
+     * @return selected action
+     */
+    @Override
+    public ActionSpaceType.ActionResult selectAction(NDArray state) {
+        onlineNoisyNet.resetNoise();
+        @Cleanup var oneBatchState = state.expandDims(0);
+        @Cleanup var output = onlineNoisyNet.forward(oneBatchState,
+                qValue -> qValue.stopGradient().argMax(1));
+        return actionSpaceType.get(output.getLong(0));
     }
 }
