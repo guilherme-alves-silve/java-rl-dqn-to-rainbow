@@ -53,7 +53,7 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
                                                  NDManager manager) {
         return new NoisyDuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MAX);
     }
-i
+
     public NoisyDuelingQNetworkMLP(int observations,
                                    int actions,
                                    NDManager manager,
