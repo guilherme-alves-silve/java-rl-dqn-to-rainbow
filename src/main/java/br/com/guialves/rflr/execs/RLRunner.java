@@ -26,7 +26,7 @@ public class RLRunner {
 
     @FunctionalInterface
     public interface AgentFactory {
-        IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers);
+        IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent);
 
         default Loss lossFunc() {
             return Loss.l2Loss();
@@ -41,10 +41,11 @@ public class RLRunner {
         var path = config.path();
         var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
-        try (var manager = NDManager.newBaseManager(device)) {
+        try (var parent = NDManager.newBaseManager(device)) {
+            parent.cap();
             var envBuilder = Gym.builder()
                     .envName(config.envName())
-                    .ndManager(manager);
+                    .ndManager(parent);
 
             if (getBoolProp("agent.records", "true")) {
                 envBuilder.add(config.recordVideo())
@@ -65,9 +66,9 @@ public class RLRunner {
 
             var plotTrackers = new PlotTrackers();
 
-            var agent = agentFactory.create(env, optimizer, plotTrackers);
+            var agent = agentFactory.create(env, optimizer, plotTrackers, parent);
 
-            var replayBuffer = agentFactory.replayBuffer(config, manager);
+            var replayBuffer = agentFactory.replayBuffer(config, parent);
             var lossFunc = agentFactory.lossFunc();
 
             agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);

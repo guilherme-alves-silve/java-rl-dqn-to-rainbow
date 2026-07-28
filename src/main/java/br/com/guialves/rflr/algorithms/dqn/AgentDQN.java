@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.algorithms.dqn;
 
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
@@ -14,19 +15,24 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 
 @Slf4j
 public class AgentDQN extends AbstractAgent {
 
     private final int[] the2ndAxis = new int[] {1};
 
-    public AgentDQN(float epsilon, int updateQTargetAtTimeN,
-                    float minEpsilon, float epsilonDecay,
-                    float gamma, IEnv env, Optimizer optimizer,
-                    Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentDQN(float epsilon,
+                    int updateQTargetAtTimeN,
+                    float minEpsilon,
+                    float epsilonDecay,
+                    float gamma,
+                    IEnv env,
+                    Optimizer optimizer,
+                    NDManager parent,
+                    Supplier<IDeepQNetwork> networkFactory,
+                    PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent, networkFactory, plotTrackers);
     }
 
     /**
@@ -42,7 +48,8 @@ public class AgentDQN extends AbstractAgent {
     @Override
     protected float trainOnline(int batchSize,
                                 IReplayBuffer replayBuffer,
-                                Loss lossFunc) {
+                                Loss lossFunc,
+                                NDManager sub) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
@@ -62,7 +69,7 @@ public class AgentDQN extends AbstractAgent {
                     .stopGradient();
         }, samples.rewards(), samples.dones());
 
-        float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)

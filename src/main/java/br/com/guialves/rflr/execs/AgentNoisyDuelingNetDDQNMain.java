@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.execs;
 
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.networks.NoisyDuelingQNetworkMLP;
@@ -37,14 +38,15 @@ public class AgentNoisyDuelingNetDDQNMain {
                 .algorithmName("noisy_dueling_nets_ddqn")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, plotTrackers) ->
-                buildNoisyDuelingNetDDQN(config, env, optimizer, plotTrackers));
+        RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
+                buildNoisyDuelingNetDDQN(config, env, optimizer, plotTrackers, parent));
     }
 
     private static IAgent buildNoisyDuelingNetDDQN(RLConfig config,
                                                    IEnv env,
                                                    Optimizer optimizer,
-                                                   PlotTrackers plotTrackers) {
+                                                   PlotTrackers plotTrackers,
+                                                   NDManager parent) {
         return new AgentNoisyDuelingNetDDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
@@ -53,10 +55,11 @@ public class AgentNoisyDuelingNetDDQNMain {
                 config.discountFactor(), // gamma
                 env,
                 optimizer,
+                parent,
                 () -> new NoisyDuelingQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager(),
+                    parent,
                     config.duelingType()
                 ),
                 plotTrackers

@@ -42,8 +42,8 @@ public class AgentDQNPERMain {
         RLRunner.run(config, new RLRunner.AgentFactory() {
 
             @Override
-            public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers) {
-                return buildDQNPER(config, env, optimizer, plotTrackers);
+            public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {
+                return buildDQNPER(config, env, optimizer, plotTrackers, parent);
             }
 
             @Override
@@ -61,7 +61,8 @@ public class AgentDQNPERMain {
     private static IAgent buildDQNPER(RLConfig config,
                                       IEnv env,
                                       Optimizer optimizer,
-                                      PlotTrackers plotTrackers) {
+                                      PlotTrackers plotTrackers,
+                                      NDManager parent) {
         float initialBeta = 0.6f;
         return new AgentDQNPER(
                 config.maxEpsilon(),
@@ -72,10 +73,11 @@ public class AgentDQNPERMain {
                 initialBeta,
                 env,
                 optimizer,
+                parent,
                 () -> new DeepQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager()
+                    parent
                 ),
                 plotTrackers
         );

@@ -19,22 +19,12 @@ public interface IEnv extends AutoCloseable {
 
     ActionSpaceType.ActionResult actionSpaceSample();
 
-    EnvResetResult reset();
-
     EnvResetResult reset(NDManager manager);
 
-    EnvStepResult step(ActionSpaceType.ActionResult action);
-
-    EnvStepResult step(ActionSpaceType.ActionResult action, NDManager manager);
+    EnvStepResult step(ActionSpaceType.ActionResult action, NDManager sub);
 
     BufferedImage render();
 
-    NDManager manager();
-
     @Override
     void close();
-
-    default NDManager newSubManager() {
-        return manager().newSubManager();
-    }
 }

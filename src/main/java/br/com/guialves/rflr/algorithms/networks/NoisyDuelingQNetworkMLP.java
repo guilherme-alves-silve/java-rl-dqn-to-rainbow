@@ -33,7 +33,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingl
 public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
-    private final NDManager manager;
+    private final NDManager subManager;
     private final int observations;
     private final int actions;
     private final Model model;
@@ -43,22 +43,22 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
     private final ParameterStore parameterStore;
 
     public static NoisyDuelingQNetworkMLP withMeanType(int observations,
-                                                  int actions,
-                                                  NDManager manager) {
-        return new NoisyDuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MEAN);
+                                                       int actions,
+                                                       NDManager parent) {
+        return new NoisyDuelingQNetworkMLP(observations, actions, null, null, parent, DuelingType.MEAN);
     }
 
     public static NoisyDuelingQNetworkMLP withMaxType(int observations,
-                                                 int actions,
-                                                 NDManager manager) {
-        return new NoisyDuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MAX);
+                                                      int actions,
+                                                      NDManager parent) {
+        return new NoisyDuelingQNetworkMLP(observations, actions, null, null, parent, DuelingType.MAX);
     }
 
     public NoisyDuelingQNetworkMLP(int observations,
                                    int actions,
-                                   NDManager manager,
+                                   NDManager parent,
                                    DuelingType duelingType) {
-        this(observations, actions, null, null, manager, duelingType);
+        this(observations, actions, null, null, parent, duelingType);
     }
 
     @SneakyThrows
@@ -66,14 +66,14 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
                                    int actions,
                                    Path modelPath,
                                    String prefix,
-                                   NDManager manager,
+                                   NDManager parent,
                                    DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
-        this.manager = manager;
+        this.subManager = parent.newSubManager();
         this.duelingType = duelingType;
         this.noisyLayers = new ArrayList<>();
-        this.model = Model.newInstance("noisy_dueling_net_dqn_mlp", manager.getDevice());
+        this.model = Model.newInstance("noisy_dueling_net_dqn_mlp", subManager.getDevice());
         this.net = new DuelingLayer(
                 actions,
                 duelingType,
@@ -91,13 +91,13 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
         );
         model.setBlock(net);
 
-        this.parameterStore = new ParameterStore(manager, false);
+        this.parameterStore = new ParameterStore(subManager, false);
         if (modelPath != null) {
             log.info("Loading model: {}, {}", modelPath, prefix);
             model.load(modelPath, prefix);
             this.training = false;
         } else {
-            net.initialize(manager, DataType.FLOAT32, new Shape(1, observations));
+            net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
             DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
@@ -114,7 +114,7 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return safeForwardSingle(manager, net, parameterStore, input, training);
+        return safeForwardSingle(subManager, net, parameterStore, input, training);
     }
 
     @Override
@@ -145,14 +145,14 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new NoisyDuelingQNetworkMLP(observations, actions, manager, duelingType);
+        var cloned = new NoisyDuelingQNetworkMLP(observations, actions, subManager, duelingType);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 
     @Override
     public NDManager manager() {
-        return this.manager;
+        return this.subManager;
     }
 
     @Override

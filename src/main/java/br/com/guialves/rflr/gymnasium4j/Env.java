@@ -94,11 +94,6 @@ public final class Env implements IEnv {
     }
 
     @Override
-    public EnvResetResult reset() {
-        return reset(manager);
-    }
-
-    @Override
     public EnvResetResult reset(NDManager manager) {
         this.stateMetadata = null;
         this.stateBuffer = null;
@@ -133,19 +128,14 @@ public final class Env implements IEnv {
     }
 
     @Override
-    public EnvStepResult step(ActionResult action) {
-        return step(action, manager);
-    }
-
-    @Override
-    public EnvStepResult step(ActionResult action, NDManager manager) {
+    public EnvStepResult step(ActionResult action, NDManager sub) {
         try (var result = callFunction(pyStep, action.pyObj)) {
 
             NDArray state;
             if (scalarObservation) {
                 var pyState = getItem(result, 0);
                 long observationValue = toLong(pyState);
-                state = manager.create(observationValue);
+                state = sub.create(observationValue);
 
                 log.debug("Discrete observation after step: {}", observationValue);
             } else {
@@ -154,7 +144,7 @@ public final class Env implements IEnv {
                 }
 
                 fillFromNumpy(getItem(result, 0), stateBuffer);
-                state = manager.create(
+                state = sub.create(
                         stateBuffer,
                         stateMetadata.djlShape,
                         stateMetadata.djlType
@@ -189,11 +179,6 @@ public final class Env implements IEnv {
                     renderMetadata.channels() == 4
             );
         }
-    }
-
-    @Override
-    public NDManager manager() {
-        return manager;
     }
 
     @Override

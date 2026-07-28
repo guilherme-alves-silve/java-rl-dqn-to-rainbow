@@ -28,7 +28,7 @@ class GymTest {
             assertTrue(env.actionSpaceStr().contains("Discrete(2)"));
             assertTrue(env.observationSpaceStr().contains("Box([-4.8"));
 
-            env.reset();
+            env.reset(ndManager);
             int frame;
             EnvStepResult stepResult = null;
             for (frame = 1; frame <= 100; ++frame) {
@@ -38,7 +38,7 @@ class GymTest {
                 render.display(img);
                 render.waitRender();
                 var action = env.actionSpaceSample();
-                stepResult = env.step(action);
+                stepResult = env.step(action, ndManager);
                 if (stepResult.term()) break;
                 else stepResult.close();
             }

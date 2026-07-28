@@ -1,6 +1,7 @@
 package br.com.guialves.rflr.algorithms.noisydqn;
 
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
@@ -25,12 +26,18 @@ public class AgentNoisyNetDQN extends AbstractAgent {
     private final NoisyQNetworkMLP onlineNoisyNet;
     private final NoisyQNetworkMLP targetNoisyNet;
 
-    public AgentNoisyNetDQN(float epsilon, int updateQTargetAtTimeN,
-                            float minEpsilon, float epsilonDecay,
-                            float gamma, IEnv env, Optimizer optimizer,
-                            Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentNoisyNetDQN(float epsilon,
+                            int updateQTargetAtTimeN,
+                            float minEpsilon,
+                            float epsilonDecay,
+                            float gamma,
+                            IEnv env,
+                            Optimizer optimizer,
+                            NDManager parent,
+                            Supplier<IDeepQNetwork> networkFactory,
+                            PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent, networkFactory, plotTrackers);
         if (!(onlineNet instanceof NoisyQNetworkMLP)) {
             throw new IllegalArgumentException("Invalid network type! Must be of type NoisyNetworkMLP!");
         }
@@ -50,9 +57,7 @@ public class AgentNoisyNetDQN extends AbstractAgent {
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
-    protected float trainOnline(int batchSize,
-                                IReplayBuffer replayBuffer,
-                                Loss lossFunc) {
+    protected float trainOnline(int batchSize, IReplayBuffer replayBuffer, Loss lossFunc, NDManager sub) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
         onlineNoisyNet.resetNoise();
         targetNoisyNet.resetNoise();
@@ -74,7 +79,7 @@ public class AgentNoisyNetDQN extends AbstractAgent {
                     .stopGradient();
         }, samples.rewards(), samples.dones());
 
-        float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)

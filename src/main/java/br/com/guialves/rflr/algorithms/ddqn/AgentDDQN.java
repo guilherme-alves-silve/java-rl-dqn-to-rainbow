@@ -1,14 +1,12 @@
 package br.com.guialves.rflr.algorithms.ddqn;
 
-import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
-import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
-import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -22,12 +20,16 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 @Slf4j
 public class AgentDDQN extends AbstractAgent {
 
-    public AgentDDQN(float epsilon, int updateQTargetAtTimeN,
-                    float minEpsilon, float epsilonDecay,
-                    float gamma, IEnv env, Optimizer optimizer,
-                    Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentDDQN(float epsilon,
+                     int updateQTargetAtTimeN,
+                     float minEpsilon,
+                     float epsilonDecay,
+                     float gamma, IEnv env,
+                     Optimizer optimizer,
+                     NDManager parent,
+                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent, networkFactory, plotTrackers);
     }
 
     /**
@@ -41,7 +43,7 @@ public class AgentDDQN extends AbstractAgent {
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
-    protected float trainOnline(int batchSize, IReplayBuffer replayBuffer, Loss lossFunc) {
+    protected float trainOnline(int batchSize, IReplayBuffer replayBuffer, Loss lossFunc, NDManager sub) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
@@ -67,7 +69,7 @@ public class AgentDDQN extends AbstractAgent {
             });
         }, samples.rewards(), samples.nextStates(), samples.dones());
 
-        float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)

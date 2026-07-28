@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 public class ExperienceReplayBuffer implements IReplayBuffer {
 
     private final Experience[] experiences;
-    private final NDManager thisSubManager;
+    private final NDManager subManager;
     private final ExperienceSampler sampler;
     private final int capacity;
     private int size;
@@ -36,7 +36,7 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.thisSubManager = requireNonNull(manager).newSubManager();
+        this.subManager = requireNonNull(manager).newSubManager();
         this.sampler = requireNonNull(sampler);
         this.pos = 0;
     }
@@ -44,12 +44,14 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     @Override
     public void store(Experience exp) {
 
-        exp.state().attach(thisSubManager);
-        exp.nextState().attach(thisSubManager);
+        exp.state().attach(subManager);
+        exp.nextState().attach(subManager);
 
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
         experiences[pos] = exp;
+        exp.state().setName("buffer-state");
+        exp.nextState().setName("buffer-next-state");
         if (oldExp != null) oldExp.close();
         pos = (pos + 1) % experiences.length;
     }
@@ -67,21 +69,21 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
-        var sub = thisSubManager.newSubManager();
+        var sub = subManager.newSubManager();
         var batch = sampler.sample(experiences, batchSize, size, false);
 
-        var states = newAttachedList(sub, batch, Experience::state);
+        var states = newAttachedList(sub, batch, exp -> exp.state().duplicate());
         var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
         var rewards = djlMapToFloat32(sub, batch, Experience::reward);
-        var nextStates = newAttachedList(sub, batch, Experience::nextState);
+        var nextStates = newAttachedList(sub, batch, exp -> exp.nextState().duplicate());
         var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
 
         return new VecExperience(
                 sub,
-                sub.ret(states),
+                states,
                 actions,
                 rewards,
-                sub.ret(nextStates),
+                nextStates,
                 dones
         );
     }
@@ -118,11 +120,11 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
 
     @Override
     public boolean isOpen() {
-        return thisSubManager.isOpen();
+        return subManager.isOpen();
     }
 
     @Override
     public void close() {
-        thisSubManager.close();
+        subManager.close();
     }
 }

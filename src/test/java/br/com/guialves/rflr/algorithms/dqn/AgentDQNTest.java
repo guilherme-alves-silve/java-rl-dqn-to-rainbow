@@ -2,6 +2,7 @@ package br.com.guialves.rflr.algorithms.dqn;
 
 import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDManager;
 import ai.djl.nn.Block;
 import ai.djl.nn.ParameterList;
 import ai.djl.training.optimizer.Optimizer;
@@ -9,9 +10,7 @@ import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +25,17 @@ import static org.mockito.Mockito.*;
 class AgentDQNTest {
 
     private static final float DELTA = 0.001f;
+    private static NDManager manager;
+
+    @BeforeAll
+    static void setUpBeforeAll() {
+        manager = NDManager.newBaseManager();
+    }
+
+    @AfterAll
+    static void cleanupAfterAll() {
+        manager.close();
+    }
 
     @Mock
     private IEnv env;
@@ -72,6 +82,7 @@ class AgentDQNTest {
                 gamma,
                 env,
                 optimizer,
+                manager,
                 networkFactory,
                 plotTrackers
         );
@@ -105,7 +116,7 @@ class AgentDQNTest {
         AgentDQN exploitativeAgent = new AgentDQN(
                 0.0f,
                 updateQTargetAtTimeN, minEpsilon, epsilonDecay, gamma,
-                env, optimizer, () -> onlineNet, plotTrackers
+                env, optimizer, manager, () -> onlineNet, plotTrackers
         );
 
         var oneBatchState = mock(NDArray.class);

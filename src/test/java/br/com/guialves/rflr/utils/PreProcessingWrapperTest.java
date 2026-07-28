@@ -51,7 +51,7 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldReturnConcatenatedFrames() {
-        var result = wrapper.reset();
+        var result = wrapper.reset(manager);
         var state = result.state();
         var info = result.info();
 
@@ -77,11 +77,11 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldProcessSingleStep() {
-        var resetResult = wrapper.reset();
+        var resetResult = wrapper.reset(manager);
         var initialState = resetResult.state();
         var action = env.actionSpaceSample();
 
-        var stepResult = wrapper.step(action);
+        var stepResult = wrapper.step(action, manager);
         var nextState = stepResult.state();
 
         assertNotNull(stepResult);
@@ -106,10 +106,10 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldAccumulateRewardsFromSkipFrames() {
-        wrapper.reset();
+        wrapper.reset(manager);
         var action = env.actionSpaceSample();
 
-        try(var stepResult = wrapper.step(action)) {
+        try(var stepResult = wrapper.step(action, manager)) {
             double reward = stepResult.reward();
             assertTrue(reward >= 0 && reward <= SKIP_FRAMES);
             log.info("Accumulated reward after {} skip frames: {}", SKIP_FRAMES, reward);
@@ -118,14 +118,14 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldHandleEpisodeTermination() {
-        wrapper.reset();
+        wrapper.reset(manager);
         var action = env.actionSpaceSample();
 
         int steps = 0;
         int maxSteps = 10_000;
         EnvStepResult stepResult = null;
         while (steps < maxSteps) {
-            stepResult = wrapper.step(action);
+            stepResult = wrapper.step(action, manager);
             steps++;
 
             if (stepResult.done()) break;
@@ -145,13 +145,13 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldMaintainConsistentStateShape() {
-        wrapper.reset();
+        wrapper.reset(manager);
         var action = env.actionSpaceSample();
         var shapes = new ArrayList<Shape>();
 
         EnvStepResult stepResult = null;
         for (int i = 0; i < 10; i++) {
-            stepResult = wrapper.step(action);
+            stepResult = wrapper.step(action, manager);
             shapes.add(stepResult.state().getShape());
             action = env.actionSpaceSample();
 
@@ -169,7 +169,7 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldResetAfterDoneWorkCorrectly() {
-        wrapper.reset();
+        wrapper.reset(manager);
         var action = env.actionSpaceSample();
 
         int maxSteps = 10_000;
@@ -177,7 +177,7 @@ class PreProcessingWrapperTest {
         int steps = 0;
 
         while (steps < maxSteps) {
-            stepResult = wrapper.step(action);
+            stepResult = wrapper.step(action, manager);
             steps++;
 
             if (stepResult.done()) break;
@@ -189,7 +189,7 @@ class PreProcessingWrapperTest {
         assertNotNull(stepResult);
         assertTrue(stepResult.done());
 
-        var resetResult = wrapper.reset();
+        var resetResult = wrapper.reset(manager);
         var newState = resetResult.state();
 
         assertNotNull(newState);
@@ -211,10 +211,10 @@ class PreProcessingWrapperTest {
                  var testEnv = Gym.make(ENV_NAME, testManager)) {
 
                 var testWrapper = new PreProcessingWrapper(testEnv, skip, RESIZE_SIZE, CONCATENATE_FRAMES);
-                testWrapper.reset();
+                testWrapper.reset(manager);
                 var action = testEnv.actionSpaceSample();
 
-                try (var stepResult = testWrapper.step(action)) {
+                try (var stepResult = testWrapper.step(action, manager)) {
                     var state = stepResult.state();
                     assertEquals(expectedShape, state.getShape());
 
@@ -236,10 +236,10 @@ class PreProcessingWrapperTest {
                  var testEnv = Gym.make(ENV_NAME, testManager)) {
 
                 var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, concat);
-                testWrapper.reset();
+                testWrapper.reset(manager);
                 var action = testEnv.actionSpaceSample();
 
-                try (var stepResult = testWrapper.step(action)) {
+                try (var stepResult = testWrapper.step(action, manager)) {
                     var state = stepResult.state();
                     assertEquals(expectedSize, state.getShape());
                     log.info("Concatenate={}, state shape={}", concat, state.getShape());
@@ -259,11 +259,11 @@ class PreProcessingWrapperTest {
         var states = new ArrayList<NDArray>();
 
         for (int i = 0; i < iterations; i++) {
-            wrapper.reset();
+            wrapper.reset(manager);
             var action = env.actionSpaceSample();
 
             for (int j = 0; j < 10; j++) {
-                var stepResult = wrapper.step(action);
+                var stepResult = wrapper.step(action, manager);
 
                 if (j % 3 == 0) states.add(stepResult.state().duplicate());
                 else stepResult.close();
@@ -288,16 +288,16 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldExecuteInViableTime() {
-        wrapper.reset();
+        wrapper.reset(manager);
         var action = env.actionSpaceSample();
 
         int steps = 100;
         long startTime = System.nanoTime();
 
         for (int i = 0; i < steps; i++) {
-            try (var stepResult = wrapper.step(action)) {
+            try (var stepResult = wrapper.step(action, manager)) {
                 if (stepResult.done()) {
-                    wrapper.reset();
+                    wrapper.reset(manager);
                 }
                 action = env.actionSpaceSample();
             }
@@ -315,7 +315,7 @@ class PreProcessingWrapperTest {
 
     @Test
     void shouldConvertToGrayscale() {
-        var resetResult = wrapper.reset();
+        var resetResult = wrapper.reset(manager);
         var state = resetResult.state();
 
         assertEquals(DataType.UINT8, state.getDataType());
@@ -344,11 +344,11 @@ class PreProcessingWrapperTest {
 
                 var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, CONCATENATE_FRAMES);
 
-                var resetResult = testWrapper.reset();
+                var resetResult = testWrapper.reset(manager);
                 var state = resetResult.state();
                 var action = testEnv.actionSpaceSample();
 
-                var stepResult = testWrapper.step(action);
+                var stepResult = testWrapper.step(action, manager);
                 var nextState = stepResult.state();
 
                 assertNotNull(state);

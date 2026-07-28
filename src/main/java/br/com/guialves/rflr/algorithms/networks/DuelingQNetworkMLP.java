@@ -32,7 +32,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingl
 public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
-    private final NDManager manager;
+    private final NDManager subManager;
     private final int observations;
     private final int actions;
     private final Model model;
@@ -41,28 +41,28 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     public static DuelingQNetworkMLP withMeanType(int observations,
                                                   int actions,
-                                                  NDManager manager) {
-        return new DuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MEAN);
+                                                  NDManager parent) {
+        return new DuelingQNetworkMLP(observations, actions, null, null, parent, DuelingType.MEAN);
     }
 
     public static DuelingQNetworkMLP withMaxType(int observations,
                                                  int actions,
-                                                 NDManager manager) {
-        return new DuelingQNetworkMLP(observations, actions, null, null, manager, DuelingType.MAX);
+                                                 NDManager parent) {
+        return new DuelingQNetworkMLP(observations, actions, null, null, parent, DuelingType.MAX);
     }
 
     public static DuelingQNetworkMLP withType(int observations,
                                               int actions,
-                                              NDManager manager,
+                                              NDManager parent,
                                               DuelingType duelingType) {
-        return new DuelingQNetworkMLP(observations, actions, null, null, manager, duelingType);
+        return new DuelingQNetworkMLP(observations, actions, null, null, parent, duelingType);
     }
 
     public DuelingQNetworkMLP(int observations,
                               int actions,
-                              NDManager manager,
+                              NDManager parent,
                               DuelingType duelingType) {
-        this(observations, actions, null, null, manager, duelingType);
+        this(observations, actions, null, null, parent, duelingType);
     }
 
     @SneakyThrows
@@ -70,22 +70,22 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
                               int actions,
                               Path modelPath,
                               String prefix,
-                              NDManager manager,
+                              NDManager parent,
                               @NonNull DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
-        this.manager = manager;
-        this.model = Model.newInstance("dueling_mlp", manager.getDevice());
+        this.subManager = parent.newSubManager();
+        this.model = Model.newInstance("dueling_mlp", subManager.getDevice());
         this.net = new DuelingLayer(actions, duelingType);
         model.setBlock(net);
 
-        this.parameterStore = new ParameterStore(manager, false);
+        this.parameterStore = new ParameterStore(subManager, false);
         if (modelPath != null) {
             log.info("Loading model: {}, {}", modelPath, prefix);
             model.load(modelPath, prefix);
             this.training = false;
         } else {
-            net.initialize(manager, DataType.FLOAT32, new Shape(1, observations));
+            net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
             DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
@@ -97,7 +97,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return safeForwardSingle(manager, net, parameterStore, input, training);
+        return safeForwardSingle(subManager, net, parameterStore, input, training);
     }
 
     @Override
@@ -128,14 +128,14 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DuelingQNetworkMLP(observations, actions, manager, duelingType());
+        var cloned = new DuelingQNetworkMLP(observations, actions, subManager, duelingType());
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 
     @Override
     public NDManager manager() {
-        return this.manager;
+        return this.subManager;
     }
 
     @Override

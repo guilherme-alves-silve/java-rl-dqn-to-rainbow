@@ -1,6 +1,7 @@
 package br.com.guialves.rflr.algorithms;
 
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.buffer.Experience;
@@ -31,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractAgent implements IAgent {
 
     protected final ActionSpaceType actionSpaceType;
+    protected final NDManager parent;
 
     protected boolean test;
     protected int episodes;
@@ -47,10 +49,16 @@ public abstract class AbstractAgent implements IAgent {
     protected final IDeepQNetwork targetNet;
     protected final PlotTrackers plotTrackers;
 
-    public AbstractAgent(float epsilon, int updateQTargetAtTimeN,
-                         float minEpsilon, float epsilonDecay,
-                         float gamma, IEnv env, Optimizer optimizer,
-                         Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AbstractAgent(float epsilon,
+                         int updateQTargetAtTimeN,
+                         float minEpsilon,
+                         float epsilonDecay,
+                         float gamma,
+                         IEnv env,
+                         Optimizer optimizer,
+                         NDManager parent,
+                         Supplier<IDeepQNetwork> networkFactory,
+                         PlotTrackers plotTrackers) {
         log.info("Creating {}", getClass().getSimpleName());
         this.test = false;
         this.epsilon = epsilon;
@@ -65,6 +73,8 @@ public abstract class AbstractAgent implements IAgent {
         this.targetNet.eval();
         DJLUtils.freeze(this.targetNet.getBlock());
         this.optimizer = optimizer;
+        this.parent = parent;
+        parent.cap();
         this.actionSpaceType = env.actionSpaceType();
     }
 
@@ -82,7 +92,6 @@ public abstract class AbstractAgent implements IAgent {
         this.test = false;
         this.episodes = 0;
 
-        var parent = env.manager();
         @Cleanup var pbar = ProgressBar.builder()
                 .setTaskName("training " + getClass().getSimpleName())
                 .setInitialMax(framesLimit)
@@ -90,27 +99,30 @@ public abstract class AbstractAgent implements IAgent {
                 .build();
         int frames = 0;
         do {
-            var stateAndInfoMap = env.reset();
+            @Cleanup var parentPerEpisode = parent.newSubManager();
+            var stateAndInfoMap = env.reset(parentPerEpisode);
             @Cleanup var state = stateAndInfoMap.state();
             var episodeRewards = new ArrayList<Double>();
             float episodeLossSum = 0f;
             int episodeSteps = 0;
 
             do {
-                @Cleanup var sub = env.newSubManager();
-                var action = selectAction(state);
+                @Cleanup var sub = parentPerEpisode.newSubManager();
+                @Cleanup var action = selectAction(state);
+                state.setName("state");
 
                 var stepResult = env.step(action, sub);
                 var reward = stepResult.reward();
                 var nextState = stepResult.state();
+                nextState.setName("nextState");
                 var done = stepResult.done();
                 var info = stepResult.info();
                 if (!info.isEmpty()) lastInfo = info;
-                var exp = new Experience(state.duplicate(), action, reward,
+                var exp = new Experience(state.duplicate(), action.duplicate(), reward,
                         nextState.duplicate(), done);
                 replayBuffer.store(exp);
 
-                var lossItem = trainOnline(batchSize, replayBuffer, lossFunc);
+                float lossItem = trainOnline(batchSize, replayBuffer, lossFunc, sub);
                 if (trained(lossItem)) {
                     episodeLossSum += lossItem;
                     ++episodeSteps;
@@ -128,10 +140,10 @@ public abstract class AbstractAgent implements IAgent {
                     break;
                 }
 
-                state = transfer(parent, state, nextState);
+                state = transfer(parentPerEpisode, state, nextState);
 
                 pbar.stepTo(frames);
-                plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
+                plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), sub);
                 templateExtraProcessing(frames, framesLimit);
                 epsilon = reduceEpsilon(epsilon);
             } while (frames < framesLimit);
@@ -179,7 +191,8 @@ public abstract class AbstractAgent implements IAgent {
 
     protected abstract float trainOnline(int batchSize,
                                          IReplayBuffer replayBuffer,
-                                         Loss lossFunc);
+                                         Loss lossFunc,
+                                         NDManager sub);
 
     protected void updateTargetNetworkAtN(int frames) {
         if (frames % updateQTargetAtTimeN == 0) {
@@ -217,11 +230,10 @@ public abstract class AbstractAgent implements IAgent {
     public List<Double> run(int maxTries, boolean render) {
         this.test = true;
 
-        var parent = env.manager();
         var totalRewardPerTry = new ArrayList<Double>(maxTries);
         @Cleanup var envRender = new EnvRenderWindow();
         for (int tries = 0; tries < maxTries; ++tries) {
-            @Cleanup var sub = env.newSubManager();
+            @Cleanup var sub = parent.newSubManager();
             if (!(env.reset(sub) instanceof EnvResetResult(var state, var _)))
                 throw new IllegalStateException("Must be of type EnvResetResult!");
 

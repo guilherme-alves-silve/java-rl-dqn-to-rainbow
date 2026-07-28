@@ -73,9 +73,7 @@ public class PreProcessingWrapper implements IEnv {
     }
 
     @Override
-    public EnvStepResult step(ActionResult action) {
-        var parent = env.manager();
-        @Cleanup var sub = parent.newSubManager();
+    public EnvStepResult step(ActionResult action, NDManager sub) {
         var frames = new ArrayList<NDArray>();
         var rewards = new ArrayList<Double>();
 
@@ -156,11 +154,6 @@ public class PreProcessingWrapper implements IEnv {
                 .sum();
 
         return new Pair<>(state, totalReward);
-    }
-
-    @Override
-    public EnvResetResult reset() {
-        return reset(env.manager());
     }
 
     @Override
