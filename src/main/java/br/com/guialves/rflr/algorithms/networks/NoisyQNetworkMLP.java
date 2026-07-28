@@ -53,7 +53,8 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
                             NDManager parent) {
         this.observations = observations;
         this.actions = actions;
-        this.subManager = parent;
+        this.subManager = parent.newSubManager();
+        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
         this.model = Model.newInstance("noisy_net_dqn_mlp", subManager.getDevice());
         this.net = new SequentialBlock();
         this.noisyLayer1 = noisyLayer(128);
@@ -121,12 +122,13 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
     }
 
     @Override
-    public NDManager manager() {
-        return this.subManager;
+    public NDManager subManager() {
+        return subManager;
     }
 
     @Override
     public void close() {
+        subManager.close();
         model.close();
     }
 }

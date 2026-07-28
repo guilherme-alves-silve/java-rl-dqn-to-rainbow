@@ -14,6 +14,7 @@ import br.com.guialves.rflr.djlutils.DJLUtils;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+import lombok.Cleanup;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +43,7 @@ public class RLRunner {
         var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
         try (var parent = NDManager.newBaseManager(device)) {
+            parent.setName("parent-" + parent.getName());
             parent.cap();
             var envBuilder = Gym.builder()
                     .envName(config.envName())
@@ -52,7 +54,7 @@ public class RLRunner {
                           .add(config.recordEpisodeStatistics());
             }
 
-            var env = envBuilder.build();
+            @Cleanup var env = envBuilder.build();
 
             var optimizer = Adam.builder()
                     .optLearningRateTracker(Tracker.fixed(config.learningRate()))
@@ -68,7 +70,7 @@ public class RLRunner {
 
             var agent = agentFactory.create(env, optimizer, plotTrackers, parent);
 
-            var replayBuffer = agentFactory.replayBuffer(config, parent);
+            @Cleanup var replayBuffer = agentFactory.replayBuffer(config, parent);
             var lossFunc = agentFactory.lossFunc();
 
             agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);

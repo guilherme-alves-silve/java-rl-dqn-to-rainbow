@@ -4,6 +4,8 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
+
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Objects.requireNonNull;
@@ -31,12 +33,13 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     }
 
     public ExperienceReplayBuffer(int capacity,
-                                  NDManager manager,
+                                  NDManager parent,
                                   ExperienceSampler sampler) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.subManager = requireNonNull(manager).newSubManager();
+        this.subManager = parent.newSubManager();
+        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
         this.sampler = requireNonNull(sampler);
         this.pos = 0;
     }
@@ -126,5 +129,6 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     @Override
     public void close() {
         subManager.close();
+        Arrays.fill(experiences, null);
     }
 }

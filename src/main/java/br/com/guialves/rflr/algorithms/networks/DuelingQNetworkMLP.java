@@ -75,6 +75,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
         this.observations = observations;
         this.actions = actions;
         this.subManager = parent.newSubManager();
+        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
         this.model = Model.newInstance("dueling_mlp", subManager.getDevice());
         this.net = new DuelingLayer(actions, duelingType);
         model.setBlock(net);
@@ -134,12 +135,13 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
     }
 
     @Override
-    public NDManager manager() {
-        return this.subManager;
+    public NDManager subManager() {
+        return subManager;
     }
 
     @Override
     public void close() {
+        subManager.close();
         model.close();
     }
 }

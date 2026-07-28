@@ -8,6 +8,8 @@ import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
+import java.time.Duration;
+
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
 
@@ -16,7 +18,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentDQNMain {
-    static void main() {
+    static void main() throws InterruptedException {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
@@ -28,8 +30,8 @@ public class AgentDQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .framesLimit(getIntProp("agent.framesLimit", "300000"))
-                .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
+                .framesLimit(getIntProp("agent.framesLimit", "5000"))
+                .bufferCapacity(getIntProp("agent.bufferCapacity", "500"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
                 .saveModel(true)
                 .algorithmName("dqn")
@@ -37,6 +39,8 @@ public class AgentDQNMain {
 
         RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
                 buildDQN(config, env, optimizer, plotTrackers, parent));
+
+        Thread.sleep(Duration.ofMinutes(5));
     }
 
     private static IAgent buildDQN(RLConfig config,

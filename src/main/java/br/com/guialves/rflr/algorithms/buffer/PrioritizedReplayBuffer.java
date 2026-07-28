@@ -8,6 +8,8 @@ import br.com.guialves.rflr.datastructure.MinSegmentTree;
 import br.com.guialves.rflr.datastructure.SumSegmentTree;
 import lombok.NonNull;
 
+import java.util.Arrays;
+
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Arrays.stream;
@@ -45,12 +47,13 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
 
     public PrioritizedReplayBuffer(int capacity,
                                    float alpha,
-                                   @NonNull NDManager manager) {
+                                   @NonNull NDManager parent) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.subManager = requireNonNull(manager).newSubManager();
-        this.device = manager.getDevice();
+        this.subManager = parent.newSubManager();
+        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
+        this.device = parent.getDevice();
         this.sumSegmentTree = new SumSegmentTree(this.capacity);
         this.minSegmentTree = new MinSegmentTree(this.capacity);
         this.pos = 0;
@@ -243,5 +246,6 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
     @Override
     public void close() {
         subManager.close();
+        Arrays.fill(experiences, null);
     }
 }

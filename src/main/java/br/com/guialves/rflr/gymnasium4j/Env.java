@@ -25,7 +25,6 @@ import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.onHeapBufferNump
 public final class Env implements IEnv {
 
     private static final boolean DEBUG = true;
-    private final NDManager manager;
     @Getter
     private final String varEnvCode;
     @Getter
@@ -54,7 +53,6 @@ public final class Env implements IEnv {
         initPython();
         this.varEnvCode = varEnvCode;
         this.envName = envName;
-        this.manager = manager.newSubManager();
         exec(generatedScript);
 
         this.pyEnv = eval("env_" + varEnvCode);
@@ -207,6 +205,5 @@ public final class Env implements IEnv {
                     refCount(pyRender), refCount(pyStep), refCount(pyReset));
 
         log.info("Closed Env");
-        manager.close();
     }
 }

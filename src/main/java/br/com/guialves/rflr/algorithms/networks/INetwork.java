@@ -15,7 +15,7 @@ public interface INetwork extends AutoCloseable {
 
     NDArray forward(NDArray input);
 
-    NDManager manager();
+    NDManager subManager();
 
     default NDArray forward(NDArray input, final UnaryOperator<NDArray> block) {
         return scoped(it -> {

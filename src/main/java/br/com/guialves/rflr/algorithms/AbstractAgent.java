@@ -100,6 +100,8 @@ public abstract class AbstractAgent implements IAgent {
         int frames = 0;
         do {
             @Cleanup var parentPerEpisode = parent.newSubManager();
+            parentPerEpisode.setName("parentPerEpisode-" + parentPerEpisode.getName());
+
             var stateAndInfoMap = env.reset(parentPerEpisode);
             @Cleanup var state = stateAndInfoMap.state();
             var episodeRewards = new ArrayList<Double>();
@@ -108,13 +110,12 @@ public abstract class AbstractAgent implements IAgent {
 
             do {
                 @Cleanup var sub = parentPerEpisode.newSubManager();
+                sub.setName("innersub-" + sub.getName());
                 @Cleanup var action = selectAction(state);
-                state.setName("state");
 
                 var stepResult = env.step(action, sub);
                 var reward = stepResult.reward();
                 var nextState = stepResult.state();
-                nextState.setName("nextState");
                 var done = stepResult.done();
                 var info = stepResult.info();
                 if (!info.isEmpty()) lastInfo = info;
@@ -246,7 +247,7 @@ public abstract class AbstractAgent implements IAgent {
                 var reward = stepResult.reward();
                 var nextState = stepResult.state();
                 done = stepResult.done();
-                state = transfer(parent, state, nextState);
+                state = transfer(sub, state, nextState);
                 totalReward += reward;
             } while (!done);
 

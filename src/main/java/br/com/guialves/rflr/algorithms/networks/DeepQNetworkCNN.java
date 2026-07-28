@@ -55,6 +55,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
         this.modelPath = modelPath;
         this.prefix = prefix;
         this.subManager = parent.newSubManager();
+        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
         this.model = Model.newInstance("dqn_cnn", subManager.getDevice());
         this.net = new SequentialBlock();
 
@@ -98,8 +99,8 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     }
 
     @Override
-    public NDManager manager() {
-        return this.subManager;
+    public NDManager subManager() {
+        return subManager;
     }
 
     @Override
@@ -133,6 +134,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
 
     @Override
     public void close() {
+        subManager.close();
         model.close();
     }
 }

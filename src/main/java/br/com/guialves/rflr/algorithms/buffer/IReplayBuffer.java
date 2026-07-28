@@ -59,4 +59,6 @@ public interface IReplayBuffer extends AutoCloseable {
     }
 
     boolean isOpen();
+
+    void close();
 }

@@ -26,16 +26,16 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
     public NStepExperienceReplayBuffer(int nStep,
                                        float gamma,
                                        int capacity,
-                                       NDManager manager) {
-        this(nStep, gamma, capacity, manager, new ExperienceSampler());
+                                       NDManager parent) {
+        this(nStep, gamma, capacity, parent, new ExperienceSampler());
     }
 
     public NStepExperienceReplayBuffer(int nStep,
                                        float gamma,
                                        int capacity,
-                                       NDManager manager,
+                                       NDManager parent,
                                        ExperienceSampler sampler) {
-        super(capacity, manager, sampler);
+        super(capacity, parent, sampler);
         if (nStep < 1) throw new IllegalArgumentException("nStep must at least 1: " + nStep);
         if (gamma <= 0 || gamma > 1) throw new IllegalArgumentException("gamma must be between range (0, 1]: " + gamma);
         this.nStep = nStep;
@@ -92,5 +92,11 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
 
     public int nStep() {
         return nStep;
+    }
+
+    @Override
+    public void close() {
+        super.close();
+        nStepDeque.forEach(Experience::close);
     }
 }

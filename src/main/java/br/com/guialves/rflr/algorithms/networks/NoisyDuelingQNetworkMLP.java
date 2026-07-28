@@ -71,6 +71,7 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
         this.observations = observations;
         this.actions = actions;
         this.subManager = parent.newSubManager();
+        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
         this.duelingType = duelingType;
         this.noisyLayers = new ArrayList<>();
         this.model = Model.newInstance("noisy_dueling_net_dqn_mlp", subManager.getDevice());
@@ -151,12 +152,13 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
     }
 
     @Override
-    public NDManager manager() {
-        return this.subManager;
+    public NDManager subManager() {
+        return subManager;
     }
 
     @Override
     public void close() {
+        subManager.close();
         model.close();
     }
 }

@@ -53,6 +53,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
         this.observations = observations;
         this.actions = actions;
         this.subManager = parent.newSubManager();
+        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
         this.model = Model.newInstance("dqn_mlp", parent.getDevice());
         this.net = new SequentialBlock();
         net.add(linear(128))
@@ -113,12 +114,13 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
     }
 
     @Override
-    public NDManager manager() {
-        return this.subManager;
+    public NDManager subManager() {
+        return subManager;
     }
 
     @Override
     public void close() {
+        subManager.close();
         model.close();
     }
 }
