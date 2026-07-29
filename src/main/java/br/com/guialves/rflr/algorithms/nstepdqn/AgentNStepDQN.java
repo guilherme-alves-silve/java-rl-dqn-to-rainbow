@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.algorithms.nstepdqn;
 
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
@@ -21,12 +22,18 @@ public class AgentNStepDQN extends AbstractAgent {
 
     private static final int[] AXIS_COLUMN = new int[] {1};
 
-    public AgentNStepDQN(float epsilon, int updateQTargetAtTimeN,
-                         float minEpsilon, float epsilonDecay,
-                         float gamma, IEnv env, Optimizer optimizer,
-                         Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentNStepDQN(float epsilon,
+                         int updateQTargetAtTimeN,
+                         float minEpsilon,
+                         float epsilonDecay,
+                         float gamma,
+                         IEnv env,
+                         Optimizer optimizer,
+                         NDManager parent,
+                         Supplier<IDeepQNetwork> networkFactory,
+                         PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent, networkFactory, plotTrackers);
     }
 
     /**
@@ -40,9 +47,7 @@ public class AgentNStepDQN extends AbstractAgent {
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
-    protected float trainOnline(int batchSize,
-                                IReplayBuffer ireplayBuffer,
-                                Loss lossFunc) {
+    protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
         if (!(ireplayBuffer instanceof NStepExperienceReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass NStepExperienceReplayBuffer!");
@@ -66,7 +71,7 @@ public class AgentNStepDQN extends AbstractAgent {
                     .stopGradient();
         }, samples.rewards(), samples.dones());
 
-        float lossItem = backwardLoss(env.manager(), lossFunc, targetQValue, arrays -> {
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)

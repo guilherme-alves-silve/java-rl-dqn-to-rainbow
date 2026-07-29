@@ -14,6 +14,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import static br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP.withMeanType;
 import static br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP.withType;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DuelingQNetworkMLPTest {
@@ -63,7 +64,7 @@ class DuelingQNetworkMLPTest {
     @ParameterizedTest(name = "[{index}] size={arguments}")
     @EnumSource(DuelingType.class)
     void shouldAvoidMemoryLeak(DuelingType duelingType) {
-        @Cleanup var sub = manager.newSubManager();
+        @Cleanup var sub = subMgr(manager, getClass());
         int observation = 8;
         int actions = 4;
         int expectedEnd = 9;

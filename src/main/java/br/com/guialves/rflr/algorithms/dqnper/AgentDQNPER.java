@@ -1,6 +1,7 @@
 package br.com.guialves.rflr.algorithms.dqnper;
 
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
@@ -29,12 +30,19 @@ public class AgentDQNPER extends AbstractAgent {
     private final float initialBeta;
     private float beta;
 
-    public AgentDQNPER(float epsilon, int updateQTargetAtTimeN,
-                       float minEpsilon, float epsilonDecay,
-                       float gamma, float beta, IEnv env, Optimizer optimizer,
-                       Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+    public AgentDQNPER(float epsilon,
+                       int updateQTargetAtTimeN,
+                       float minEpsilon,
+                       float epsilonDecay,
+                       float gamma,
+                       float beta,
+                       IEnv env,
+                       Optimizer optimizer,
+                       NDManager parent,
+                       Supplier<IDeepQNetwork> networkFactory,
+                       PlotTrackers plotTrackers) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent, networkFactory, plotTrackers);
         this.initialBeta = beta;
     }
 
@@ -49,9 +57,7 @@ public class AgentDQNPER extends AbstractAgent {
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
-    protected float trainOnline(int batchSize,
-                                IReplayBuffer ireplayBuffer,
-                                Loss lossFunc) {
+    protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
         if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
@@ -78,7 +84,7 @@ public class AgentDQNPER extends AbstractAgent {
 
         perl2LossFunc.normISWeights(samples.weights());
         // (perl2LossFunc) L = sum norm w^{is} * error^2
-        @Cleanup var losses = rawBackwardLoss(env.manager(), perl2LossFunc, targetQValue, arrays -> {
+        @Cleanup var losses = rawBackwardLoss(sub, perl2LossFunc, targetQValue, arrays -> {
             var states = arrays[0];
             var actions = arrays[1];
             // y_hat = q_online(s, a)

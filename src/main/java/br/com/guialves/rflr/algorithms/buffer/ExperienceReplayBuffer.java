@@ -4,6 +4,10 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
+
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.setName;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Objects.requireNonNull;
@@ -20,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class ExperienceReplayBuffer implements IReplayBuffer {
 
     private final Experience[] experiences;
-    private final NDManager thisSubManager;
+    private final NDManager subManager;
     private final ExperienceSampler sampler;
     private final int capacity;
     private int size;
@@ -31,12 +35,12 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     }
 
     public ExperienceReplayBuffer(int capacity,
-                                  NDManager manager,
+                                  NDManager parent,
                                   ExperienceSampler sampler) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.thisSubManager = requireNonNull(manager).newSubManager();
+        this.subManager = subMgr(parent, getClass());
         this.sampler = requireNonNull(sampler);
         this.pos = 0;
     }
@@ -44,12 +48,14 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     @Override
     public void store(Experience exp) {
 
-        exp.state().attach(thisSubManager);
-        exp.nextState().attach(thisSubManager);
+        exp.state().attach(subManager);
+        exp.nextState().attach(subManager);
 
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
         experiences[pos] = exp;
+        setName(exp.state(), "buffer-state");
+        setName(exp.nextState(), "buffer-next-state");
         if (oldExp != null) oldExp.close();
         pos = (pos + 1) % experiences.length;
     }
@@ -67,21 +73,21 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
-        var sub = thisSubManager.newSubManager();
+        var sub = subMgr(subManager, "buffer-sample");
         var batch = sampler.sample(experiences, batchSize, size, false);
 
-        var states = newAttachedList(sub, batch, Experience::state);
+        var states = newAttachedList(sub, batch, exp -> exp.state().duplicate());
         var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
         var rewards = djlMapToFloat32(sub, batch, Experience::reward);
-        var nextStates = newAttachedList(sub, batch, Experience::nextState);
+        var nextStates = newAttachedList(sub, batch, exp -> exp.nextState().duplicate());
         var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
 
         return new VecExperience(
                 sub,
-                sub.ret(states),
+                states,
                 actions,
                 rewards,
-                sub.ret(nextStates),
+                nextStates,
                 dones
         );
     }
@@ -118,11 +124,12 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
 
     @Override
     public boolean isOpen() {
-        return thisSubManager.isOpen();
+        return subManager.isOpen();
     }
 
     @Override
     public void close() {
-        thisSubManager.close();
+        subManager.close();
+        Arrays.fill(experiences, null);
     }
 }

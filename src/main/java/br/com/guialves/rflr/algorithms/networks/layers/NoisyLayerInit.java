@@ -55,7 +55,7 @@ public class NoisyLayerInit implements Initializer {
     @Getter
     private final InitType type;
 
-    public NoisyLayerInit(int size, InitType type) {
+    private NoisyLayerInit(int size, InitType type) {
         this.size = size;
         this.type = type;
     }
@@ -65,8 +65,8 @@ public class NoisyLayerInit implements Initializer {
         float p = (float) Math.sqrt(size);
         return switch (type) {
             case MU -> {
-                float mu_range = BASE_INIT / p;
-                yield manager.randomUniform(-mu_range, mu_range, shape, dataType);
+                float muRange = BASE_INIT / p;
+                yield manager.randomUniform(-muRange, muRange, shape, dataType);
             }
             case SIGMA -> manager.full(shape, SIGMA_INIT/p, dataType);
         };

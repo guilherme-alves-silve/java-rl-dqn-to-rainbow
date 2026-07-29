@@ -10,7 +10,6 @@ import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
-import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -18,8 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
  * Architecture based on the link below:
@@ -32,7 +30,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingl
 public class DeepQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
-    private final NDManager manager;
+    private final NDManager subManager;
     private final int observations;
     private final int actions;
     private final Model model;
@@ -41,8 +39,8 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     public DeepQNetworkMLP(int observations,
                            int actions,
-                           NDManager manager) {
-        this(observations, actions, null, null, manager);
+                           NDManager parent) {
+        this(observations, actions, null, null, parent);
     }
 
     @SneakyThrows
@@ -50,11 +48,11 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
                            int actions,
                            Path modelPath,
                            String prefix,
-                           NDManager manager) {
+                           NDManager parent) {
         this.observations = observations;
         this.actions = actions;
-        this.manager = manager;
-        this.model = Model.newInstance("dqn_mlp", manager.getDevice());
+        this.subManager = subMgr(parent, getClass());
+        this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
         net.add(linear(128))
            .add(Activation::relu)
@@ -63,13 +61,13 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
            .add(linear(actions));
         model.setBlock(net);
 
-        this.parameterStore = new ParameterStore(manager, false);
+        this.parameterStore = new ParameterStore(subManager, false);
         if (modelPath != null) {
             log.info("Loading model: {}, {}", modelPath, prefix);
             model.load(modelPath, prefix);
             this.training = false;
         } else {
-            net.initialize(manager, DataType.FLOAT32, new Shape(1, observations));
+            net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
             DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
@@ -77,7 +75,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return safeForwardSingle(manager, net, parameterStore, input, training);
+        return safeForwardSingle(subManager, net, parameterStore, input, training);
     }
 
     @Override
@@ -108,18 +106,19 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DeepQNetworkMLP(observations, actions, manager);
+        var cloned = new DeepQNetworkMLP(observations, actions, subManager);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 
     @Override
-    public NDManager manager() {
-        return this.manager;
+    public NDManager subManager() {
+        return subManager;
     }
 
     @Override
     public void close() {
+        subManager.close();
         model.close();
     }
 }

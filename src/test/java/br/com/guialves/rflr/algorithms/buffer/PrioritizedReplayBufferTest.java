@@ -48,10 +48,6 @@ class PrioritizedReplayBufferTest {
     void shouldNotHaveMemoryLeak(int size) {
         int beforeAll = managedArrayCount(manager);
         int batchSize = 25;
-        // this 50 plus objects are the state and nextState returned to the experience buffer
-        // I had to include duplicate in the PER Buffer,
-        // because the same object can be resampled many times more
-        int retToReplayBuffer = 50;
         float alpha = 0.2f;
         var replayBuffer = new PrioritizedReplayBuffer(size, alpha, manager);
         range(0, size).forEach(i -> replayBuffer.store(createRandomExperience(i)));
@@ -72,7 +68,7 @@ class PrioritizedReplayBufferTest {
         }
 
         int after = managedArrayCount(manager);
-        assertEquals(before + retToReplayBuffer, after);
+        assertEquals(before, after);
 
         replayBuffer.close();
         assertEquals(beforeAll, managedArrayCount(manager));

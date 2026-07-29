@@ -53,6 +53,9 @@ public class PlotTrackers {
 
     public void showAllMetrics() {
         PlotTrackersTablesaw.showAllMetrics(episodeEpsilons, meanEpisodeRewards, meanEpisodeLoss);
+        episodeEpsilons.clear();
+        meanEpisodeRewards.clear();
+        meanEpisodeLoss.clear();
     }
 
     public void add(float epsilon, List<Double> episodeRewards, float avgLoss) {

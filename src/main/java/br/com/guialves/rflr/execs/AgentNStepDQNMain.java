@@ -41,8 +41,8 @@ public class AgentNStepDQNMain {
         RLRunner.run(config, new RLRunner.AgentFactory() {
 
             @Override
-            public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers) {
-                return buildNStepDQN(config, env, optimizer, plotTrackers);
+            public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {
+                return buildNStepDQN(config, env, optimizer, plotTrackers, parent);
             }
 
             @Override
@@ -60,7 +60,8 @@ public class AgentNStepDQNMain {
     private static IAgent buildNStepDQN(RLConfig config,
                                         IEnv env,
                                         Optimizer optimizer,
-                                        PlotTrackers plotTrackers) {
+                                        PlotTrackers plotTrackers,
+                                        NDManager parent) {
         return new AgentNStepDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
@@ -69,10 +70,11 @@ public class AgentNStepDQNMain {
                 config.discountFactor(), // gamma
                 env,
                 optimizer,
+                parent,
                 () -> new DeepQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager()
+                    parent
                 ),
                 plotTrackers
         );

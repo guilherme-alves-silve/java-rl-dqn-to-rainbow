@@ -8,6 +8,9 @@ import ai.djl.nn.Parameter;
 import ai.djl.nn.core.Linear;
 import ai.djl.training.ParameterStore;
 import ai.djl.util.PairList;
+import lombok.Cleanup;
+
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 
 /**
  * Implements a fully-connected layer with factorized Gaussian noise
@@ -61,7 +64,7 @@ import ai.djl.util.PairList;
  *  <a href="https://arxiv.org/abs/1706.10295">Noisy Networks for Exploration</a>.
  *  <a href="https://molab.marimo.io/github/Curt-Park/rainbow-is-all-you-need/blob/master/05_noisy_net.py">Python - Noisy Net</a>
  */
-public class NoisyLayer extends AbstractBlock {
+public class NoisyLayer extends AbstractBlock implements AutoCloseable {
 
     private static final byte VERSION = 1;
 
@@ -102,12 +105,14 @@ public class NoisyLayer extends AbstractBlock {
                                      NDList inputs,
                                      boolean training,
                                      PairList<String, Object> params) {
+        @Cleanup var sub = subMgr(inputs.getManager(), "noisy-layer");
         var device = inputs.getManager().getDevice();
         var input = inputs.singletonOrThrow();
         var wMu = paramStore.getValue(weightMu, device, training);
         var wSigma = paramStore.getValue(weightSigma, device, training);
         var bMu = paramStore.getValue(biasMu, device, training);
         var bSigma = paramStore.getValue(biasSigma, device, training);
+        sub.tempAttachAll(wMu, wSigma, bMu, bSigma);
 
         if (training) {
             int inFeatures = (int) input.getShape().getLastDimension();
@@ -165,5 +170,10 @@ public class NoisyLayer extends AbstractBlock {
     private void ensureNoiseIsSampled(NDManager manager, int inFeatures, int outFeatures) {
         if (noise != null) return;
         this.noise = FactorizedNoise.sampleNoiseOuter(manager, inFeatures, outFeatures);
+    }
+
+    @Override
+    public void close() {
+        this.resetNoise();
     }
 }

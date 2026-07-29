@@ -21,6 +21,8 @@ import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 @Accessors(fluent = true)
 public class DuelingLayer extends AbstractBlock {
 
+    private static final byte VERSION = 1;
+
     private final int actions;
     private final BinaryOperator<NDArray> qValueCalc;
     private final SequentialBlock featureBackbone;
@@ -66,7 +68,7 @@ public class DuelingLayer extends AbstractBlock {
                         Consumer<SequentialBlock> featureBackboneModifier,
                         Consumer<SequentialBlock> valueHeadModifier,
                         Consumer<SequentialBlock> advantageHeadModifier) {
-
+        super(VERSION);
         this.actions = actions;
         this.duelingType = duelingType;
         this.qValueCalc = switch (duelingType) {

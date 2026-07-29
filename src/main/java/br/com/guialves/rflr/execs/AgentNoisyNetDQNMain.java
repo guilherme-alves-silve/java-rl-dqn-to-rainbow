@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.execs;
 
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
@@ -34,14 +35,15 @@ public class AgentNoisyNetDQNMain {
                 .algorithmName("noisy_nets_dqn")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, plotTrackers) ->
-                buildNoisyNetDQN(config, env, optimizer, plotTrackers));
+        RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
+                buildNoisyNetDQN(config, env, optimizer, plotTrackers, parent));
     }
 
     private static IAgent buildNoisyNetDQN(RLConfig config,
                                            IEnv env,
                                            Optimizer optimizer,
-                                           PlotTrackers plotTrackers) {
+                                           PlotTrackers plotTrackers,
+                                           NDManager parent) {
         return new AgentNoisyNetDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
@@ -50,10 +52,11 @@ public class AgentNoisyNetDQNMain {
                 config.discountFactor(), // gamma
                 env,
                 optimizer,
+                parent,
                 () -> new NoisyQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager()
+                    parent
                 ),
                 plotTrackers
         );

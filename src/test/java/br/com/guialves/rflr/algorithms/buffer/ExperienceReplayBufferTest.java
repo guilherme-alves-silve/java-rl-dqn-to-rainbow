@@ -101,8 +101,6 @@ class ExperienceReplayBufferTest {
     void shouldNotHaveMemoryLeak(int size) {
         int beforeAll = managedArrayCount(manager);
         int batchSize = 25;
-        // this 2 plus objects are the state and nextState returned to the experience buffer
-        int retToReplayBuffer = 2;
         var replayBuffer = new ExperienceReplayBuffer(size, manager);
         range(0, size).forEach(i -> replayBuffer.store(createRandomExperience(i)));
 
@@ -122,7 +120,7 @@ class ExperienceReplayBufferTest {
         }
 
         int after = managedArrayCount(manager);
-        assertEquals(before + retToReplayBuffer, after);
+        assertEquals(before, after);
 
         replayBuffer.close();
         assertEquals(beforeAll, managedArrayCount(manager));

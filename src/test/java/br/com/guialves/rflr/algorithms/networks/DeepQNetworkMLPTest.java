@@ -62,10 +62,9 @@ class DeepQNetworkMLPTest {
 
         var input = manager.randomUniform(0f, 1f, new Shape(1, observations));
         NDArray originalOutput;
-        try (DeepQNetworkMLP dqn = new DeepQNetworkMLP(observations, actions, manager)) {
-            originalOutput = dqn.forward(input).duplicate();
-            dqn.save(tempDir, prefix);
-        }
+        @Cleanup var dqn = new DeepQNetworkMLP(observations, actions, manager);
+        originalOutput = dqn.forward(input).duplicate();
+        dqn.save(tempDir, prefix);
 
         @Cleanup var loaded = new DeepQNetworkMLP(observations, actions, tempDir, prefix, manager);
         var loadedOutput = loaded.forward(input);

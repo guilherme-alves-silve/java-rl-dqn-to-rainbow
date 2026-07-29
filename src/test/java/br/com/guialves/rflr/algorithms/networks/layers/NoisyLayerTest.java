@@ -1,11 +1,10 @@
-package br.com.guialves.rflr.algorithms.noisydqn;
+package br.com.guialves.rflr.algorithms.networks.layers;
 
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.training.ParameterStore;
-import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

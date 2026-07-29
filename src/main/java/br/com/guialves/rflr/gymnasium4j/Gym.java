@@ -18,7 +18,6 @@ public class Gym {
                             @NonNull NDManager ndManager) {
         return builder()
                 .envName(name)
-                .ndManager(ndManager)
                 .build();
     }
 
@@ -38,7 +37,6 @@ public class Gym {
         private final List<IWrapper> wrappers;
         private String envName;
         private PyMap params;
-        private NDManager ndManager;
 
         private EnvBuilder() {
             this.varEnvCode = UUID.randomUUID().toString().replace("-", "");
@@ -50,11 +48,6 @@ public class Gym {
 
         public EnvBuilder envName(@NonNull String envName) {
             this.envName = envName;
-            return this;
-        }
-
-        public EnvBuilder ndManager(@NonNull NDManager ndManager) {
-            this.ndManager = ndManager;
             return this;
         }
 
@@ -131,7 +124,7 @@ public class Gym {
         }
 
         public Env build() {
-            return new Env(varEnvCode, envName, generatePyEnvScript(), ndManager);
+            return new Env(varEnvCode, envName, generatePyEnvScript());
         }
     }
 

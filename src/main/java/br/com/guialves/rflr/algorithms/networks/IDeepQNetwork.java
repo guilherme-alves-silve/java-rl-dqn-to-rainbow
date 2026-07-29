@@ -13,7 +13,7 @@ public interface IDeepQNetwork extends INetwork {
 
     NDArray forward(NDArray input);
 
-    NDManager manager();
+    NDManager subManager();
 
     void save(Path modelPath, String newModelName);
 

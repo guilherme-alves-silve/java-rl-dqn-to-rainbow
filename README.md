@@ -119,6 +119,25 @@ TODO:
 - Explore `Py_NewInterpreterFromConfig()` (Python 3.12+) for per-interpreter GIL to improve multiprocessing utilization.
 - Evaluate Gymnasium's [vectorization API](https://gymnasium.farama.org/api/vector/) for parallel environment execution.
 
+## Adding a new component
+
+Use this checklist when adding a new network, buffer, or agent.
+
+- [ ] **Managers are named.** Every `newSubManager()` becomes
+  `subMgr(parent, "descriptive-name")`.
+- [ ] **Models are named.** Every `Model.newInstance(name, device)`
+  becomes `newModel(getClass(), device)`.
+- [ ] **AutoCloseable.** The component implements `AutoCloseable` and
+  its `close()` closes every sub-manager it owns.
+- [ ] **Scoping is explicit.** Any `NDArray` used only inside a block
+  is created in a `@Cleanup var sub = subMgr(...)` scope.
+- [ ] **Parameters are `tempAttach`-ed.** Long-lived parameters used in
+  a scoped computation are `tempAttach`-ed to the scope's sub.
+- [ ] **No permanent `attach` to the model manager.** Forward outputs
+  and intermediates live in scoped subs, not in the model manager.
+- [ ] **`@Cleanup` on forward outputs.** `INetwork.forward` callers
+  declare `out` with `@Cleanup`.
+
 ## CARLA Integration
 
 Resources for Part 3 of the series:

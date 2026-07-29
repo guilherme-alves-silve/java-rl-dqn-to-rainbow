@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.execs;
 
+import ai.djl.ndarray.NDManager;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.duelingdqn.AgentDuelingDQN;
@@ -37,14 +38,15 @@ public class AgentDuelingDQNMain {
                 .algorithmName("dueling_dqn")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, plotTrackers) ->
-                buildDuelingDQN(config, env, optimizer, plotTrackers));
+        RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
+                buildDuelingDQN(config, env, optimizer, plotTrackers, parent));
     }
 
     private static IAgent buildDuelingDQN(RLConfig config,
                                           IEnv env,
                                           Optimizer optimizer,
-                                          PlotTrackers plotTrackers) {
+                                          PlotTrackers plotTrackers,
+                                          NDManager parent) {
         return new AgentDuelingDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
@@ -53,11 +55,11 @@ public class AgentDuelingDQNMain {
                 config.discountFactor(), // gamma
                 env,
                 optimizer,
-                // You can change to max if you want
+                parent,
                 () -> new DuelingQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    env.manager(),
+                    parent,
                     config.duelingType()
                 ),
                 plotTrackers

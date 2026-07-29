@@ -19,7 +19,7 @@ import java.nio.file.Path;
 
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
  * After each update, it's recommended that you call the method {@code resetNoise()}
@@ -30,7 +30,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingl
 public class NoisyQNetworkMLP implements IDeepQNetwork {
 
     private boolean training;
-    private final NDManager manager;
+    private final NDManager subManager;
     private final int observations;
     private final int actions;
     private final Model model;
@@ -41,8 +41,8 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
 
     public NoisyQNetworkMLP(int observations,
                             int actions,
-                            NDManager manager) {
-        this(observations, actions, null, null, manager);
+                            NDManager parent) {
+        this(observations, actions, null, null, parent);
     }
 
     @SneakyThrows
@@ -50,11 +50,11 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
                             int actions,
                             Path modelPath,
                             String prefix,
-                            NDManager manager) {
+                            NDManager parent) {
         this.observations = observations;
         this.actions = actions;
-        this.manager = manager;
-        this.model = Model.newInstance("noisy_net_dqn_mlp", manager.getDevice());
+        this.subManager = subMgr(parent, getClass());
+        this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
         this.noisyLayer1 = noisyLayer(128);
         this.noisyLayer2 = noisyLayer(actions);
@@ -65,13 +65,13 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
            .add(noisyLayer2);
         model.setBlock(net);
 
-        this.parameterStore = new ParameterStore(manager, false);
+        this.parameterStore = new ParameterStore(subManager, false);
         if (modelPath != null) {
             log.info("Loading model: {}, {}", modelPath, prefix);
             model.load(modelPath, prefix);
             this.training = false;
         } else {
-            net.initialize(manager, DataType.FLOAT32, new Shape(1, observations));
+            net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
             DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
@@ -84,7 +84,7 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return safeForwardSingle(manager, net, parameterStore, input, training);
+        return safeForwardSingle(subManager, net, parameterStore, input, training);
     }
 
     @Override
@@ -115,18 +115,20 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new NoisyQNetworkMLP(observations, actions, manager);
+        var cloned = new NoisyQNetworkMLP(observations, actions, subManager);
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 
     @Override
-    public NDManager manager() {
-        return this.manager;
+    public NDManager subManager() {
+        return subManager;
     }
 
     @Override
     public void close() {
+        subManager.close();
         model.close();
+        resetNoise();
     }
 }

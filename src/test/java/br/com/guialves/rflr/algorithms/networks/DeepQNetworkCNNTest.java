@@ -86,23 +86,20 @@ class DeepQNetworkCNNTest {
 
         var input = manager.randomUniform(0f, 1f, new Shape(1, channels, observations, observations));
 
-        NDArray originalOutput;
-        try (var cnn = new DeepQNetworkCNN(channels, observations, actions, manager)) {
-            originalOutput = cnn.forward(input).duplicate();
-            cnn.save(tempDir, prefix);
-        }
+        @Cleanup var cnn = new DeepQNetworkCNN(channels, observations, actions, manager);
+        var originalOutput = cnn.forward(input).duplicate();
+        cnn.save(tempDir, prefix);
 
-        try (var loaded = new DeepQNetworkCNN(channels, observations, actions,
-                tempDir, prefix, manager)) {
-            var loadedOutput = loaded.forward(input);
-            assertEquals(originalOutput.getShape(), loadedOutput.getShape());
-            assertTrue(originalOutput.allClose(
-                    loadedOutput,
-                    SAFE_FLOAT_COMPARISON,
-                    SAFE_FLOAT_COMPARISON,
-                    false
-            ));
-        }
+        @Cleanup var loaded = new DeepQNetworkCNN(channels, observations, actions,
+                tempDir, prefix, manager);
+        var loadedOutput = loaded.forward(input);
+        assertEquals(originalOutput.getShape(), loadedOutput.getShape());
+        assertTrue(originalOutput.allClose(
+                loadedOutput,
+                SAFE_FLOAT_COMPARISON,
+                SAFE_FLOAT_COMPARISON,
+                false
+        ));
     }
 
     @Test
