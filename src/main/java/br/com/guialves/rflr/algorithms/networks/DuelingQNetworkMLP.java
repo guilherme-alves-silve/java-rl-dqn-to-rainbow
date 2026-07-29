@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
  * Architecture based on the links below:
@@ -74,9 +74,8 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
                               @NonNull DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
-        this.subManager = parent.newSubManager();
-        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
-        this.model = Model.newInstance("dueling_mlp", subManager.getDevice());
+        this.subManager = subMgr(parent, getClass());
+        this.model = newModel(getClass(), subManager.getDevice());
         this.net = new DuelingLayer(actions, duelingType);
         model.setBlock(net);
 

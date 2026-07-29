@@ -10,10 +10,10 @@ import lombok.NonNull;
 
 import java.util.Arrays;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Arrays.stream;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Prioritized Experience Replay buffer with PER sampling and importance sampling weights.
@@ -51,8 +51,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.subManager = parent.newSubManager();
-        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
+        this.subManager = subMgr(parent, getClass());
         this.device = parent.getDevice();
         this.sumSegmentTree = new SumSegmentTree(this.capacity);
         this.minSegmentTree = new MinSegmentTree(this.capacity);
@@ -118,7 +117,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
     public VecExperience sample(int batchSize, float beta) {
         if (!enough(batchSize)) return null;
 
-        var sub = subManager.newSubManager();
+        var sub = subMgr(subManager, "prioritized-sample");
         var bufferIndexes = prioritizedIndexSamples(batchSize);
         var batch = buildPrioritizedSamples(bufferIndexes);
 

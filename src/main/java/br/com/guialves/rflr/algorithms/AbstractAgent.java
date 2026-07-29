@@ -99,9 +99,7 @@ public abstract class AbstractAgent implements IAgent {
                 .build();
         int frames = 0;
         do {
-            @Cleanup var parentPerEpisode = parent.newSubManager();
-            parentPerEpisode.setName("parentPerEpisode-" + parentPerEpisode.getName());
-
+            @Cleanup var parentPerEpisode = subMgr(parent, "parent-episode");
             var stateAndInfoMap = env.reset(parentPerEpisode);
             @Cleanup var state = stateAndInfoMap.state();
             var episodeRewards = new ArrayList<Double>();
@@ -109,8 +107,7 @@ public abstract class AbstractAgent implements IAgent {
             int episodeSteps = 0;
 
             do {
-                @Cleanup var sub = parentPerEpisode.newSubManager();
-                sub.setName("innersub-" + sub.getName());
+                @Cleanup var sub = subMgr(parentPerEpisode, "inner-sub");
                 @Cleanup var action = selectAction(state);
 
                 var stepResult = env.step(action, sub);
@@ -234,7 +231,7 @@ public abstract class AbstractAgent implements IAgent {
         var totalRewardPerTry = new ArrayList<Double>(maxTries);
         @Cleanup var envRender = new EnvRenderWindow();
         for (int tries = 0; tries < maxTries; ++tries) {
-            @Cleanup var sub = parent.newSubManager();
+            @Cleanup var sub = subMgr(parent, "run-episode");
             if (!(env.reset(sub) instanceof EnvResetResult(var state, var _)))
                 throw new IllegalStateException("Must be of type EnvResetResult!");
 

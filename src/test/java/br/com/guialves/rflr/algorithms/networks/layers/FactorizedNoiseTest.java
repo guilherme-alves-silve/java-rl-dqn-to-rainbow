@@ -1,9 +1,9 @@
-package br.com.guialves.rflr.algorithms.noisydqn;
+package br.com.guialves.rflr.algorithms.networks.layers;
 
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import br.com.guialves.rflr.algorithms.networks.layers.FactorizedNoise;
+import lombok.Cleanup;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ class FactorizedNoiseTest {
     @Test
     void shouldMatchShapeInSampleNoise() {
         var expectedShape = new Shape(5);
-        var noise = FactorizedNoise.sampleNoise(manager, 5);
+        @Cleanup var noise = FactorizedNoise.sampleNoise(manager, 5);
         assertEquals(expectedShape, noise.getShape());
     }
 
@@ -53,7 +53,7 @@ class FactorizedNoiseTest {
         when(mockManager.randomNormal(0f, 1f, new Shape(5), DataType.FLOAT32))
                 .thenReturn(fixedInput);
 
-        var result = FactorizedNoise.sampleNoise(mockManager, 5);
+        @Cleanup var result = FactorizedNoise.sampleNoise(mockManager, 5);
 
         var expected = new float[]{-2f, 3f, 0f, -0.5f, 4f};
 
@@ -67,6 +67,9 @@ class FactorizedNoiseTest {
         var fixedIn = manager.create(new float[]{1f, -4f, 0f});
 
         var mockManager = mock(NDManager.class);
+        when(mockManager.newSubManager()).thenReturn(mockManager);
+        when(mockManager.ret(any())).thenAnswer(it -> it.getArgument(0));
+        when(mockManager.getName()).thenReturn("mock");
         when(mockManager.randomNormal(0f, 1f, new Shape(2), DataType.FLOAT32))
                 .thenReturn(fixedOut);
         when(mockManager.randomNormal(0f, 1f, new Shape(3), DataType.FLOAT32))

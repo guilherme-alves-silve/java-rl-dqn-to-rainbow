@@ -19,7 +19,7 @@ import java.nio.file.Path;
 
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
  * After each update, it's recommended that you call the method {@code resetNoise()}
@@ -53,9 +53,8 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
                             NDManager parent) {
         this.observations = observations;
         this.actions = actions;
-        this.subManager = parent.newSubManager();
-        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
-        this.model = Model.newInstance("noisy_net_dqn_mlp", subManager.getDevice());
+        this.subManager = subMgr(parent, getClass());
+        this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
         this.noisyLayer1 = noisyLayer(128);
         this.noisyLayer2 = noisyLayer(actions);
@@ -130,5 +129,6 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
     public void close() {
         subManager.close();
         model.close();
+        resetNoise();
     }
 }

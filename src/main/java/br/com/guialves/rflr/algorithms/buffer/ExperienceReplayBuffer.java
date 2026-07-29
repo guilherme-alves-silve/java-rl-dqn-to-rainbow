@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.setName;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Objects.requireNonNull;
@@ -38,8 +40,7 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.subManager = parent.newSubManager();
-        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
+        this.subManager = subMgr(parent, getClass());
         this.sampler = requireNonNull(sampler);
         this.pos = 0;
     }
@@ -53,8 +54,8 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
         experiences[pos] = exp;
-        exp.state().setName("buffer-state");
-        exp.nextState().setName("buffer-next-state");
+        setName(exp.state(), "buffer-state");
+        setName(exp.nextState(), "buffer-next-state");
         if (oldExp != null) oldExp.close();
         pos = (pos + 1) % experiences.length;
     }
@@ -72,7 +73,7 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     public VecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
-        var sub = subManager.newSubManager();
+        var sub = subMgr(subManager, "buffer-sample");
         var batch = sampler.sample(experiences, batchSize, size, false);
 
         var states = newAttachedList(sub, batch, exp -> exp.state().duplicate());

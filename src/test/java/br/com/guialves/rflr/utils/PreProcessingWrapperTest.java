@@ -35,7 +35,6 @@ class PreProcessingWrapperTest {
         manager = NDManager.newBaseManager();
         env = Gym.builder()
                 .importLib("ale_py")
-                .ndManager(manager)
                 .envName(ENV_NAME)
                 .build();
         wrapper = new PreProcessingWrapper(env, SKIP_FRAMES, RESIZE_SIZE, CONCATENATE_FRAMES);

@@ -11,14 +11,13 @@ import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.djlutils.DJLUtils;
-import lombok.Cleanup;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
  * Architecture based on the link below:
@@ -52,9 +51,8 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
                            NDManager parent) {
         this.observations = observations;
         this.actions = actions;
-        this.subManager = parent.newSubManager();
-        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
-        this.model = Model.newInstance("dqn_mlp", parent.getDevice());
+        this.subManager = subMgr(parent, getClass());
+        this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
         net.add(linear(128))
            .add(Activation::relu)

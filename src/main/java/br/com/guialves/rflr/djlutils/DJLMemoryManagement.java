@@ -1,13 +1,20 @@
 package br.com.guialves.rflr.djlutils;
 
+import ai.djl.Device;
+import ai.djl.Model;
+import ai.djl.inference.Predictor;
 import ai.djl.ndarray.BaseNDManager;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
+import ai.djl.translate.Translator;
 import lombok.Cleanup;
+import lombok.SneakyThrows;
 
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
@@ -19,13 +26,13 @@ public class DJLMemoryManagement {
         throw new IllegalStateException("No DJLMemoryManagement!");
     }
 
-    public static void close(NDArray a) {
-        if (a != null) a.close();
+    public static void close(NDArray input) {
+        if (input != null) input.close();
     }
 
-    public static void close(NDArray a, NDArray b) {
-        if (a != null) a.close();
-        if (b != null) b.close();
+    public static void close(NDArray inputA, NDArray inputB) {
+        if (inputA != null) inputA.close();
+        if (inputB != null) inputB.close();
     }
 
     public static void close(NDArray... arrays) {
@@ -42,15 +49,14 @@ public class DJLMemoryManagement {
 
     public static NDArray scoped(final UnaryOperator<NDArray> block,
                                  final NDArray input) {
-        try (var sub = input.getManager().newSubManager()) {
-            sub.setName("scoped(input)-" + sub.getName());
-            input.tempAttach(sub);
-            var result = block.apply(input);
-            if (result == input) {
-                throw new IllegalStateException("scoped block returned the input NDArray itself");
-            }
-            return sub.ret(result);
+        @Cleanup var sub = subMgr(input, "scoped-input");
+        input.tempAttach(sub);
+        var result = block.apply(input);
+        if (result == input) {
+            throw new IllegalStateException("scoped block returned the input NDArray itself");
         }
+
+        return sub.ret(result);
     }
 
     public static float scopedToFloat(final UnaryOperator<NDArray> block,
@@ -60,60 +66,57 @@ public class DJLMemoryManagement {
     }
 
     public static NDArray scoped(final BinaryOperator<NDArray> block,
-                                 final NDArray a,
-                                 final NDArray b) {
-        if (a.getManager() != b.getManager()) {
+                                 final NDArray inputA,
+                                 final NDArray inputB) {
+        if (inputA.getManager() != inputB.getManager()) {
             throw new IllegalArgumentException("scoped inputs must belong to the same NDManager");
         }
 
-        try (var sub = a.getManager().newSubManager()) {
-            sub.setName("scoped(a,b)-" + sub.getName());
-            sub.tempAttachAll(a, b);
+        @Cleanup var sub = subMgr(inputA, "scoped-a-b");
+        inputA.tempAttach(sub);
+        inputB.tempAttach(sub);
 
-            var result = sub.ret(block.apply(a, b));
-            if (result == a || result == b) {
-                throw new IllegalStateException("scoped block returned any input NDArray itself");
-            }
-            return result;
+        var result = sub.ret(block.apply(inputA, inputB));
+        if (result == inputA || result == inputB) {
+            throw new IllegalStateException("scoped block returned any input NDArray itself");
         }
+        return result;
     }
 
     public static NDArray scoped(final Function<NDArray[], NDArray> block,
                                  final NDArray... arrays) {
         if (arrays.length == 0) throw new IllegalArgumentException("arrays must contain elements!");
 
-        try (var sub = arrays[0].getManager().newSubManager()) {
-            sub.setName("scoped(arrays)-" + sub.getName());
-            sub.tempAttachAll(arrays);
+        @Cleanup var sub = subMgr(arrays[0], "scoped-arrays");
+        sub.tempAttachAll(arrays);
 
-            var result = sub.ret(block.apply(arrays));
-            for (var element : arrays) {
-                if (element == result) {
-                    throw new IllegalStateException("scoped block returned any input NDArray itself");
-                }
+        var result = sub.ret(block.apply(arrays));
+        for (var element : arrays) {
+            if (element == result) {
+                throw new IllegalStateException("scoped block returned any input NDArray itself");
             }
-            return result;
         }
+
+        return result;
     }
 
     public static NDArray scoped(final BiFunction<NDArray, NDArray[], NDArray> block,
-                                 final NDArray a,
+                                 final NDArray input,
                                  final NDArray... arrays) {
         if (arrays.length == 0) throw new IllegalArgumentException("arrays must contain elements!");
 
-        try (var sub = arrays[0].getManager().newSubManager()) {
-            sub.setName("scoped(a,arrays)-" + sub.getName());
-            a.tempAttach(sub);
-            sub.tempAttachAll(arrays);
+        @Cleanup var sub = subMgr(arrays[0], "scoped-a-arrays");
+        input.tempAttach(sub);
+        sub.tempAttachAll(arrays);
 
-            var result = sub.ret(block.apply(a, arrays));
-            for (var element : arrays) {
-                if (element == result) {
-                    throw new IllegalStateException("scoped block returned any input NDArray itself");
-                }
+        var result = sub.ret(block.apply(input, arrays));
+        for (var element : arrays) {
+            if (element == result) {
+                throw new IllegalStateException("scoped block returned any input NDArray itself");
             }
-            return result;
         }
+
+        return result;
     }
 
     public static NDList safeForwardSingle(NDManager manager,
@@ -122,7 +125,7 @@ public class DJLMemoryManagement {
                                            NDList inputs,
                                            boolean training) {
         if (inputs.size() != 1) throw new IllegalArgumentException("The dueling dqn just accepts one input!");
-        @Cleanup var sub = manager.newSubManager();
+        @Cleanup var sub = subMgr(manager, "safe-forward-single");
         inputs.getFirst().tempAttach(sub);
         var output = block.forward(parameterStore, inputs, training);
         output.attach(manager);
@@ -132,9 +135,42 @@ public class DJLMemoryManagement {
     public static void debugDump(NDManager manager) {
         if (manager instanceof BaseNDManager base) {
             IO.println("Debug dump NDManager:");
-            base.debugDump(0);
+            debugDump(base, 0);
         } else {
             IO.println("NDManager is not a BaseNDManager: " + manager.getClass());
+        }
+    }
+
+    /**
+     * This class is used to debug the resources per
+     * level of each manager, but now the name is printed
+     * to help find the resources that is leaking,
+     * the original debugDump didn't print the name,
+     * so to find the resource, is much harder.
+     * @param manager NDManager to explore
+     * @param level the level below the upper manager
+     */
+    @SneakyThrows
+    @SuppressWarnings("unchecked")
+    private static void debugDump(NDManager manager, int level) {
+        StringBuilder sb = new StringBuilder(100);
+        sb.repeat("    ", Math.max(0, level));
+        final var uuidMethod = BaseNDManager.class.getDeclaredField("uid");
+        uuidMethod.setAccessible(true);
+        final var resourcesMethod = BaseNDManager.class.getDeclaredField("resources");
+        resourcesMethod.setAccessible(true);
+        var resources = ((ConcurrentHashMap<String, AutoCloseable>) resourcesMethod.get(manager));
+        sb.append("\\--- NDManager(")
+                .append(manager.getName())
+                .append(") resource count: ")
+                .append(resources.size());
+
+        IO.println(sb); // NOPMD
+        for (var element : resources.values()) {
+            if (element instanceof BaseNDManager innerBase) {
+                int newLevel = level + 1;
+                debugDump(innerBase, newLevel);
+            }
         }
     }
 
@@ -144,5 +180,43 @@ public class DJLMemoryManagement {
         }
 
         return -1;
+    }
+
+    public static NDArray setName(NDArray array, String name) {
+        array.setName(name + "-" + array.getName());
+        return array;
+    }
+
+    public static NDManager subMgr(NDArray array, String name) {
+        return subMgr(array.getManager(), name);
+    }
+
+    public static NDManager subMgr(NDManager manager, Class<?> clazz) {
+        return subMgr(manager, clazz.getSimpleName());
+    }
+
+    public static NDManager subMgr(NDManager manager, String name) {
+        var sub = manager.newSubManager();
+        sub.setName(name + "-" + sub.getName());
+        return sub;
+    }
+
+    public static Model newModel(Class<?> clazz) {
+        return newModel(clazz.getSimpleName(), null);
+    }
+
+    public static Model newModel(String name) {
+        return newModel(name, null);
+    }
+
+    public static Model newModel(Class<?> clazz, Device device) {
+        return newModel(clazz.getSimpleName(), device);
+    }
+
+    public static Model newModel(String name, Device device) {
+        var model = Model.newInstance(name, device);
+        var mgr = model.getNDManager();
+        mgr.setName(name + "-" + mgr.getName());
+        return model;
     }
 }

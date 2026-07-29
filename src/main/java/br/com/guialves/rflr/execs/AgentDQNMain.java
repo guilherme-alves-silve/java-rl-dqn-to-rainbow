@@ -40,7 +40,7 @@ public class AgentDQNMain {
         RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
                 buildDQN(config, env, optimizer, plotTrackers, parent));
 
-        Thread.sleep(Duration.ofMinutes(5));
+        //Thread.sleep(Duration.ofMinutes(5));
     }
 
     private static IAgent buildDQN(RLConfig config,

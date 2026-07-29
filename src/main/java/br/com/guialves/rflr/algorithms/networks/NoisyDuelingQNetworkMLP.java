@@ -22,7 +22,7 @@ import java.util.List;
 
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
  * After each update, it's recommended that you call the method {@code resetNoise()}
@@ -70,11 +70,10 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
                                    DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
-        this.subManager = parent.newSubManager();
-        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
+        this.subManager = subMgr(parent, getClass());
         this.duelingType = duelingType;
         this.noisyLayers = new ArrayList<>();
-        this.model = Model.newInstance("noisy_dueling_net_dqn_mlp", subManager.getDevice());
+        this.model = newModel(getClass(), subManager.getDevice());
         this.net = new DuelingLayer(
                 actions,
                 duelingType,
@@ -160,5 +159,6 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
     public void close() {
         subManager.close();
         model.close();
+        resetNoise();
     }
 }

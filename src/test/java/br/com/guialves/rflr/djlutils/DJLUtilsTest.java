@@ -6,35 +6,35 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.core.Linear;
-import br.com.guialves.rflr.djlutils.DJLUtils;
+import lombok.Cleanup;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DJLUtilsTest {
 
     @Test
     void testCopy() {
-        try (var manager = NDManager.newBaseManager()) {
-            var net1 = new SequentialBlock()
-                    .add(Linear.builder()
-                            .setUnits(128)
-                            .optBias(true)
-                            .build())
-                    .add(Activation::relu);
-            net1.initialize(manager, DataType.FLOAT32, new Shape(2, 2));
+        @Cleanup var manager = NDManager.newBaseManager();
+        var net1 = new SequentialBlock()
+                .add(Linear.builder()
+                        .setUnits(128)
+                        .optBias(true)
+                        .build())
+                .add(Activation::relu);
+        net1.initialize(manager, DataType.FLOAT32, new Shape(2, 2));
 
-            var net2 = new SequentialBlock()
-                    .add(Linear.builder()
-                            .setUnits(128)
-                            .optBias(true)
-                            .build())
-                    .add(Activation::relu);
-            net2.initialize(manager, DataType.FLOAT32, new Shape(2, 2));
+        var net2 = new SequentialBlock()
+                .add(Linear.builder()
+                        .setUnits(128)
+                        .optBias(true)
+                        .build())
+                .add(Activation::relu);
+        net2.initialize(manager, DataType.FLOAT32, new Shape(2, 2));
 
-            assertTrue(DJLUtils.diff(net1, net2));
-            DJLUtils.copy(net1, net2);
-            assertFalse(DJLUtils.diff(net1, net2));
-        }
+        assertTrue(DJLUtils.diff(net1, net2));
+        DJLUtils.copy(net1, net2);
+        assertFalse(DJLUtils.diff(net1, net2));
     }
 }

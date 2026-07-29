@@ -3,6 +3,7 @@ package br.com.guialves.rflr.gymnasium4j;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
+import lombok.Cleanup;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
@@ -48,8 +49,7 @@ public final class Env implements IEnv {
 
     Env(@NonNull String varEnvCode,
         @NonNull String envName,
-        @NonNull String generatedScript,
-        @NonNull NDManager manager) {
+        @NonNull String generatedScript) {
         initPython();
         this.varEnvCode = varEnvCode;
         this.envName = envName;
@@ -86,9 +86,8 @@ public final class Env implements IEnv {
 
     @Override
     public ActionResult actionSpaceSample() {
-        try (var pySample = callMethod(pyActionSpace, "sample")) {
-            return actionSpaceType.convert(pySample);
-        }
+        @Cleanup var pySample = callMethod(pyActionSpace, "sample");
+        return actionSpaceType.convert(pySample);
     }
 
     @Override
@@ -96,87 +95,82 @@ public final class Env implements IEnv {
         this.stateMetadata = null;
         this.stateBuffer = null;
 
-        try (var result = callFunction(pyReset)) {
+        @Cleanup var result = callFunction(pyReset);
+        var pyState = getItem(result, 0);
+        var infoMap = getItemMap(result, 1);
 
-            var pyState = getItem(result, 0);
-            var infoMap = getItemMap(result, 1);
-
-            if (!hasAttr(pyState, "shape")) {
-                this.scalarObservation = true;
-                long observationValue = toLong(pyState);
-                var state = manager.create(observationValue);
-                log.debug("Discrete observation: {}", observationValue);
-                return new EnvResetResult(state, infoMap);
-            }
-
-            this.scalarObservation = false;
-            this.stateMetadata = EnvStateMetadata.fromNumpy(pyState);
-            this.stateBuffer = onHeapBufferNumpy(stateMetadata.size());
-
-            fillFromNumpy(pyState, stateBuffer);
-
-            var state = manager.create(
-                    stateBuffer,
-                    stateMetadata.djlShape,
-                    stateMetadata.djlType
-            );
-
+        if (!hasAttr(pyState, "shape")) {
+            this.scalarObservation = true;
+            long observationValue = toLong(pyState);
+            var state = manager.create(observationValue);
+            log.debug("Discrete observation: {}", observationValue);
             return new EnvResetResult(state, infoMap);
         }
+
+        this.scalarObservation = false;
+        this.stateMetadata = EnvStateMetadata.fromNumpy(pyState);
+        this.stateBuffer = onHeapBufferNumpy(stateMetadata.size());
+
+        fillFromNumpy(pyState, stateBuffer);
+
+        var state = manager.create(
+                stateBuffer,
+                stateMetadata.djlShape,
+                stateMetadata.djlType
+        );
+
+        return new EnvResetResult(state, infoMap);
     }
 
     @Override
     public EnvStepResult step(ActionResult action, NDManager sub) {
-        try (var result = callFunction(pyStep, action.pyObj)) {
+        @Cleanup var result = callFunction(pyStep, action.pyObj);
+        NDArray state;
+        if (scalarObservation) {
+            var pyState = getItem(result, 0);
+            long observationValue = toLong(pyState);
+            state = sub.create(observationValue);
 
-            NDArray state;
-            if (scalarObservation) {
-                var pyState = getItem(result, 0);
-                long observationValue = toLong(pyState);
-                state = sub.create(observationValue);
-
-                log.debug("Discrete observation after step: {}", observationValue);
-            } else {
-                if (stateBuffer == null) {
-                    throw new IllegalStateException("You should call reset() first!");
-                }
-
-                fillFromNumpy(getItem(result, 0), stateBuffer);
-                state = sub.create(
-                        stateBuffer,
-                        stateMetadata.djlShape,
-                        stateMetadata.djlType
-                );
+            log.debug("Discrete observation after step: {}", observationValue);
+        } else {
+            if (stateBuffer == null) {
+                throw new IllegalStateException("You should call reset() first!");
             }
 
-            double reward = getItemDouble(result, 1);
-            boolean terminated = getItemBool(result, 2);
-            boolean truncated = getItemBool(result, 3);
-            var infoMap = getItemMap(result, 4);
-
-            return new EnvStepResult(reward, terminated, truncated, infoMap, state);
+            fillFromNumpy(getItem(result, 0), stateBuffer);
+            state = sub.create(
+                    stateBuffer,
+                    stateMetadata.djlShape,
+                    stateMetadata.djlType
+            );
         }
+
+        double reward = getItemDouble(result, 1);
+        boolean terminated = getItemBool(result, 2);
+        boolean truncated = getItemBool(result, 3);
+        var infoMap = getItemMap(result, 4);
+
+        return new EnvStepResult(reward, terminated, truncated, infoMap, state);
     }
 
     @Override
     public BufferedImage render() {
-        try (var ndarray = callFunction(pyRender)) {
-            if (renderMetadata == null) {
-                renderMetadata = EnvRenderMetadata.fromNumpy(ndarray);
-                imageBuffer = ByteBuffer
-                        .allocateDirect(renderMetadata.size())
-                        .order(ByteOrder.nativeOrder());
-            }
-
-            fillFromNumpy(ndarray, imageBuffer);
-
-            return ImageFromByteBuffer.byteBufferToImage(
-                    imageBuffer,
-                    renderMetadata.width(),
-                    renderMetadata.height(),
-                    renderMetadata.channels() == 4
-            );
+        @Cleanup var ndarray = callFunction(pyRender);
+        if (renderMetadata == null) {
+            renderMetadata = EnvRenderMetadata.fromNumpy(ndarray);
+            imageBuffer = ByteBuffer
+                    .allocateDirect(renderMetadata.size())
+                    .order(ByteOrder.nativeOrder());
         }
+
+        fillFromNumpy(ndarray, imageBuffer);
+
+        return ImageFromByteBuffer.byteBufferToImage(
+                imageBuffer,
+                renderMetadata.width(),
+                renderMetadata.height(),
+                renderMetadata.channels() == 4
+        );
     }
 
     @Override
@@ -187,9 +181,11 @@ public final class Env implements IEnv {
         }
         this.closed = true;
 
-        if (DEBUG) log.info("Before close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
-                refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
-                refCount(pyRender), refCount(pyStep), refCount(pyReset));
+        if (DEBUG) {
+            log.info("Before close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
+                    refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
+                    refCount(pyRender), refCount(pyStep), refCount(pyReset));
+        }
 
         decRef(pyActionSpace);
         decRef(pyObservationSpace);
@@ -200,9 +196,14 @@ public final class Env implements IEnv {
 
         exec("if 'env_%s' in globals(): del env_%s".formatted(varEnvCode, varEnvCode));
 
-        if (DEBUG) log.info("After close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
+        if (DEBUG) {
+            log.info("After close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
                     refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
                     refCount(pyRender), refCount(pyStep), refCount(pyReset));
+        }
+
+        this.stateBuffer = null;
+        this.imageBuffer = null;
 
         log.info("Closed Env");
     }

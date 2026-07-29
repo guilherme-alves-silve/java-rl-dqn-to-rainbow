@@ -1,9 +1,9 @@
-package br.com.guialves.rflr.algorithms.noisydqn;
+package br.com.guialves.rflr.algorithms.networks.layers;
 
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayerInit;
+import lombok.Cleanup;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 
 class NoisyLayerInitTest {
 
-    public static final float DELTA = 1e-6f;
+    private static final float DELTA = 1e-6f;
     private static NDManager manager;
 
     @BeforeAll
@@ -48,7 +48,7 @@ class NoisyLayerInitTest {
         var init = NoisyLayerInit.ofSigma(size);
         var shape = new Shape(4, 4);
 
-        var result = init.initialize(manager, shape, DataType.FLOAT32);
+        @Cleanup var result = init.initialize(manager, shape, DataType.FLOAT32);
 
         var expected = 0.5f / (float) Math.sqrt(size);
         var values = result.toFloatArray();
@@ -65,7 +65,7 @@ class NoisyLayerInitTest {
         var init = NoisyLayerInit.ofMu(size);
         var shape = new Shape(100);
 
-        var result = init.initialize(manager, shape, DataType.FLOAT32);
+        @Cleanup var result = init.initialize(manager, shape, DataType.FLOAT32);
 
         // mu ~ U(-1/sqrt(size), 1/sqrt(size))
         var bound = 1f / (float) Math.sqrt(size);
@@ -89,7 +89,7 @@ class NoisyLayerInitTest {
         when(mockManager.randomUniform(-0.5f, 0.5f, shape, DataType.FLOAT32))
                 .thenReturn(expectedArray);
 
-        var result = init.initialize(mockManager, shape, DataType.FLOAT32);
+        @Cleanup var result = init.initialize(mockManager, shape, DataType.FLOAT32);
 
         assertSame(expectedArray, result);
         verify(mockManager).randomUniform(-0.5f, 0.5f, shape, DataType.FLOAT32);
@@ -106,7 +106,7 @@ class NoisyLayerInitTest {
         when(mockManager.full(shape, 0.25f, DataType.FLOAT32))
                 .thenReturn(expectedArray);
 
-        var result = init.initialize(mockManager, shape, DataType.FLOAT32);
+        @Cleanup var result = init.initialize(mockManager, shape, DataType.FLOAT32);
 
         assertSame(expectedArray, result);
         verify(mockManager).full(shape, 0.25f, DataType.FLOAT32);

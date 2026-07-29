@@ -16,6 +16,8 @@ import ai.djl.translate.TranslateException;
 import ai.djl.util.PairList;
 import lombok.Cleanup;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.newModel;
+
 /**
  * This part is to test and learn more about the parameters in DJL, used
  * as base for the Noisy Networks
@@ -36,7 +38,7 @@ public class PlaygroundCustomLayers {
         var input = manager.randomUniform(0, 1, new Shape(2, 5));
         linear.initialize(manager, DataType.FLOAT32, input.getShape());
 
-        @Cleanup var model = Model.newInstance("my-linear");
+        @Cleanup var model = newModel("my-linear");
         model.setBlock(linear);
 
         Predictor<NDList, NDList> predictor = model.newPredictor(new NoopTranslator());

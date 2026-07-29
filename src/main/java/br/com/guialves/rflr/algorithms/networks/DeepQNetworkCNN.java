@@ -19,7 +19,7 @@ import java.nio.file.Path;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.conv2d;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 @Slf4j
 public class DeepQNetworkCNN implements IDeepQNetwork {
@@ -54,9 +54,8 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
         this.actions = actions;
         this.modelPath = modelPath;
         this.prefix = prefix;
-        this.subManager = parent.newSubManager();
-        subManager.setName(this.getClass().getSimpleName() + "-" + subManager.getName());
-        this.model = Model.newInstance("dqn_cnn", subManager.getDevice());
+        this.subManager = subMgr(parent, getClass());
+        this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
 
         net.add(conv2d(32, 8, 4))
