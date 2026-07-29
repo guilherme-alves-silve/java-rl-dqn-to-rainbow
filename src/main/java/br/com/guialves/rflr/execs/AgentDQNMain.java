@@ -8,8 +8,6 @@ import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
-import java.time.Duration;
-
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
 
@@ -39,8 +37,6 @@ public class AgentDQNMain {
 
         RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
                 buildDQN(config, env, optimizer, plotTrackers, parent));
-
-        //Thread.sleep(Duration.ofMinutes(5));
     }
 
     private static IAgent buildDQN(RLConfig config,

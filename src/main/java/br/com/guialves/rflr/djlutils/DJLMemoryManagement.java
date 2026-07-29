@@ -2,23 +2,22 @@ package br.com.guialves.rflr.djlutils;
 
 import ai.djl.Device;
 import ai.djl.Model;
-import ai.djl.inference.Predictor;
 import ai.djl.ndarray.BaseNDManager;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
-import ai.djl.translate.Translator;
 import lombok.Cleanup;
 import lombok.SneakyThrows;
 
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+
+import static java.util.stream.Collectors.*;
 
 public class DJLMemoryManagement {
 
@@ -153,23 +152,36 @@ public class DJLMemoryManagement {
     @SneakyThrows
     @SuppressWarnings("unchecked")
     private static void debugDump(NDManager manager, int level) {
-        StringBuilder sb = new StringBuilder(100);
+        var sb = new StringBuilder(120);
         sb.repeat("    ", Math.max(0, level));
-        final var uuidMethod = BaseNDManager.class.getDeclaredField("uid");
-        uuidMethod.setAccessible(true);
-        final var resourcesMethod = BaseNDManager.class.getDeclaredField("resources");
-        resourcesMethod.setAccessible(true);
-        var resources = ((ConcurrentHashMap<String, AutoCloseable>) resourcesMethod.get(manager));
-        sb.append("\\--- NDManager(")
-                .append(manager.getName())
-                .append(") resource count: ")
-                .append(resources.size());
 
-        IO.println(sb); // NOPMD
+        var uidField = BaseNDManager.class.getDeclaredField("uid");
+        uidField.setAccessible(true);
+        var resourcesField = BaseNDManager.class.getDeclaredField("resources");
+        resourcesField.setAccessible(true);
+
+        var uid = uidField.get(manager);
+        var resources = (ConcurrentHashMap<String, AutoCloseable>) resourcesField.get(manager);
+
+        sb.append("\\--- NDManager[").append(manager.getName())
+                .append(" | uid=").append(uid)
+                .append("] resources=").append(resources.size());
+
+        // Divide by resource type
+        var byType = resources.values().stream()
+                .collect(groupingBy(resource -> resource == null ?
+                                        "null" : resource.getClass().getSimpleName(),
+                        counting()));
+        sb.append(" {").append(byType.entrySet().stream()
+                        .map(e -> e.getKey() + "=" + e.getValue())
+                        .sorted()
+                        .collect(joining(", ")))
+                .append("}");
+        IO.println(sb);
+
         for (var element : resources.values()) {
             if (element instanceof BaseNDManager innerBase) {
-                int newLevel = level + 1;
-                debugDump(innerBase, newLevel);
+                debugDump(innerBase, level + 1);
             }
         }
     }
