@@ -48,6 +48,8 @@ public class PlaygroundCustomLayers {
 
     private static class MyLinear extends AbstractBlock {
 
+        private static final byte VERSION = 1;
+
         private final int inUnits;
         private final int outUnits;
         private final Parameter weight;
@@ -56,6 +58,7 @@ public class PlaygroundCustomLayers {
         // outUnits: the number of outputs in this layer
         // inUnits: the number of inputs in this layer
         public MyLinear(int outUnits, int inUnits) {
+            super(VERSION);
             this.inUnits = inUnits;
             this.outUnits = outUnits;
             weight = addParameter(

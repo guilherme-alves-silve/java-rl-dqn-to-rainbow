@@ -50,11 +50,11 @@ public interface IReplayBuffer extends AutoCloseable {
         var arrays = new NDList(batch.length);
         for (var exp : batch) {
             var mapped = mapper.apply(exp);
-            mapped.tempAttach(subManager);
+            mapped.attach(subManager);
             arrays.add(mapped.expandDims(0));
         }
         var concat = NDArrays.concat(arrays, 0);
-        concat.tempAttach(subManager);
+        concat.attach(subManager);
         return concat.toDevice(subManager.getDevice(), false);
     }
 

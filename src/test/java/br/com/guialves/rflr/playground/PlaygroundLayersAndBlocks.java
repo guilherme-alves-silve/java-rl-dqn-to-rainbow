@@ -234,10 +234,13 @@ public class PlaygroundLayersAndBlocks {
 
     private static class NestMLP extends AbstractBlock {
 
+        private static final byte VERSION = 1;
+
         private final SequentialBlock net;
         private final Block dense;
 
         public NestMLP() {
+            super(VERSION);
             this.net = new SequentialBlock();
             net.add(Linear.builder().setUnits(64).build())
                .add(Activation.reluBlock())
