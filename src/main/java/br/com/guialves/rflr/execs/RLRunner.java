@@ -88,8 +88,6 @@ public class RLRunner {
         if (config.saveModel()) {
             validateModelFile(path, modelFileName);
         }
-
-        debugDump(parent);
     }
 
     private static void validateModelFile(Path path, String modelFileName) {
