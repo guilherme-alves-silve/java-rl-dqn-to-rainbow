@@ -6,8 +6,11 @@ import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.duelingdqn.AgentDuelingDQN;
 import br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+
+import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
@@ -18,7 +21,12 @@ import static java.lang.System.getProperty;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentDuelingDQNMain {
-    static void main() {
+
+    public static void main() {
+        run();
+    }
+
+    public static Optional<DJLMemoryManagement.ManagerNode> run() {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
@@ -33,12 +41,14 @@ public class AgentDuelingDQNMain {
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
+                .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
+                .renderRun(getBoolProp("agent.renderRun", "true"))
+                .runMaxTries(getIntProp("agent.maxTries", "1"))
                 .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
-                .saveModel(true)
                 .algorithmName("dueling_dqn")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
+        return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
                 buildDuelingDQN(config, env, optimizer, plotTrackers, parent));
     }
 
@@ -62,7 +72,8 @@ public class AgentDuelingDQNMain {
                     parent,
                     config.duelingType()
                 ),
-                plotTrackers
+                plotTrackers,
+                config.debugMemoryLeak()
         );
     }
 }

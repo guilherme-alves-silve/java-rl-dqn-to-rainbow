@@ -10,6 +10,7 @@ import ai.djl.training.tracker.Tracker;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -19,8 +20,9 @@ import lombok.Cleanup;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Optional;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.debugDump;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.cappedParentMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 
@@ -39,13 +41,12 @@ public class RLRunner {
         }
     }
 
-    public static void run(RLConfig config, AgentFactory agentFactory) {
+    public static Optional<ManagerNode> run(RLConfig config,
+                                            AgentFactory agentFactory) {
         var path = config.path();
         var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
-        @Cleanup var parent = NDManager.newBaseManager(device);
-        parent.setName("parent-" + parent.getName());
-        parent.cap();
+        @Cleanup var parent = cappedParentMgr(device);
         var envBuilder = Gym.builder()
                 .envName(config.envName());
 
@@ -68,7 +69,7 @@ public class RLRunner {
 
         var plotTrackers = new PlotTrackers();
 
-        var agent = agentFactory.create(env, optimizer, plotTrackers, parent);
+        @Cleanup var agent = agentFactory.create(env, optimizer, plotTrackers, parent);
 
         @Cleanup var replayBuffer = agentFactory.replayBuffer(config, parent);
         var lossFunc = agentFactory.lossFunc();
@@ -79,7 +80,7 @@ public class RLRunner {
             agent.save(path, modelFileName);
         }
 
-        double totalReward = agent.run();
+        double totalReward = agent.run(config.runMaxTries(), config.renderRun()).getLast();
         IO.println("Info: " + agent.lastInfo());
         IO.println("Replay Buffer size: " + replayBuffer.size());
         IO.println("Total episodes: " + agent.episodes());
@@ -88,6 +89,8 @@ public class RLRunner {
         if (config.saveModel()) {
             validateModelFile(path, modelFileName);
         }
+
+        return agent.getManagerNode();
     }
 
     private static void validateModelFile(Path path, String modelFileName) {

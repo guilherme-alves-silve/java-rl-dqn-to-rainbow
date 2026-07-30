@@ -45,12 +45,13 @@ public class PERL2Loss extends Loss {
      *
      * @param normISWeights IS weights with shape (batchSize,) or (batchSize, 1)
      */
-    public void normISWeights(NDArray normISWeights) {
+    public PERL2Loss normISWeights(NDArray normISWeights) {
         if (normISWeights.getShape().dimension() == 1) {
             normISWeights = normISWeights.reshape(INFER_DIMENSION, 1);
         }
 
         this.normISWeights = normISWeights;
+        return this;
     }
 
     /**

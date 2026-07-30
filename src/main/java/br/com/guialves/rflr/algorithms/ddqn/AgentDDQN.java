@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 
 @Slf4j
 public class AgentDDQN extends AbstractAgent {
@@ -27,9 +26,10 @@ public class AgentDDQN extends AbstractAgent {
                      float gamma, IEnv env,
                      Optimizer optimizer,
                      NDManager parent,
-                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers) {
+                     Supplier<IDeepQNetwork> networkFactory, PlotTrackers plotTrackers,
+                     boolean debugMemoryLeak) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, parent, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent, networkFactory, plotTrackers, debugMemoryLeak);
     }
 
     /**
@@ -47,34 +47,30 @@ public class AgentDDQN extends AbstractAgent {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetQValue = scoped(arrays -> {
-            var rewards = arrays[0];
-            var nextStates = arrays[1];
-            var dones = arrays[2];
 
-            // a* = arg max q_online(s', a')
-            @Cleanup var action = onlineNet.forward(nextStates,
-                    qOnlineNext -> qOnlineNext.argMax(1).reshape(N_BATCH, 1));
-
-            return targetNet.forward(nextStates, qNextValues -> {
-                // q_target(s', a*)
-                var qNextValue = qNextValues.gather(action, 1);
-                // gamma * q_target(s', a*)
-                var discountNextQValue = qNextValue.mul(gamma);
-                // (1 - done)
-                @Cleanup var mask = dones.neg().add(1);
-                // y = r + gamma * q_target(s', arg max q_online(s', a')) * (1 - done)
-                return rewards.add(discountNextQValue.mul(mask))
-                        .stopGradient();
-            });
-        }, samples.rewards(), samples.nextStates(), samples.dones());
+        // a* = arg max q_online(s', a')
+        var nextStates = samples.nextStates();
+        @Cleanup var action = onlineNet.forward(nextStates,
+                qOnlineNext -> qOnlineNext.argMax(1).reshape(N_BATCH, 1));
+        @Cleanup var targetQValue = targetNet.forward(nextStates, qNextValues -> {
+            // q_target(s', a*)
+            var qNextValue = qNextValues.gather(action, 1);
+            // gamma * q_target(s', a*)
+            var discountNextQValue = qNextValue.mul(gamma);
+            // (1 - done)
+            var mask = samples.dones().neg().add(1);
+            // y = r + gamma * q_target(s', arg max q_online(s', a')) * (1 - done)
+            return samples.rewards()
+                    .add(discountNextQValue.mul(mask))
+                    .stopGradient();
+        });
 
         float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
-            var states = arrays[0];
-            var actions = arrays[1];
+            var states = samples.states();
+            var actions = samples.actions();
             // y_hat = q_online(s, a)
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
-        }, samples.states(), samples.actions());
+        });
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;

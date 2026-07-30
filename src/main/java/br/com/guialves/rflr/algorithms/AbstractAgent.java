@@ -14,6 +14,8 @@ import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
+import lombok.SneakyThrows;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import me.tongfei.progressbar.ProgressBar;
 
@@ -21,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
@@ -29,10 +32,12 @@ import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
+@Accessors(fluent = true)
 public abstract class AbstractAgent implements IAgent {
 
     protected final ActionSpaceType actionSpaceType;
     protected final NDManager parent;
+    protected final boolean debugMemoryLeak;
 
     protected boolean test;
     protected int episodes;
@@ -48,6 +53,7 @@ public abstract class AbstractAgent implements IAgent {
     protected final IDeepQNetwork onlineNet;
     protected final IDeepQNetwork targetNet;
     protected final PlotTrackers plotTrackers;
+    private ManagerNode managerNode;
 
     public AbstractAgent(float epsilon,
                          int updateQTargetAtTimeN,
@@ -58,7 +64,8 @@ public abstract class AbstractAgent implements IAgent {
                          Optimizer optimizer,
                          NDManager parent,
                          Supplier<IDeepQNetwork> networkFactory,
-                         PlotTrackers plotTrackers) {
+                         PlotTrackers plotTrackers,
+                         boolean debugMemoryLeak) {
         log.info("Creating {}", getClass().getSimpleName());
         this.test = false;
         this.epsilon = epsilon;
@@ -76,6 +83,7 @@ public abstract class AbstractAgent implements IAgent {
         this.parent = parent;
         parent.cap();
         this.actionSpaceType = env.actionSpaceType();
+        this.debugMemoryLeak = debugMemoryLeak;
     }
 
     @Override
@@ -134,7 +142,7 @@ public abstract class AbstractAgent implements IAgent {
                     ++episodes;
                     float avgLoss = episodeSteps > 0 ? episodeLossSum / episodeSteps : 0;
                     plotTrackers.add(epsilon, episodeRewards, avgLoss);
-                    close(state, nextState);
+                    release(state, nextState);
                     break;
                 }
 
@@ -148,7 +156,9 @@ public abstract class AbstractAgent implements IAgent {
         } while ((frames < framesLimit));
         plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
 
-        debugDump(parent);
+        if (debugMemoryLeak) {
+            this.managerNode = getDebugDump(parent).orElse(null);
+        }
 
         if (getBoolProp("agent.showAllMetrics")) {
             plotTrackers.showAllMetrics();
@@ -252,5 +262,17 @@ public abstract class AbstractAgent implements IAgent {
         }
 
         return totalRewardPerTry;
+    }
+
+    @Override
+    public Optional<ManagerNode> getManagerNode() {
+        return Optional.ofNullable(managerNode);
+    }
+
+    @Override
+    @SneakyThrows
+    public void close() {
+        onlineNet.close();
+        targetNet.close();
     }
 }

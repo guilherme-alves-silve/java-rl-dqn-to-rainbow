@@ -31,9 +31,11 @@ public class AgentNStepDQN extends AbstractAgent {
                          Optimizer optimizer,
                          NDManager parent,
                          Supplier<IDeepQNetwork> networkFactory,
-                         PlotTrackers plotTrackers) {
+                         PlotTrackers plotTrackers,
+                         boolean debugMemoryLeak) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, parent, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent,
+                networkFactory, plotTrackers, debugMemoryLeak);
     }
 
     /**
@@ -54,9 +56,9 @@ public class AgentNStepDQN extends AbstractAgent {
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
-            var rewards = arrays[0];
-            var dones = arrays[1];
+        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
+            var rewards = samples.rewards();
+            var dones = samples.dones();
 
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(AXIS_COLUMN, true);
@@ -69,14 +71,14 @@ public class AgentNStepDQN extends AbstractAgent {
             return rewards
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
-        }, samples.rewards(), samples.dones());
+        });
 
-        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
-            var states = arrays[0];
-            var actions = arrays[1];
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
+            var states = samples.states();
+            var actions = samples.actions();
             // y_hat = q_online(s, a)
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
-        }, samples.states(), samples.actions());
+        });
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;

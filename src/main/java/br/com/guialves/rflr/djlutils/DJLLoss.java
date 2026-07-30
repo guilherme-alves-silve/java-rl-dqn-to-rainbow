@@ -8,6 +8,7 @@ import ai.djl.training.loss.Loss;
 import lombok.Cleanup;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.gymnasium4j.EngineUtils.gradient;
@@ -44,16 +45,45 @@ public class DJLLoss {
      * @param lossFunc   loss function (e.g., MSE, PERL2Loss)
      * @param yTarget    target values (labels)
      * @param yPredBlock forward pass function that returns predictions
+     * @return mean loss value as float
+     */
+    public static float backwardLoss(final NDManager manager,
+                                     final Loss lossFunc,
+                                     final NDArray yTarget,
+                                     final Supplier<NDArray> yPredBlock) {
+        @Cleanup var sub = subMgr(manager, "scoped-back");
+        @Cleanup var gradCol = gradient();
+        var yPred = yPredBlock.get();
+        var lossesVal =  evaluate(lossFunc, sub, gradCol, yTarget, yPred);
+        return lossesVal.stopGradient().mean().getFloat();
+    }
+
+    /**
+     * Computes loss and backpropagation, returning the mean loss as a float.
+     *
+     * <p>This method ensures that all objects allocated for gradient calculation
+     * are properly deallocated after each iteration, preventing memory accumulation
+     * during training loops.
+     *
+     * <p><b>Why not use EasyTrain?</b>
+     * EasyTrain does not meet the requirements of this project (custom PER loss,
+     * priority updates, and fine-grained control over the training loop).
+     *
+     * @param manager    parent NDManager
+     * @param lossFunc   loss function (e.g., MSE, PERL2Loss)
+     * @param yTarget    target values (labels)
+     * @param yPredBlock forward pass function that returns predictions
      * @param arrays     additional NDArrays needed by blockYPred (states, actions, etc.)
      * @return mean loss value as float
      */
-    public static float backwardLoss(NDManager manager,
-                                     Loss lossFunc,
-                                     NDArray yTarget,
+    public static float backwardLoss(final NDManager manager,
+                                     final Loss lossFunc,
+                                     final NDArray yTarget,
                                      final Function<NDArray[], NDArray> yPredBlock,
                                      final NDArray... arrays) {
         @Cleanup var sub = subMgr(manager, "scoped-back");
         @Cleanup var gradCol = gradient();
+        sub.tempAttachAll(arrays);
         var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
         return lossesVal.stopGradient().mean().getFloat();
     }
@@ -70,14 +100,26 @@ public class DJLLoss {
      * @param arrays     additional NDArrays needed by blockYPred (states, actions, etc.)
      * @return per-sample losses with shape (batchSize, 1), gradients stopped
      */
-    public static NDArray rawBackwardLoss(NDManager manager,
-                                          Loss lossFunc,
-                                          NDArray yTarget,
+    public static NDArray rawBackwardLoss(final NDManager manager,
+                                          final Loss lossFunc,
+                                          final NDArray yTarget,
                                           final Function<NDArray[], NDArray> yPredBlock,
                                           final NDArray... arrays) {
         @Cleanup var sub = subMgr(manager, "scoped-back");
         @Cleanup var gradCol = gradient();
+        sub.tempAttachAll(arrays);
         var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
+        return manager.ret(lossesVal.stopGradient());
+    }
+
+    public static NDArray rawBackwardLoss(final NDManager manager,
+                                          final Loss lossFunc,
+                                          final NDArray yTarget,
+                                          final Supplier<NDArray> yPredBlock) {
+        @Cleanup var sub = subMgr(manager, "scoped-back");
+        @Cleanup var gradCol = gradient();
+        var yPred = yPredBlock.get();
+        var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPred);
         return manager.ret(lossesVal.stopGradient());
     }
 
@@ -95,16 +137,23 @@ public class DJLLoss {
      * @param arrays     additional arrays used in the computation
      * @return raw loss NDArray (still managed by the sub-manager)
      */
-    private static NDArray evaluate(Loss lossFunc,
-                                    NDManager sub,
-                                    GradientCollector gradCol,
-                                    NDArray yTarget,
-                                    Function<NDArray[], NDArray> yPredBlock,
-                                    NDArray[] arrays) {
-        yTarget.tempAttach(sub);
-        sub.tempAttachAll(arrays);
+    private static NDArray evaluate(final Loss lossFunc,
+                                    final NDManager sub,
+                                    final GradientCollector gradCol,
+                                    final NDArray yTarget,
+                                    final Function<NDArray[], NDArray> yPredBlock,
+                                    final NDArray[] arrays) {
         var yPred = yPredBlock.apply(arrays);
-        yPred.tempAttach(sub);
+        return evaluate(lossFunc, sub, gradCol, yTarget, yPred);
+    }
+
+    private static NDArray evaluate(final Loss lossFunc,
+                                    final NDManager sub,
+                                    final GradientCollector gradCol,
+                                    final NDArray yTarget,
+                                    final NDArray yPred) {
+        yTarget.tempAttach(sub);
+        yPred.attach(sub);
         var lossesVal = lossFunc.evaluate(new NDList(yTarget), new NDList(yPred));
         gradCol.backward(lossesVal);
         return lossesVal;

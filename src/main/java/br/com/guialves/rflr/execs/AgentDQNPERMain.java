@@ -9,8 +9,11 @@ import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.dqnper.AgentDQNPER;
 import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+
+import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
@@ -20,7 +23,12 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentDQNPERMain {
-    static void main() {
+
+    public static void main() {
+        run();
+    }
+
+    public static Optional<DJLMemoryManagement.ManagerNode> run() {
 
         float alpha = 0.4f;
         var config = RLConfig.builder()
@@ -36,10 +44,13 @@ public class AgentDQNPERMain {
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
+                .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
+                .renderRun(getBoolProp("agent.renderRun", "true"))
+                .runMaxTries(getIntProp("agent.maxTries", "1"))
                 .algorithmName("dqnper")
                 .build();
 
-        RLRunner.run(config, new RLRunner.AgentFactory() {
+        return RLRunner.run(config, new RLRunner.AgentFactory() {
 
             @Override
             public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {
@@ -79,7 +90,8 @@ public class AgentDQNPERMain {
                     config.actions(),
                     parent
                 ),
-                plotTrackers
+                plotTrackers,
+                config.debugMemoryLeak()
         );
     }
 }

@@ -30,9 +30,11 @@ public class AgentDQN extends AbstractAgent {
                     Optimizer optimizer,
                     NDManager parent,
                     Supplier<IDeepQNetwork> networkFactory,
-                    PlotTrackers plotTrackers) {
+                    PlotTrackers plotTrackers,
+                    boolean debugMemoryLeak) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, parent, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent,
+                networkFactory, plotTrackers, debugMemoryLeak);
     }
 
     /**
@@ -53,28 +55,25 @@ public class AgentDQN extends AbstractAgent {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
-            var rewards = arrays[0];
-            var dones = arrays[1];
-
+        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(the2ndAxis, true);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)
-            var mask = dones.neg().add(1);
+            var mask = samples.dones().neg().add(1);
             // r + gamma * max Q(s', a') * (1 - done)
-            return rewards
+            return samples.rewards()
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
-        }, samples.rewards(), samples.dones());
+        });
 
-        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
-            var states = arrays[0];
-            var actions = arrays[1];
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
+            var states = samples.states();
+            var actions = samples.actions();
             // y_hat = q_online(s, a)
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
-        }, samples.states(), samples.actions());
+        });
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;

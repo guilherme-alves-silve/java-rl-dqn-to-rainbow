@@ -40,9 +40,11 @@ public class AgentDQNPER extends AbstractAgent {
                        Optimizer optimizer,
                        NDManager parent,
                        Supplier<IDeepQNetwork> networkFactory,
-                       PlotTrackers plotTrackers) {
+                       PlotTrackers plotTrackers,
+                       boolean debugMemoryLeak) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, parent, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent,
+                networkFactory, plotTrackers, debugMemoryLeak);
         this.initialBeta = beta;
     }
 
@@ -67,29 +69,27 @@ public class AgentDQNPER extends AbstractAgent {
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize, beta);
-        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
-            var rewards = arrays[0];
-            var dones = arrays[1];
+        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(the2ndAxis, true);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)
-            var mask = dones.neg().add(1);
+            var mask = samples.dones().neg().add(1);
             // r + gamma * max Q(s', a') * (1 - done)
-            return rewards
+            return samples.rewards()
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
-        }, samples.rewards(), samples.dones());
+        });
 
         perl2LossFunc.normISWeights(samples.weights());
         // (perl2LossFunc) L = sum norm w^{is} * error^2
-        @Cleanup var losses = rawBackwardLoss(sub, perl2LossFunc, targetQValue, arrays -> {
-            var states = arrays[0];
-            var actions = arrays[1];
+        @Cleanup var losses = rawBackwardLoss(sub, perl2LossFunc, targetQValue, () -> {
+            var states = samples.states();
+            var actions = samples.actions();
             // y_hat = q_online(s, a)
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
-        }, samples.states(), samples.actions(), perl2LossFunc.normISWeights());
+        });
 
         var lossItem = scopedToFloat(NDArray::mean, losses);
         @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);

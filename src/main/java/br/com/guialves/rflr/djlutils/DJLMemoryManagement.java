@@ -11,11 +11,12 @@ import ai.djl.training.ParameterStore;
 import lombok.Cleanup;
 import lombok.SneakyThrows;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
-import java.util.function.BinaryOperator;
-import java.util.function.Function;
-import java.util.function.UnaryOperator;
+import java.util.function.*;
 
 import static java.util.stream.Collectors.*;
 
@@ -25,18 +26,30 @@ public class DJLMemoryManagement {
         throw new IllegalStateException("No DJLMemoryManagement!");
     }
 
-    public static void close(NDArray input) {
+    public static void release(NDArray input) {
         if (input != null) input.close();
     }
 
-    public static void close(NDArray inputA, NDArray inputB) {
+    public static void release(NDArray inputA, NDArray inputB) {
         if (inputA != null) inputA.close();
         if (inputB != null) inputB.close();
     }
 
-    public static void close(NDArray... arrays) {
+    public static void release(NDArray... arrays) {
         for (var array : arrays) {
             if (array != null) array.close();
+        }
+    }
+
+    /**
+     * Close and set null in each element to avoid memory leaks.
+     * @param arrays Each element will be closed and null set
+     */
+    @SneakyThrows
+    public static void release(AutoCloseable[] arrays) {
+        for (int i = 0; i < arrays.length; ++i) {
+            if (arrays[i] != null) arrays[i].close();
+            arrays[i] = null;
         }
     }
 
@@ -132,57 +145,96 @@ public class DJLMemoryManagement {
     }
 
     public static void debugDump(NDManager manager) {
-        if (manager instanceof BaseNDManager base) {
-            IO.println("Debug dump NDManager:");
-            debugDump(base, 0);
-        } else {
+        var root = getDebugDump(manager);
+        if (root.isEmpty()) {
             IO.println("NDManager is not a BaseNDManager: " + manager.getClass());
+            return;
         }
+        IO.println("Debug dump NDManager:");
+        printTree(root.get(), 0);
     }
 
     /**
-     * This class is used to debug the resources per
-     * level of each manager, but now the name is printed
-     * to help find the resources that is leaking,
-     * the original debugDump didn't print the name,
-     * so to find the resource, is much harder.
-     * @param manager NDManager to explore
-     * @param level the level below the upper manager
+     * Builds a hierarchical snapshot of an {@link NDManager}'s resource tree.
+     *
+     * <p>The returned tree is a value object built via reflection on DJL's
+     * {@code BaseNDManager.resources} map. Each node describes a single
+     * manager; nested sub-managers appear as children. The snapshot is
+     * taken at call time and is decoupled from the live manager, so the
+     * structure is safe to traverse, filter, count and assert against
+     * without holding any reference to the underlying resources.</p>
+     *
+     * <p>Designed to power two use cases:
+     * <ul>
+     *   <li>Human-friendly printing via {@link #debugDump(NDManager)};</li>
+     *   <li>Structural assertions in regression tests, e.g.
+     *       {@code findLeakingNodes(root, 100)} to locate the sub-managers
+     *       that accumulate resources during a training step.</li>
+     * </ul>
+     *
+     * @param manager the root manager to inspect (typically the system
+     *                manager, an agent's parent, or a specific sub-manager)
+     * @return a {@link ManagerNode} describing the full hierarchy, or
+     *         {@link Optional#empty()} if the manager is not a
+     *         {@code BaseNDManager} (which means the reflection probe
+     *         cannot run and we refuse to fabricate a partial tree)
      */
     @SneakyThrows
     @SuppressWarnings("unchecked")
-    private static void debugDump(NDManager manager, int level) {
-        var sb = new StringBuilder(120);
-        sb.repeat("    ", Math.max(0, level));
+    public static Optional<ManagerNode> getDebugDump(NDManager manager) {
+        if (!(manager instanceof BaseNDManager base)) {
+            return Optional.empty();
+        }
 
         var uidField = BaseNDManager.class.getDeclaredField("uid");
         uidField.setAccessible(true);
         var resourcesField = BaseNDManager.class.getDeclaredField("resources");
         resourcesField.setAccessible(true);
 
-        var uid = uidField.get(manager);
-        var resources = (ConcurrentHashMap<String, AutoCloseable>) resourcesField.get(manager);
+        var uid = (String) uidField.get(base);
+        var resources = (ConcurrentHashMap<String, AutoCloseable>) resourcesField.get(base);
 
-        sb.append("\\--- NDManager[").append(manager.getName())
-                .append(" | uid=").append(uid)
-                .append("] resources=").append(resources.size());
-
-        // Divide by resource type
         var byType = resources.values().stream()
-                .collect(groupingBy(resource -> resource == null ?
-                                        "null" : resource.getClass().getSimpleName(),
+                .collect(groupingBy(
+                        resource -> resource == null
+                                ? "null"
+                                : resource.getClass().getSimpleName(),
                         counting()));
-        sb.append(" {").append(byType.entrySet().stream()
-                        .map(e -> e.getKey() + "=" + e.getValue())
-                        .sorted()
-                        .collect(joining(", ")))
-                .append("}");
-        IO.println(sb);
 
+        List<ManagerNode> children = new ArrayList<>();
         for (var element : resources.values()) {
             if (element instanceof BaseNDManager innerBase) {
-                debugDump(innerBase, level + 1);
+                var child = getDebugDump(innerBase);
+                child.ifPresent(children::add);
             }
+        }
+
+        return Optional.of(new ManagerNode(
+                manager.getName(),
+                uid,
+                manager.isOpen(),
+                resources.size(),
+                byType,
+                List.copyOf(children)
+        ));
+    }
+
+    private static void printTree(ManagerNode node, int level) {
+        var sb = new StringBuilder(160);
+        sb.repeat("    ", Math.max(0, level));
+        sb.append("\\--- NDManager[").append(node.name())
+                .append(" | uid=").append(node.uid())
+                .append("] resources=").append(node.totalResources());
+        if (!node.byType().isEmpty()) {
+            sb.append(" {").append(node.byType().entrySet().stream()
+                            .map(e -> e.getKey() + "=" + e.getValue())
+                            .sorted()
+                            .collect(joining(", ")))
+                    .append("}");
+        }
+        IO.println(sb);
+        for (var child : node.children()) {
+            printTree(child, level + 1);
         }
     }
 
@@ -192,6 +244,123 @@ public class DJLMemoryManagement {
         }
 
         return -1;
+    }
+
+    /**
+     * Recursively counts the total number of resources (NDArrays + sub-NDManagers)
+     * in the entire manager hierarchy, starting from the base manager.
+     *
+     * <p>Designed for memory leak detection in tests. The count should be stable
+     * across runs of the same operation when no leak is present. A growing count
+     * indicates that one or more arrays/managers are not being closed properly.</p>
+     *
+     * <p>Counts every entry in the {@code resources} map of every manager in the
+     * tree, including both NDArrays and child NDManagers. The base manager's own
+     * state (engine-related resources) is included.</p>
+     *
+     * @return the total resource count across the whole hierarchy, or {@code -1}
+     *         if the count cannot be measured (e.g. due to reflection failures
+     *         on an incompatible DJL version)
+     */
+    public static int systemResourceCount(NDManager manager) {
+        try {
+            return getDebugDump(manager)
+                    .map(ManagerNode::subtreeSize)
+                    .orElse(-1);
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /**
+     * Immutable snapshot of one node in an {@link NDManager} hierarchy.
+     *
+     * <p>Built by {@link DJLMemoryManagement#getDebugDump(NDManager)} via
+     * reflection on {@code BaseNDManager.resources}. Use the static
+     * helpers on {@link DJLMemoryManagement} to query the tree
+     * ({@code findByName}, {@code findByNamePrefix}, {@code findLeakingNodes},
+     * {@code subtreeSize}).</p>
+     *
+     * @param name           the manager's debug name
+     * @param uid            unique id of the manager (from reflection)
+     * @param open           whether the manager was open at snapshot time
+     * @param totalResources direct resource count (own NDArrays + own sub-managers)
+     * @param byType         resource count grouped by simple class name
+     * @param children       nested sub-managers (recursively built)
+     */
+    public record ManagerNode(String name,
+                              String uid,
+                              boolean open,
+                              int totalResources,
+                              Map<String, Long> byType,
+                              List<ManagerNode> children) {
+        /**
+         * Total resources across the whole subtree rooted at this node,
+         * including direct resources and every nested child recursively.
+         */
+        public int subtreeSize() {
+            int total = totalResources;
+            for (var child : children) {
+                total += child.subtreeSize();
+            }
+            return total;
+        }
+
+        /**
+         * Finds the first node (pre-order) whose name equals the given value.
+         *
+         * @return the first matching node, or empty if none
+         */
+        public Optional<ManagerNode> findByName(String target) {
+            if (name.equals(target)) return Optional.of(this);
+            for (var child : children) {
+                var hit = child.findByName(target);
+                if (hit.isPresent()) return hit;
+            }
+            return Optional.empty();
+        }
+
+        /**
+         * Finds the first node (pre-order) whose name starts with the given prefix.
+         * Useful to locate all managers tagged with a given label
+         * (e.g. {@code "ExperienceReplayBuffer-"}, {@code "DeepQNetworkMLP-"}).
+         */
+        public Optional<ManagerNode> findByNamePrefix(String prefix) {
+            if (name.startsWith(prefix)) return Optional.of(this);
+            for (var child : children) {
+                var hit = child.findByNamePrefix(prefix);
+                if (hit.isPresent()) return hit;
+            }
+            return Optional.empty();
+        }
+
+        /**
+         * Collects every node (pre-order) whose own {@code totalResources}
+         * is greater than the given threshold. The threshold is interpreted
+         * as a direct count, not a subtree size.
+         */
+        public List<ManagerNode> findLeakingNodes(long threshold) {
+            return findMatching(n -> n.totalResources > threshold);
+        }
+
+        /**
+         * Collects every node (pre-order) that satisfies the given predicate.
+         */
+        public List<ManagerNode> findMatching(Predicate<ManagerNode> predicate) {
+            var hits = new ArrayList<ManagerNode>();
+            if (predicate.test(this)) hits.add(this);
+            for (var child : children) {
+                hits.addAll(child.findMatching(predicate));
+            }
+            return hits;
+        }
+    }
+
+    public static NDManager cappedParentMgr(Device device) {
+        var parent = NDManager.newBaseManager(device);
+        parent.setName("parent-" + parent.getName());
+        parent.cap();
+        return parent;
     }
 
     public static NDArray setName(NDArray array, String name) {

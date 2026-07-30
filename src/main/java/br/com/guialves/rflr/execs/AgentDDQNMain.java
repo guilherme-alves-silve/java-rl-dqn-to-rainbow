@@ -5,8 +5,11 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.ddqn.AgentDDQN;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+
+import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
@@ -16,8 +19,11 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentDDQNMain {
-    static void main() {
+    public static void main() {
+        run();
+    }
 
+    public static Optional<DJLMemoryManagement.ManagerNode> run() {
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
                 .observations(8)
@@ -31,10 +37,13 @@ public class AgentDDQNMain {
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
+                .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
+                .renderRun(getBoolProp("agent.renderRun", "true"))
+                .runMaxTries(getIntProp("agent.maxTries", "1"))
                 .algorithmName("ddqn")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
+        return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
                 buildDDQN(config, env, optimizer, plotTrackers, parent));
     }
 
@@ -57,7 +66,8 @@ public class AgentDDQNMain {
                     config.actions(),
                     parent
                 ),
-                plotTrackers
+                plotTrackers,
+                config.debugMemoryLeak()
         );
     }
 }
