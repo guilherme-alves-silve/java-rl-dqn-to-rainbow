@@ -69,9 +69,9 @@ public class AgentDQNPER extends AbstractAgent {
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize, beta);
-        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), (nextQValue, arrays) -> {
-            var rewards = arrays[0];
-            var dones = arrays[1];
+        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
+            var rewards = samples.rewards();
+            var dones = samples.dones();
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(the2ndAxis, true);
             // gamma * max Q(s', a')
@@ -82,16 +82,16 @@ public class AgentDQNPER extends AbstractAgent {
             return rewards
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
-        }, samples.rewards(), samples.dones());
+        });
 
         perl2LossFunc.normISWeights(samples.weights());
         // (perl2LossFunc) L = sum norm w^{is} * error^2
-        @Cleanup var losses = rawBackwardLoss(sub, perl2LossFunc, targetQValue, arrays -> {
-            var states = arrays[0];
-            var actions = arrays[1];
+        @Cleanup var losses = rawBackwardLoss(sub, perl2LossFunc, targetQValue, () -> {
+            var states = samples.states();
+            var actions = samples.actions();
             // y_hat = q_online(s, a)
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
-        }, samples.states(), samples.actions(), perl2LossFunc.normISWeights());
+        });
 
         var lossItem = scopedToFloat(NDArray::mean, losses);
         @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);

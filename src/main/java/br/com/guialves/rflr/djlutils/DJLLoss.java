@@ -112,6 +112,17 @@ public class DJLLoss {
         return manager.ret(lossesVal.stopGradient());
     }
 
+    public static NDArray rawBackwardLoss(final NDManager manager,
+                                          final Loss lossFunc,
+                                          final NDArray yTarget,
+                                          final Supplier<NDArray> yPredBlock) {
+        @Cleanup var sub = subMgr(manager, "scoped-back");
+        @Cleanup var gradCol = gradient();
+        var yPred = yPredBlock.get();
+        var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPred);
+        return manager.ret(lossesVal.stopGradient());
+    }
+
     /**
      * Internal method that evaluates the loss and performs backpropagation.
      *
