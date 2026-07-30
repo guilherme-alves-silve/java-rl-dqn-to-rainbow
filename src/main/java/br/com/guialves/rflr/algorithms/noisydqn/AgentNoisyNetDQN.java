@@ -66,17 +66,14 @@ public class AgentNoisyNetDQN extends AbstractAgent {
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNoisyNet.forward(samples.nextStates(), nextQValue -> {
-            var rewards = samples.rewards();
-            var dones = samples.dones();
-
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(the2ndAxis, true);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)
-            var mask = dones.neg().add(1);
+            var mask = samples.dones().neg().add(1);
             // r + gamma * max Q(s', a') * (1 - done)
-            return rewards
+            return samples.rewards()
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
         });

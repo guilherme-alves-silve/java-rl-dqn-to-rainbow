@@ -74,22 +74,19 @@ public class AgentC51DQN extends AbstractAgent {
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
-            var rewards = samples.rewards();
-            var dones = samples.dones();
-
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(the2ndAxis, true);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)
-            var mask = dones.neg().add(1);
+            var mask = samples.dones().neg().add(1);
             // r + gamma * max Q(s', a') * (1 - done)
-            return rewards
+            return samples.rewards()
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
         });
 
-        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
