@@ -48,9 +48,9 @@ public class AgentDDQN extends AbstractAgent {
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = scoped(arrays -> {
-            var rewards = arrays[0];
-            var nextStates = arrays[1];
-            var dones = arrays[2];
+            var rewards = samples.rewards();
+            var nextStates = samples.nextStates();
+            var dones = samples.dones();
 
             // a* = arg max q_online(s', a')
             @Cleanup var action = onlineNet.forward(nextStates,
@@ -67,14 +67,14 @@ public class AgentDDQN extends AbstractAgent {
                 return rewards.add(discountNextQValue.mul(mask))
                         .stopGradient();
             });
-        }, samples.rewards(), samples.nextStates(), samples.dones());
+        });
 
-        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
-            var states = arrays[0];
-            var actions = arrays[1];
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
+            var states = samples.states();
+            var actions = samples.actions();
             // y_hat = q_online(s, a)
             return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
-        }, samples.states(), samples.actions());
+        });
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;

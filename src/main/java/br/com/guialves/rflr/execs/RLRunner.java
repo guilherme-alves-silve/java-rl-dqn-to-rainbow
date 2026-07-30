@@ -20,7 +20,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.debugDump;
 import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 

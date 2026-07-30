@@ -6,8 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.setName;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Objects.requireNonNull;
@@ -129,7 +128,7 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
 
     @Override
     public void close() {
+        erase(experiences);
         subManager.close();
-        Arrays.fill(experiences, null);
     }
 }

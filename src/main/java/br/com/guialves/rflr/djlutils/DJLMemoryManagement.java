@@ -40,6 +40,18 @@ public class DJLMemoryManagement {
         }
     }
 
+    /**
+     * Close and set null in each element to avoid memory leaks.
+     * @param arrays Each element will be closed and null set
+     */
+    @SneakyThrows
+    public static void erase(AutoCloseable[] arrays) {
+        for (int i = 0; i < arrays.length; ++i) {
+            if (arrays[i] != null) arrays[i].close();
+            arrays[i] = null;
+        }
+    }
+
     public static NDArray transfer(NDManager manager, NDArray oldVal, NDArray newVal) {
         oldVal.close();
         newVal.attach(manager);

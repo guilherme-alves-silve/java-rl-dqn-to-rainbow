@@ -10,6 +10,7 @@ import lombok.NonNull;
 
 import java.util.Arrays;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.erase;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
@@ -244,7 +245,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
 
     @Override
     public void close() {
+        erase(experiences);
         subManager.close();
-        Arrays.fill(experiences, null);
     }
 }
