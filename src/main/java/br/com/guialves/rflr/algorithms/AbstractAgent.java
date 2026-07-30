@@ -14,6 +14,7 @@ import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
+import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import me.tongfei.progressbar.ProgressBar;
@@ -141,7 +142,7 @@ public abstract class AbstractAgent implements IAgent {
                     ++episodes;
                     float avgLoss = episodeSteps > 0 ? episodeLossSum / episodeSteps : 0;
                     plotTrackers.add(epsilon, episodeRewards, avgLoss);
-                    close(state, nextState);
+                    release(state, nextState);
                     break;
                 }
 
@@ -263,7 +264,15 @@ public abstract class AbstractAgent implements IAgent {
         return totalRewardPerTry;
     }
 
+    @Override
     public Optional<ManagerNode> getManagerNode() {
         return Optional.ofNullable(managerNode);
+    }
+
+    @Override
+    @SneakyThrows
+    public void close() {
+        onlineNet.close();
+        targetNet.close();
     }
 }

@@ -34,9 +34,6 @@ public record RLConfig(
     public RLConfig {
         epsilonDecay = (maxEpsilon - minEpsilon) / framesLimit;
         path = Paths.get("./output_models/", algorithmName);
-        debugMemoryLeak = true;
-        runMaxTries = 1;
-        renderRun = true;
     }
 
     public RecordVideo recordVideo() {

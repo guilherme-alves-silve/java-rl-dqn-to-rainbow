@@ -7,8 +7,11 @@ import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepExperienceReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
 import br.com.guialves.rflr.algorithms.nstepdqn.AgentNStepDQN;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+
+import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
@@ -18,7 +21,12 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentNStepDQNMain {
+
     public static void main() {
+        run();
+    }
+
+    public static Optional<DJLMemoryManagement.ManagerNode> run() {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
@@ -34,11 +42,13 @@ public class AgentNStepDQNMain {
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
-                .saveModel(true)
+                .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
+                .renderRun(getBoolProp("agent.renderRun", "true"))
+                .runMaxTries(getIntProp("agent.maxTries", "1"))
                 .algorithmName("nstep_dqn")
                 .build();
 
-        RLRunner.run(config, new RLRunner.AgentFactory() {
+        return RLRunner.run(config, new RLRunner.AgentFactory() {
 
             @Override
             public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {

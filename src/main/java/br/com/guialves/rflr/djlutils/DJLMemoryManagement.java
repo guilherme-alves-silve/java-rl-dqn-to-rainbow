@@ -30,16 +30,16 @@ public class DJLMemoryManagement {
         throw new IllegalStateException("No DJLMemoryManagement!");
     }
 
-    public static void close(NDArray input) {
+    public static void release(NDArray input) {
         if (input != null) input.close();
     }
 
-    public static void close(NDArray inputA, NDArray inputB) {
+    public static void release(NDArray inputA, NDArray inputB) {
         if (inputA != null) inputA.close();
         if (inputB != null) inputB.close();
     }
 
-    public static void close(NDArray... arrays) {
+    public static void release(NDArray... arrays) {
         for (var array : arrays) {
             if (array != null) array.close();
         }
@@ -50,7 +50,7 @@ public class DJLMemoryManagement {
      * @param arrays Each element will be closed and null set
      */
     @SneakyThrows
-    public static void erase(AutoCloseable[] arrays) {
+    public static void release(AutoCloseable[] arrays) {
         for (int i = 0; i < arrays.length; ++i) {
             if (arrays[i] != null) arrays[i].close();
             arrays[i] = null;
@@ -195,7 +195,7 @@ public class DJLMemoryManagement {
         var resourcesField = BaseNDManager.class.getDeclaredField("resources");
         resourcesField.setAccessible(true);
 
-        var uid = uidField.get(base);
+        var uid = (String) uidField.get(base);
         var resources = (ConcurrentHashMap<String, AutoCloseable>) resourcesField.get(base);
 
         var byType = resources.values().stream()
@@ -219,7 +219,8 @@ public class DJLMemoryManagement {
                 manager.isOpen(),
                 resources.size(),
                 byType,
-                List.copyOf(children)));
+                List.copyOf(children)
+        ));
     }
 
     private static void printTree(ManagerNode node, int level) {
@@ -291,14 +292,12 @@ public class DJLMemoryManagement {
      * @param byType         resource count grouped by simple class name
      * @param children       nested sub-managers (recursively built)
      */
-    public record ManagerNode(
-            String name,
-            Object uid,
-            boolean open,
-            int totalResources,
-            Map<String, Long> byType,
-            List<ManagerNode> children) {
-
+    public record ManagerNode(String name,
+                              String uid,
+                              boolean open,
+                              int totalResources,
+                              Map<String, Long> byType,
+                              List<ManagerNode> children) {
         /**
          * Total resources across the whole subtree rooted at this node,
          * including direct resources and every nested child recursively.
@@ -359,6 +358,13 @@ public class DJLMemoryManagement {
             }
             return hits;
         }
+    }
+
+    public static NDManager cappedParentMgr(Device device) {
+        var parent = NDManager.newBaseManager(device);
+        parent.setName("parent-" + parent.getName());
+        parent.cap();
+        return parent;
     }
 
     public static NDArray setName(NDArray array, String name) {

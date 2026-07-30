@@ -3,13 +3,15 @@ package br.com.guialves.rflr.algorithms;
 import ai.djl.ndarray.NDArray;
 import ai.djl.training.loss.Loss;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-public interface IAgent {
+public interface IAgent extends AutoCloseable {
 
     static final int DEFAULT_FRAME_SKIP = 1;
     static final int N_BATCH = -1;
@@ -58,4 +60,9 @@ public interface IAgent {
      * @return totalRewardPerTry
      */
     List<Double> run(int maxTries, boolean render);
+
+    Optional<DJLMemoryManagement.ManagerNode> getManagerNode();
+
+    @Override
+    void close();
 }

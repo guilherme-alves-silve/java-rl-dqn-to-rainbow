@@ -4,8 +4,6 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Arrays;
-
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
@@ -128,7 +126,7 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
 
     @Override
     public void close() {
-        erase(experiences);
+        release(experiences);
         subManager.close();
     }
 }

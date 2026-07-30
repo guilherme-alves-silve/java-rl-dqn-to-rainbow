@@ -1,68 +1,46 @@
 package br.com.guialves.rflr.execs;
 
-import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
-import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.getDebugDump;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.systemResourceCount;
+import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
+import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Regression test for memory leaks across all agent training pipelines.
  *
- * <p>Each agent test runs a complete {@code main()} (env + train + run) and
- * verifies that the system-wide NDManager resource count returns to the
- * baseline after the agent finishes. If any sub-manager or array is not
- * properly closed, the count grows and the test fails.</p>
+ * <p>Each test invokes {@code AgentXxxMain.run()} which trains an agent to
+ * completion and returns a {@link ManagerNode} snapshot of the resulting
+ * manager hierarchy. The test then asserts the <i>exact</i> number of direct
+ * resources on the root and on each named sub-manager, so that any future
+ * regression that adds a new sub-manager or leaks an NDArray will fail with
+ * a clear, actionable message.</p>
  *
- * <p>The diagnostics in this test rely on
- * {@link DJLMemoryManagement#getDebugDump(NDManager)}, which returns a
- * hierarchical {@link ManagerNode} snapshot of the manager tree built via
- * reflection on DJL's {@code BaseNDManager.resources} map. The tree is a
- * value object, safe to traverse, filter and assert against without holding
- * any reference to the live resources.</p>
+ * <h2>Reference values (captured from past training runs)</h2>
+ * <pre>
+ *   parent                  : 2    (online + target network sub-managers)
+ *   DeepQNetworkMLP         : 6    (3 Linear layers × 2 = weight + bias)
+ *   DuelingQNetworkMLP      : 8    (2 backbone + 1 value + 1 advantage × 2)
+ *   NoisyQNetworkMLP        : 10   (1 Linear + 2 NoisyLayer × 4 params)
+ *   NoisyDuelingQNetworkMLP : 18   (1 Linear + 4 NoisyLayer × 4 + extras)
+ *   ExperienceReplayBuffer  : 256  (128 experiences × 2 NDArrays)
+ * </pre>
  *
- * <p>This test was introduced after a series of leaks were discovered in the
- * buffer ({@code tempAttach} restoring duplicates to the buffer manager), the
- * inference path ({@code output.attach(modelManager)} pinning every forward
- * result) and the noisy layers (intermediate {@code w}, {@code b} tensors
- * accumulating in the network manager). It is designed to fail loudly if any
- * of these patterns reappear.</p>
- *
- * <h2>How it works</h2>
- * <ol>
- *   <li>Snapshot the total resource count of the DJL system manager.</li>
- *   <li>Invoke {@code AgentXxxMain.main()} (which creates a parent manager,
- *       trains the agent, runs evaluation, then closes everything via
- *       try-with-resources).</li>
- *   <li>Force GC + finalization, then snapshot the count again.</li>
- *   <li>Assert that the count growth is below the threshold.</li>
- *   <li>On failure, print the leaking sub-managers (top-10 by resource count)
- *       so the offending code path is immediately identifiable.</li>
- * </ol>
- *
- * <h2>Threshold rationale</h2>
- * <p>{@link #MAX_LEAK_PER_AGENT} is set to {@code 50} NDArrays. This is
- * generous enough to absorb minor flakiness from finalizers and Python
- * runtime bookkeeping, but tight enough to catch real leaks (the historic
- * bugs we fixed showed growth in the hundreds of thousands).</p>
- *
- * <h2>How to debug a failure</h2>
- * <p>If a test fails, the error message includes the leaked count plus a
- * top-N of the sub-managers that retained the most resources at the end of
- * the run. For deeper inspection, call
- * {@code DJLMemoryManagement.debugDump(manager)} at
- * the end of the failing agent's training to see the full hierarchical
- * tree. The name you set via {@code subMgr(...)} is shown in the dump,
- * making the source obvious.</p>
+ * <h2>Why exact counts and not a threshold</h2>
+ * <p>The previous version of this test used a {@code MAX_LEAK_PER_AGENT}
+ * threshold, which tolerates a small drift. The current version asserts the
+ * exact resource count so that an accidental change in network topology
+ * (e.g. adding a layer) or in the buffer's storage layout (e.g. adding a
+ * segment tree) is detected immediately. If a new agent legitimately needs
+ * a different layout, update the expected values in this file.</p>
  */
 @DisplayName("Memory leak regression tests")
 class MemoryLeakTest {
@@ -72,25 +50,35 @@ class MemoryLeakTest {
     private static final String DONT_SAVE_MODEL = "false";
     private static final String DONT_RECORD = "false";
     private static final String DONT_SHOW_METRICS = "false";
+    private static final String DONT_RENDER = "false";
+
+    private static final int GC_TRIES = 3;
+    private static final int MIN_SLEEP = 100;
+
+    /** Root manager: online + target network sub-managers. */
+    private static final int EXPECTED_ROOT_SUBMANAGERS = 2;
+
+    /** DeepQNetworkMLP has 3 Linear layers (weight + bias each). */
+    private static final int DEEP_NET_PARAMS = 6;
+
+    /** DuelingQNetworkMLP has 4 Linear layers (2 backbone + 1 value + 1 advantage). */
+    private static final int DUELING_NET_PARAMS = 8;
+
+    /** NoisyQNetworkMLP has 1 Linear + 2 NoisyLayer (each NoisyLayer = 4 params). */
+    private static final int NOISY_NET_PARAMS = 10;
+
+    /** NoisyDuelingQNetworkMLP has 1 Linear + 4 NoisyLayer. */
+    private static final int NOISY_DUELING_NET_PARAMS = 18;
 
     /**
-     * Maximum number of NDArrays that may remain un-freed after an agent run.
-     * Set to a small constant to catch regressions while tolerating minor
-     * finalizer / Python-state noise.
+     * Each {@code Experience} contributes exactly 2 NDArrays to its buffer:
+     * one {@code state} and one {@code nextState}. We use this as a
+     * structural invariant (the buffer's NDArray count is always a
+     * multiple of 2) instead of asserting an absolute number, which
+     * depends on how many experiences were collected during the
+     * (short) test run.
      */
-    private static final int MAX_LEAK_PER_AGENT = 50;
-
-    /**
-     * When a hierarchical check verifies that a specific sub-manager
-     * (e.g. an online network) does not retain temporary arrays after
-     * an operation, this is the maximum direct resource count allowed.
-     */
-    private static final int MAX_LEAK_PER_SUBMANAGER = 5;
-
-    /**
-     * How many top-leaking sub-managers to include in a failure message.
-     */
-    private static final int TOP_N_LEAKERS = 10;
+    private static final int NDARRAYS_PER_EXPERIENCE = 2;
 
     private NDManager manager;
 
@@ -103,66 +91,108 @@ class MemoryLeakTest {
         System.setProperty("agent.saveModel", DONT_SAVE_MODEL);
         System.setProperty("agent.records", DONT_RECORD);
         System.setProperty("agent.showAllMetrics", DONT_SHOW_METRICS);
+        System.setProperty("agent.renderRun", DONT_RENDER);
     }
 
     @AfterEach
     @DisplayName("Stabilize the JVM before the next test")
     void tearDownEach() throws InterruptedException {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < GC_TRIES; i++) {
             System.gc();
         }
-        Thread.sleep(100);
+        Thread.sleep(MIN_SLEEP);
         manager.close();
     }
 
     @Test
-    @DisplayName("AgentDQN should not leak NDArrays")
+    @DisplayName("AgentDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDQN() {
-        assertLeakWithinThreshold("AgentDQN", AgentDQNMain::main);
+        var managerNode = AgentDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentDQN",
+                "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS,
+                "ExperienceReplayBuffer-");
     }
 
     @Test
-    @DisplayName("AgentDDQN should not leak NDArrays")
+    @DisplayName("AgentDDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDDQN() {
-        assertLeakWithinThreshold("AgentDDQN", AgentDDQNMain::main);
+        var managerNode = AgentDDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentDDQN",
+                "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS,
+                "ExperienceReplayBuffer-");
     }
 
     @Test
-    @DisplayName("AgentNStepDQN should not leak NDArrays")
+    @DisplayName("AgentNStepDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentNStepDQN() {
-        assertLeakWithinThreshold("AgentNStepDQN", AgentNStepDQNMain::main);
+        var managerNode = AgentNStepDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentNStepDQN",
+                "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS,
+                "NStepExperienceReplayBuffer-");
     }
 
     @Test
-    @DisplayName("AgentDuelingDQN should not leak NDArrays")
+    @DisplayName("AgentDuelingDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDuelingDQN() {
-        assertLeakWithinThreshold("AgentDuelingDQN", AgentDuelingDQNMain::main);
+        var managerNode = AgentDuelingDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentDuelingDQN",
+                "DuelingQNetworkMLP-",
+                DUELING_NET_PARAMS,
+                "ExperienceReplayBuffer-");
     }
 
     @Test
-    @DisplayName("AgentDQNPER should not leak NDArrays")
+    @DisplayName("AgentDQNPER should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDQNPER() {
-        assertLeakWithinThreshold("AgentDQNPER", AgentDQNPERMain::main);
+        var managerNode = AgentDQNPERMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentDQNPER",
+                "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS,
+                "PrioritizedReplayBuffer-");
     }
 
     @Test
-    @DisplayName("AgentNoisyNetDQN should not leak NDArrays")
+    @DisplayName("AgentNoisyNetDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentNoisyNetDQN() {
-        assertLeakWithinThreshold("AgentNoisyNetDQN", AgentNoisyNetDQNMain::main);
+        var managerNode = AgentNoisyNetDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentNoisyNetDQN",
+                "NoisyQNetworkMLP-",
+                NOISY_NET_PARAMS,
+                "ExperienceReplayBuffer-");
     }
 
     @Test
-    @DisplayName("AgentNoisyDuelingNetDDQN should not leak NDArrays")
+    @DisplayName("AgentNoisyDuelingNetDDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentNoisyDuelingNetDDQN() {
-        assertLeakWithinThreshold(
-                "AgentNoisyDuelingNetDDQN", AgentNoisyDuelingNetDDQNMain::main);
+        var managerNode = AgentNoisyDuelingNetDDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentNoisyDuelingNetDDQN",
+                "NoisyDuelingQNetworkMLP-",
+                NOISY_DUELING_NET_PARAMS,
+                "ExperienceReplayBuffer-");
     }
 
     @Test
-    @DisplayName("getDebugDump returns empty when manager is not a BaseNDManager")
-    void getDebugDumpShouldReturnEmptyForNonBaseManager() {
+    @DisplayName("getDebugDump returns a node for the test manager")
+    void getDebugDumpShouldReturnNodeForBaseManager() {
         var root = getDebugDump(manager);
-        assertTrue(root.isPresent(), "system manager is a BaseNDManager");
+        assertTrue(root.isPresent(), "test manager should be a BaseNDManager");
     }
 
     @Test
@@ -171,125 +201,106 @@ class MemoryLeakTest {
         var root = getDebugDump(manager);
         assertTrue(root.isPresent());
         assertEquals(root.get().subtreeSize(), systemResourceCount(manager),
-                "systemResourceCount is just subtreeSize() of the system root");
+                "systemResourceCount is just subtreeSize() of the root");
     }
 
     /**
-     * Runs the given agent's {@code main()} method, snapshots the system-wide
-     * resource count before and after, and asserts that growth is within the
-     * allowed threshold. The assertion message includes actionable debugging
-     * guidance.
+     * Asserts the full shape of the manager tree for a given agent:
+     *
+     * <ol>
+     *   <li>the root has exactly {@link #EXPECTED_ROOT_SUBMANAGERS} direct
+     *       sub-managers (one online network + one target network);</li>
+     *   <li>both networks (matched by {@code networkPrefix}) hold exactly
+     *       {@code expectedParamsPerNetwork} NDArrays (the {@code Parameter}
+     *       arrays of the block), ignoring any sub-managers (e.g. the
+     *       {@code Model}'s own manager, which DJL creates via
+     *       {@code newModel});</li>
+     *   <li>the buffer (matched by {@code bufferPrefix}) exists exactly once
+     *       and holds a multiple of {@link #NDARRAYS_PER_EXPERIENCE} NDArrays
+     *       (one {@code state} + one {@code nextState} per stored experience).
+     *       The absolute count is <i>not</i> asserted because it depends on
+     *       how many experiences were collected during the (short) test run;
+     *       see {@link #assertAgentStructure} for the structural check.</li>
+     * </ol>
+     *
+     * <p>The buffer is searched recursively (via {@code findMatching}) so
+     * the assertion is robust to whether the buffer's sub-manager is a
+     * direct child of the root or nested under a network. The networks are
+     * expected to be direct children of the root.</p>
+     *
+     * <p><b>Why count only NDArrays and not {@code totalResources}:</b>
+     * a network's sub-manager also contains the {@code Model}'s internal
+     * NDManager (e.g. {@code byType={PtNDManager=1, PtNDArray=6}} on a
+     * 3-layer MLP), so {@code totalResources} mixes sub-managers with
+     * NDArrays. {@link #countNDArrays(ManagerNode)} filters by simple
+     * class name suffix to give a clean parameter count.</p>
      */
-    private void assertLeakWithinThreshold(String agentName, Runnable runnable) {
-        int before = systemResourceCount(manager);
-        assertDoesNotThrow(runnable::run,
-                () -> agentName + " threw an exception during execution");
+    private void assertAgentStructure(ManagerNode root,
+                                      String agentName,
+                                      String networkPrefix,
+                                      int expectedParamsPerNetwork,
+                                      String bufferPrefix) {
+        // 1) Root has exactly the two network sub-managers.
+        assertEquals(EXPECTED_ROOT_SUBMANAGERS, root.totalResources(),
+                agentName + ": root should have exactly "
+                        + EXPECTED_ROOT_SUBMANAGERS
+                        + " direct sub-managers (online + target networks), got "
+                        + root.totalResources() + " with byType=" + root.byType());
 
-        for (int i = 0; i < 3; i++) {
-            System.gc();
+        // 2) Both networks have the expected number of parameter arrays.
+        var networks = root.findMatching(n -> n.name().startsWith(networkPrefix));
+        assertEquals(2, networks.size(),
+                agentName + ": expected exactly 2 sub-managers starting with '"
+                        + networkPrefix + "', found " + networks.size());
+        for (int i = 0; i < networks.size(); i++) {
+            var net = networks.get(i);
+            long paramCount = countNDArrays(net);
+            assertEquals(expectedParamsPerNetwork, paramCount,
+                    agentName + ": network '" + net.name()
+                            + "' should have exactly " + expectedParamsPerNetwork
+                            + " parameters, got " + paramCount
+                            + " NDArrays (byType=" + net.byType() + ")");
         }
-        int after = systemResourceCount(manager);
-        int leaked = after - before;
 
-        if (leaked <= MAX_LEAK_PER_AGENT) {
-            return;
-        }
-
-        var diagnostic = buildLeakDiagnostic(agentName, leaked, after);
-        fail(diagnostic);
+        // 3) The replay buffer exists once and holds a multiple of 2 NDArrays
+        // (each experience has exactly one state + one nextState NDArray).
+        // The exact count depends on how many experiences were collected
+        // during the short test run, so we assert the structural invariant
+        // rather than an absolute number.
+        var buffers = root.findMatching(n -> n.name().startsWith(bufferPrefix));
+        assertEquals(1, buffers.size(),
+                agentName + ": expected exactly 1 sub-manager starting with '"
+                        + bufferPrefix + "', found " + buffers.size());
+        var buffer = buffers.get(0);
+        long bufferNDArrayCount = countNDArrays(buffer);
+        assertTrue(bufferNDArrayCount >= 0 && bufferNDArrayCount % NDARRAYS_PER_EXPERIENCE == 0,
+                agentName + ": buffer '" + buffer.name()
+                        + "' should hold a multiple of " + NDARRAYS_PER_EXPERIENCE
+                        + " NDArrays (one state + one nextState per experience), got "
+                        + bufferNDArrayCount + " (byType=" + buffer.byType() + ")");
+        // Sanity: with BUFFER_CAPACITY=128 and 500 training frames, the
+        // buffer should hold at least 1 experience. A count of 0 would
+        // indicate the buffer was never written to.
+        assertTrue(bufferNDArrayCount >= NDARRAYS_PER_EXPERIENCE,
+                agentName + ": buffer '" + buffer.name()
+                        + "' should hold at least one experience, got "
+                        + bufferNDArrayCount + " NDArrays (byType=" + buffer.byType() + ")");
     }
 
     /**
-     * Builds a human-readable diagnostic listing the top-N leaking
-     * sub-managers by direct resource count. Used only on failure, so
-     * the cost of building the tree is acceptable.
+     * Counts only the NDArrays in a manager's resources, ignoring any
+     * sub-managers (e.g. {@code PtNDManager}). The class name is matched
+     * by suffix {@code NDArray} so this works across engines
+     * ({@code PtNDArray}, {@code MxNDArray}, etc.).
+     *
+     * @param node the manager node to inspect
+     * @return the total number of NDArray resources directly owned by the
+     *         node (does not recurse into sub-managers)
      */
-    private String buildLeakDiagnostic(String agentName, int leaked, int after) {
-        var root = getDebugDump(manager).orElse(null);
-        String top = "(unable to inspect NDManager hierarchy)";
-
-        if (root != null) {
-            var top10 = root.findLeakingNodes(0L).stream()
-                    .sorted((a, b) -> Long.compare(b.totalResources(), a.totalResources()))
-                    .limit(TOP_N_LEAKERS)
-                    .map(n -> String.format(
-                            "    %s [uid=%s, open=%s, direct=%d, subtree=%d, byType=%s]",
-                            n.name(), n.uid(), n.open(),
-                            n.totalResources(), n.subtreeSize(), n.byType()))
-                    .collect(Collectors.joining("\n"));
-            top = top10.isEmpty() ? "(no leaking nodes reported)" : top10;
-        }
-
-        return String.format(
-                "%s leaked %d NDArrays after a full run (max allowed: %d, total now: %d). "
-                        + "Top %d sub-managers by direct resource count:%n%s%n"
-                        + "Inspect the named managers above to identify the offending code path. "
-                        + "For a full hierarchical tree, call "
-                        + "DJLMemoryManagement.debugDump(manager) "
-                        + "at the end of the agent's train() method.",
-                agentName, leaked, MAX_LEAK_PER_AGENT, after, TOP_N_LEAKERS, top);
-    }
-
-    /**
-     * Example: verify that an IDeepQNetwork's sub-manager does not retain
-     * temporary arrays after a forward pass. Not part of the default suite
-     * because it requires constructing a network in isolation, which is
-     * already covered indirectly by the per-agent tests above.
-     */
-    @SuppressWarnings("unused")
-    private void assertNetworkDoesNotLeakTempArrays(IDeepQNetwork net) {
-        try (var parent = subMgr(
-                manager, "scope-")) {
-            try (var instance = net) {
-                try (var sub = subMgr(parent, "forward-scope-")) {
-                    var input = parent.create(new float[]{1, 2, 3, 4});
-                    var output = instance.forward(input, NDArray::sum);
-                    output.close();
-                }
-                var root = getDebugDump(parent).orElseThrow();
-                var leak = root.findByNamePrefix("forward-scope-");
-                assertTrue(leak.isEmpty(),
-                        "forward scope must be released, found: " + leak.get());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    /**
-     * Example: verify that an IReplayBuffer does not retain duplicate
-     * experiences across calls to {@code sample()}. Inspects the system
-     * manager because {@link IReplayBuffer} does not expose its
-     * sub-manager in the interface. Not part of the default suite.
-     */
-    @SuppressWarnings("unused")
-    private void assertBufferDoesNotLeakAcrossSamples(IReplayBuffer buffer) {
-        int before = systemResourceCount(manager);
-        try (var bufferRef = buffer) {
-            var first = bufferRef.sample(8);
-            first.close();
-            var second = bufferRef.sample(8);
-            second.close();
-        }
-        for (int i = 0; i < 3; i++) {
-            System.gc();
-        }
-        int after = systemResourceCount(manager);
-
-        assertTrue(after - before <= MAX_LEAK_PER_AGENT,
-                "buffer sampling leaked resources: before=" + before + ", after=" + after);
-    }
-
-    /**
-     * Example: filter and assert over the tree using a custom predicate.
-     * Useful when you want to check that no sub-manager with a specific
-     * name pattern (e.g. noisy-layer-) accumulates more than N arrays.
-     */
-    @SuppressWarnings("unused")
-    private List<ManagerNode> findSubManagersAbove(NDManager manager, String namePrefix, int limit) {
-        var root = getDebugDump(manager).orElseThrow();
-        return root.findMatching(n ->
-                n.name().startsWith(namePrefix)
-                        && n.totalResources() > limit);
+    private long countNDArrays(ManagerNode node) {
+        return node.byType().entrySet().stream()
+                .filter(e -> e.getKey().endsWith("NDArray"))
+                .mapToLong(java.util.Map.Entry::getValue)
+                .sum();
     }
 }

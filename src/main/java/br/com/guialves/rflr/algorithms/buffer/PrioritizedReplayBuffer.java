@@ -8,9 +8,7 @@ import br.com.guialves.rflr.datastructure.MinSegmentTree;
 import br.com.guialves.rflr.datastructure.SumSegmentTree;
 import lombok.NonNull;
 
-import java.util.Arrays;
-
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.erase;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
@@ -245,7 +243,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
 
     @Override
     public void close() {
-        erase(experiences);
+        release(experiences);
         subManager.close();
     }
 }

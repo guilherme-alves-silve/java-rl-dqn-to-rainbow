@@ -5,8 +5,11 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
 import br.com.guialves.rflr.algorithms.noisydqn.AgentNoisyNetDQN;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+
+import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
@@ -16,7 +19,12 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentNoisyNetDQNMain {
+
     public static void main() {
+        run();
+    }
+
+    public static Optional<DJLMemoryManagement.ManagerNode> run() {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
@@ -31,11 +39,13 @@ public class AgentNoisyNetDQNMain {
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
-                .saveModel(true)
+                .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
+                .renderRun(getBoolProp("agent.renderRun", "true"))
+                .runMaxTries(getIntProp("agent.maxTries", "1"))
                 .algorithmName("noisy_nets_dqn")
                 .build();
 
-        RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
+        return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
                 buildNoisyNetDQN(config, env, optimizer, plotTrackers, parent));
     }
 
