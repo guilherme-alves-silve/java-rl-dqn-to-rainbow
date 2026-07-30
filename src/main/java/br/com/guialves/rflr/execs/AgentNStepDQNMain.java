@@ -18,7 +18,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentNStepDQNMain {
-    static void main() {
+    public static void main() {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
@@ -76,7 +76,8 @@ public class AgentNStepDQNMain {
                     config.actions(),
                     parent
                 ),
-                plotTrackers
+                plotTrackers,
+                config.debugMemoryLeak()
         );
     }
 }

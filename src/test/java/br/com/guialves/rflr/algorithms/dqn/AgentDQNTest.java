@@ -84,7 +84,8 @@ class AgentDQNTest {
                 optimizer,
                 manager,
                 networkFactory,
-                plotTrackers
+                plotTrackers,
+                false
         );
     }
 
@@ -116,7 +117,8 @@ class AgentDQNTest {
         AgentDQN exploitativeAgent = new AgentDQN(
                 0.0f,
                 updateQTargetAtTimeN, minEpsilon, epsilonDecay, gamma,
-                env, optimizer, manager, () -> onlineNet, plotTrackers
+                env, optimizer, manager,
+                () -> onlineNet, plotTrackers,false
         );
 
         var oneBatchState = mock(NDArray.class);

@@ -26,8 +26,6 @@ import static br.com.guialves.rflr.gymnasium4j.EngineUtils.gradient;
  */
 public class DJLLoss {
 
-    private static final NDArray[] EMPTY = new NDArray[0];
-
     private DJLLoss() {
         throw new IllegalStateException("No DJLLoss!");
     }
@@ -56,7 +54,7 @@ public class DJLLoss {
         @Cleanup var sub = subMgr(manager, "scoped-back");
         @Cleanup var gradCol = gradient();
         var yPred = yPredBlock.get();
-        var lossesVal =  evaluate(lossFunc, sub, gradCol, yTarget, yPred, EMPTY);
+        var lossesVal =  evaluate(lossFunc, sub, gradCol, yTarget, yPred);
         return lossesVal.stopGradient().mean().getFloat();
     }
 
@@ -85,6 +83,7 @@ public class DJLLoss {
                                      final NDArray... arrays) {
         @Cleanup var sub = subMgr(manager, "scoped-back");
         @Cleanup var gradCol = gradient();
+        sub.tempAttachAll(arrays);
         var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
         return lossesVal.stopGradient().mean().getFloat();
     }
@@ -108,6 +107,7 @@ public class DJLLoss {
                                           final NDArray... arrays) {
         @Cleanup var sub = subMgr(manager, "scoped-back");
         @Cleanup var gradCol = gradient();
+        sub.tempAttachAll(arrays);
         var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
         return manager.ret(lossesVal.stopGradient());
     }
@@ -133,18 +133,16 @@ public class DJLLoss {
                                     final Function<NDArray[], NDArray> yPredBlock,
                                     final NDArray[] arrays) {
         var yPred = yPredBlock.apply(arrays);
-        return evaluate(lossFunc, sub, gradCol, yTarget, yPred, arrays);
+        return evaluate(lossFunc, sub, gradCol, yTarget, yPred);
     }
 
     private static NDArray evaluate(final Loss lossFunc,
                                     final NDManager sub,
                                     final GradientCollector gradCol,
                                     final NDArray yTarget,
-                                    final NDArray yPred,
-                                    final NDArray[] arrays) {
+                                    final NDArray yPred) {
         yTarget.tempAttach(sub);
-        sub.tempAttachAll(arrays);
-        yPred.tempAttach(sub);
+        yPred.attach(sub);
         var lossesVal = lossFunc.evaluate(new NDList(yTarget), new NDList(yPred));
         gradCol.backward(lossesVal);
         return lossesVal;

@@ -78,7 +78,7 @@ public class RLRunner {
             agent.save(path, modelFileName);
         }
 
-        double totalReward = agent.run();
+        double totalReward = agent.run(config.runMaxTries(), config.renderRun()).getLast();
         IO.println("Info: " + agent.lastInfo());
         IO.println("Replay Buffer size: " + replayBuffer.size());
         IO.println("Total episodes: " + agent.episodes());

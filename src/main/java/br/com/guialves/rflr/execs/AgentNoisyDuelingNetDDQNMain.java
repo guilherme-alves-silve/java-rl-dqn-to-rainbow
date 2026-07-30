@@ -18,7 +18,7 @@ import static java.lang.System.getProperty;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentNoisyDuelingNetDDQNMain {
-    static void main() {
+    public static void main() {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
@@ -62,7 +62,8 @@ public class AgentNoisyDuelingNetDDQNMain {
                     parent,
                     config.duelingType()
                 ),
-                plotTrackers
+                plotTrackers,
+                config.debugMemoryLeak()
         );
     }
 }

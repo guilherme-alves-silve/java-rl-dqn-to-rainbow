@@ -15,7 +15,7 @@ import ai.djl.training.tracker.Tracker;
 import org.junit.jupiter.api.Test;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DJLOptimizerTest {
 
     @Test
-    void shouldNotKeepGrowingAfterWarmupWhenUsingBackwardLossHelper() {
+    void shouldNotKeepGrowingAfterWarmupWhenUsingBackward() {
         try (var manager = NDManager.newBaseManager()) {
             var block = new SequentialBlock()
                     .add(Linear.builder().setUnits(8).optBias(true).build())
@@ -56,6 +56,7 @@ class DJLOptimizerTest {
             int afterStep3 = managedArrayCount(manager);
 
             assertTrue(afterWarmup > 0);
+            debugDump(manager);
             assertEquals(afterWarmup, afterStep1);
             assertEquals(afterStep1, afterStep2);
             assertEquals(afterStep2, afterStep3);

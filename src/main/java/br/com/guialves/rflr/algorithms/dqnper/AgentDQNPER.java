@@ -40,9 +40,11 @@ public class AgentDQNPER extends AbstractAgent {
                        Optimizer optimizer,
                        NDManager parent,
                        Supplier<IDeepQNetwork> networkFactory,
-                       PlotTrackers plotTrackers) {
+                       PlotTrackers plotTrackers,
+                       boolean debugMemoryLeak) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
-                gamma, env, optimizer, parent, networkFactory, plotTrackers);
+                gamma, env, optimizer, parent,
+                networkFactory, plotTrackers, debugMemoryLeak);
         this.initialBeta = beta;
     }
 
