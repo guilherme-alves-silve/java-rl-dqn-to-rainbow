@@ -80,13 +80,13 @@ def label(ax, x, y, text, fontsize=9, color=C_TEXT,
 
 def arrow(ax, x1, y1, x2, y2, color=C_MUTED, lw=1.2):
     ax.annotate("",
-        xy=(x2, y2), xytext=(x1, y1),
-        arrowprops=dict(
-            arrowstyle="-|>",
-            color=color, lw=lw,
-            mutation_scale=10
-        ), zorder=3
-    )
+                xy=(x2, y2), xytext=(x1, y1),
+                arrowprops=dict(
+                    arrowstyle="-|>",
+                    color=color, lw=lw,
+                    mutation_scale=10
+                ), zorder=3
+                )
 
 
 def neuron_row(ax, x_center, y, n, color, radius=0.18, spacing=0.5,
@@ -97,7 +97,7 @@ def neuron_row(ax, x_center, y, n, color, radius=0.18, spacing=0.5,
     for i in range(n):
         cx = x_start + i * spacing
         circle = plt.Circle((cx, y), radius,
-                             color=color, alpha=alpha, zorder=3)
+                            color=color, alpha=alpha, zorder=3)
         ax.add_patch(circle)
     if label_text:
         ax.text(x_center, y - 0.55, label_text,
@@ -111,10 +111,10 @@ def shared_layers(ax, title):
 
     # input layer
     neuron_row(ax, 5, 16.2, 5, C_SHARED, alpha=0.5)
-    ax.text(5, 15.72, "input  s", fontsize=7.5, color=C_MUTED,
-            ha="center", va="top")
+    ax.text(5, 15.78, "input  s", fontsize=7.5, color=C_MUTED,
+            ha="center", va="center")
 
-    arrow(ax, 5, 15.8, 5, 15.2)
+    arrow(ax, 5, 15.55, 5, 15.2)
 
     # hidden layer 1
     rounded_box(ax, 2.2, 14.4, 5.6, 0.7, C_SHARED, alpha=0.25)
@@ -230,7 +230,7 @@ arrow(ax, 7.6, 8.7, 5.0, 7.85, color=C_DUELING_A)
 # combination formula
 rounded_box(ax, 1.8, 6.9, 6.4, 0.85, "#888780", alpha=0.12,
             edgecolor="#888780", lw=0.8)
-label(ax, 5, 7.32, "Q(s,a) = V(s) + A(s,a) − mean[A(s,·)]",
+label(ax, 5, 7.32, "$Q(s,a) = V(s) + A(s,a) - \\mathrm{mean}[A(s,\\cdot)]$",
       fontsize=8.2, color=C_TEXT)
 
 arrow(ax, 5, 6.9, 5, 6.25)
@@ -284,63 +284,80 @@ arrow(ax, 5, 11.9, 5, 11.2)
 rounded_box(ax, 1.2, 10.0, 7.6, 1.0, C_C51, alpha=0.15,
             edgecolor=C_C51, lw=1.2)
 label(ax, 5, 10.52,
-      f"linear  (512 → {N_ATOMS}×{N_ACTIONS} = {N_ATOMS*N_ACTIONS})",
+      f"linear  ($512 \\rightarrow {N_ACTIONS} \\times {N_ATOMS} = {N_ATOMS*N_ACTIONS}$)",
       fontsize=8.5, color="#633806")
 label(ax, 5, 10.08, "one distribution per action", fontsize=7.5, color=C_MUTED)
 
 arrow(ax, 5, 10.0, 5, 9.4)
-ax.text(5, 9.28, "softmax per action (column-wise)",
+ax.text(5, 9.28, "softmax per action (row-wise, dim=1)",
         fontsize=7.5, color=C_MUTED, ha="center")
 
-# matrix of distributions
-cell_w = 0.98
-cell_h = 0.38
-x0 = 0.8
-y0_top = 9.0
+# matrix of distributions — rows = actions (fixed), columns = atoms
+cell_w = 0.85
+cell_h = 0.45
+gap    = 0.08
+x0     = 0.9
+y_mat_top = 9.0 - 0.3   # leave room for the column headers above
 
-for j in range(N_ACTIONS):
-    cx = x0 + j * (cell_w + 0.12)
-    # column header
-    ax.text(cx + cell_w/2, y0_top + 0.18,
-            f"a{j+1}", fontsize=7, color="#633806",
-            ha="center", va="center", fontweight="500")
-    for i in range(N_ATOMS):
-        cy = y0_top - (i + 0.5) * (cell_h + 0.04) - 0.12
-        intensity = np.exp(-0.5 * ((i - N_ATOMS//2 + (j-2)*0.5) / 2.0)**2)
+mat_w = N_ATOMS * (cell_w + gap) - gap
+mat_h = N_ACTIONS * (cell_h + gap) - gap
+
+# padding card around the matrix grid (~2px equivalent breathing room)
+pad = 0.14
+rounded_box(ax,
+            x0 - pad, (y_mat_top - mat_h) - pad,
+            mat_w + 2 * pad, mat_h + 2 * pad,
+            "white", alpha=0.9, edgecolor="none", lw=0.6, zorder=1)
+
+# column headers (atoms)
+for z_idx in range(N_ATOMS):
+    cx = x0 + z_idx * (cell_w + gap)
+    ax.text(cx + cell_w / 2, y_mat_top + 0.18,
+            f"$z_{z_idx}$", fontsize=6.5, color=C_MUTED,
+            ha="center", va="center")
+
+# action rows + cells
+for a_idx in range(N_ACTIONS):
+    cy = y_mat_top - (a_idx + 1) * (cell_h + gap)
+    ax.text(x0 - 0.18, cy + cell_h / 2,
+            f"$a_{a_idx+1}$", fontsize=7, color="#633806",
+            ha="right", va="center", fontweight="500")
+    for z_idx in range(N_ATOMS):
+        cx = x0 + z_idx * (cell_w + gap)
+        intensity = np.exp(-0.5 * ((z_idx - N_ATOMS//2 + (a_idx-2)*0.5) / 2.0) ** 2)
         color_val = plt.cm.YlOrBr(0.2 + 0.6 * intensity)
         rounded_box(ax, cx, cy, cell_w, cell_h,
                     color_val, alpha=0.9, lw=0.3,
-                    edgecolor="#BA7517")
-        if j == 0:
-            ax.text(0.55, cy + cell_h/2,
-                    f"z{i}", fontsize=6.2, color=C_MUTED,
-                    ha="right", va="center")
+                    edgecolor="#BA7517", zorder=2)
 
-# axis labels
-ax.text(x0 - 0.05, y0_top - (N_ATOMS/2) * (cell_h + 0.04),
-        "atoms\n(N)", fontsize=7, color=C_MUTED,
-        ha="right", va="center", rotation=90)
+# axis label
+ax.text(x0 - 0.55, y_mat_top - mat_h / 2,
+        "actions", fontsize=7, color=C_MUTED,
+        ha="center", va="center", rotation=90)
 
-ax.text(5, y0_top - N_ATOMS * (cell_h + 0.04) - 0.35,
-        f"output: {N_ATOMS}×{N_ACTIONS} matrix  (p per atom per action)",
+ax.text(5, y_mat_top - mat_h - pad - 0.35,
+        f"output: {N_ACTIONS}×{N_ATOMS} matrix  (rows=actions, cols=atoms)",
         fontsize=7.8, color=C_MUTED, ha="center")
+ax.text(5, y_mat_top - mat_h - pad - 0.63,
+        f"atoms (N={N_ATOMS}) →",
+        fontsize=7, color=C_MUTED, ha="center")
 
 # formula box
-y_form = y0_top - N_ATOMS * (cell_h + 0.04) - 0.75
+y_form = y_mat_top - mat_h - pad - 1.0
 rounded_box(ax, 0.8, y_form - 1.9, 8.4, 2.0, C_C51, alpha=0.06,
             edgecolor=C_C51, lw=0.8)
 label(ax, 5, y_form - 0.22, "Output layer params:", fontsize=8,
       color=C_MUTED, weight="500")
 c51_params = 512 * N_ATOMS * N_ACTIONS + N_ATOMS * N_ACTIONS
 label(ax, 5, y_form - 0.70,
-      f"512 × ({N_ATOMS}×{N_ACTIONS})  +  {N_ATOMS}×{N_ACTIONS}  =  {c51_params:,}",
+      f"$512 \\times ({N_ACTIONS}\\times{N_ATOMS}) + {N_ATOMS}\\times{N_ACTIONS} = {c51_params:,}$",
       fontsize=8.8, color="#633806", weight="500")
 label(ax, 5, y_form - 1.12,
-      f"= {N_ATOMS}× more params than DQN final layer",
+      f"$= {N_ATOMS}\\times$ more params than DQN final layer",
       fontsize=8, color=C_MUTED)
 label(ax, 5, y_form - 1.55,
-      "Q emerges: E[Z] = Σ z_i · p_i", fontsize=8.5,
-      color="#633806", weight="500")
+      f"$Q(s,a) = \\mathbb{{E}}[Z] = \\sum_{{i=0}}^{{{N_ATOMS} - 1}} z_i\\,p_i$",
+      fontsize=8.5, color="#633806", weight="500")
 
 # intuition note
 y_note = y_form - 2.15
@@ -351,7 +368,7 @@ label(ax, 5, y_note - 0.28, "How it works", fontsize=8.5,
 for i, line in enumerate([
     "Network maps state to a full",
     "return distribution per action.",
-    "Softmax per column → valid p_i.",
+    "Softmax per row → valid p_i.",
     "Q is derived, not learned.",
     "More expressive, higher cost."
 ]):
@@ -369,9 +386,9 @@ legend_patches = [
 fig.legend(handles=legend_patches,
            loc="lower center", ncol=5,
            fontsize=8.5, framealpha=0.8,
-           bbox_to_anchor=(0.5, 0.005))
+           bbox_to_anchor=(0.5, 0.0001))
 
-OUT = "./graphics/output_layer_comparison.jpg"
+OUT = "./graphics/output_layer_comparison_dqn_duelingdqn_c51.jpg"
 plt.savefig(OUT, dpi=160, bbox_inches="tight",
             facecolor=fig.get_facecolor())
 plt.close()

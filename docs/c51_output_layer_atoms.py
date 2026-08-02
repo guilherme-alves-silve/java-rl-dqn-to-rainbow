@@ -66,10 +66,10 @@ def label(ax, x, y, text, fontsize=9, color=C_TEXT,
 
 def arrow(ax, x1, y1, x2, y2, color=C_MUTED, lw=1.2):
     ax.annotate("",
-        xy=(x2, y2), xytext=(x1, y1),
-        arrowprops=dict(arrowstyle="-|>", color=color,
-                        lw=lw, mutation_scale=10),
-        zorder=3)
+                xy=(x2, y2), xytext=(x1, y1),
+                arrowprops=dict(arrowstyle="-|>", color=color,
+                                lw=lw, mutation_scale=10),
+                zorder=3)
 
 
 def neuron_row(ax, x_center, y, n, color, radius=0.18,
@@ -115,15 +115,15 @@ def shared_backbone(ax, ylim_top):
 # ── Per-column layout ──────────────────────────────────────────────────────────
 for col, N in enumerate(ATOM_COUNTS):
     ax  = axes[col]
-    out = N * N_ACTIONS
+    out = N_ACTIONS * N
     params = HIDDEN * out + out
 
     # dynamic ylim based on N
-    # matrix height grows with N
-    cell_h  = min(0.55, 8.5 / N)   # shrink cells as N grows
-    cell_w  = 1.28
+    # matrix width grows with N (columns = atoms); rows = actions, fixed at N_ACTIONS
+    cell_h  = 0.55                  # fixed row height (one row per action)
+    cell_w  = min(1.28, 8.5 / N)    # shrink cells as N grows (one column per atom)
     gap     = 0.06
-    mat_h   = N * (cell_h + gap)
+    mat_h   = N_ACTIONS * (cell_h + gap)
     total_h = 5.6 + 1.8 + mat_h + 3.2   # backbone + head + matrix + info
     ylim    = total_h + 1.0
 
@@ -141,7 +141,7 @@ for col, N in enumerate(ATOM_COUNTS):
     rounded_box(ax, 1.0, y_head - 1.2, 8.0, 1.0,
                 C_C51, alpha=0.15, edgecolor=C_C51, lw=1.2)
     label(ax, 5, y_head - 0.78,
-          f"linear  (512 → {N}×{N_ACTIONS} = {out})",
+          f"linear  ($512 \\rightarrow {N_ACTIONS} \\times {N} = {out}$)",
           fontsize=8.5, color="#633806", weight="500")
     label(ax, 5, y_head - 1.08,
           "one distribution per action",
@@ -149,50 +149,65 @@ for col, N in enumerate(ATOM_COUNTS):
 
     arrow(ax, 5, y_head - 1.2, 5, y_head - 1.75)
     label(ax, 5, y_head - 1.92,
-          "softmax per action (column-wise)",
+          "softmax per action (row-wise, dim=1)",
           fontsize=7.2, color=C_MUTED)
 
-    # distribution matrix
+    # distribution matrix — rows = actions (fixed), columns = atoms (grows with N)
     y_mat_top = y_head - 2.4
     x0 = 0.85
 
-    # column headers
-    for j in range(N_ACTIONS):
-        cx = x0 + j * (cell_w + gap)
-        label(ax, cx + cell_w / 2, y_mat_top + 0.22,
-              f"a{j+1}", fontsize=7.5, color="#633806", weight="500")
+    # padding card around the matrix grid (~2px equivalent breathing room)
+    pad = 0.14
+    mat_x_left  = x0
+    mat_x_right = x0 + N * (cell_w + gap) - gap
+    mat_y_top   = y_mat_top - gap
+    mat_y_bot   = y_mat_top - N_ACTIONS * (cell_h + gap)
+    rounded_box(ax,
+                mat_x_left - pad, mat_y_bot - pad,
+                (mat_x_right - mat_x_left) + 2 * pad,
+                (mat_y_top - mat_y_bot) + 2 * pad,
+                "white", alpha=0.9, edgecolor="none", lw=0.6, zorder=1)
 
-    # atom row labels + cells
-    for i in range(N):
-        cy = y_mat_top - (i + 1) * (cell_h + gap)
+    # column headers (atoms)
+    if N <= 10:
+        for z_idx in range(N):
+            cx = x0 + z_idx * (cell_w + gap)
+            label(ax, cx + cell_w / 2, y_mat_top + 0.22,
+                  f"$z_{z_idx}$", fontsize=6.5, color=C_MUTED)
 
-        # row label (only for small N to avoid clutter)
-        if N <= 10:
-            label(ax, x0 - 0.18, cy + cell_h / 2,
-                  f"z{i}", fontsize=6.5, color=C_MUTED,
-                  ha="right", va="center")
+    # action row labels + cells
+    for a_idx in range(N_ACTIONS):
+        cy = y_mat_top - (a_idx + 1) * (cell_h + gap)
 
-        for j in range(N_ACTIONS):
-            cx = x0 + j * (cell_w + gap)
+        # row label
+        label(ax, x0 - 0.28, cy + cell_h / 2,
+              f"$a_{a_idx+1}$", fontsize=7.5, color="#633806",
+              weight="500", ha="right", va="center")
+
+        for z_idx in range(N):
+            cx = x0 + z_idx * (cell_w + gap)
             # gaussian-ish intensity varying by atom and action
-            mu_i = N * (0.3 + 0.07 * j)
-            intensity = np.exp(-0.5 * ((i - mu_i) / (N * 0.22)) ** 2)
+            mu_a = N * (0.3 + 0.07 * a_idx)
+            intensity = np.exp(-0.5 * ((z_idx - mu_a) / (N * 0.22)) ** 2)
             color_val = plt.cm.YlOrBr(0.15 + 0.72 * intensity)
             rounded_box(ax, cx, cy, cell_w, cell_h,
                         color_val, alpha=0.92,
                         edgecolor="#BA7517", lw=0.25, zorder=2)
 
-    # "atoms (N)" y-axis label
-    ax.text(x0 - 0.45,
+    # "actions" y-axis label
+    ax.text(x0 - 0.6,
             y_mat_top - mat_h / 2,
-            f"atoms (N={N})",
+            "actions",
             fontsize=7, color=C_MUTED,
             ha="center", va="center", rotation=90)
 
-    y_below_mat = y_mat_top - mat_h - 0.15
+    y_below_mat = y_mat_top - mat_h - pad - 0.2
     label(ax, 5, y_below_mat,
-          f"output: {N}×{N_ACTIONS} matrix  (p per atom per action)",
+          f"output: {N_ACTIONS}×{N} matrix  (rows=actions, cols=atoms)",
           fontsize=7.5, color=C_MUTED)
+    label(ax, 5, y_below_mat - 0.28,
+          f"atoms (N={N}) →",
+          fontsize=7, color=C_MUTED)
 
     # params info box
     y_info = y_below_mat - 0.5
@@ -203,17 +218,17 @@ for col, N in enumerate(ATOM_COUNTS):
           "Output layer params:", fontsize=8,
           color=C_MUTED, weight="500")
     label(ax, 5, y_info - 0.72,
-          f"512 × {out}  +  {out}  =  {params:,}",
+          f"$512 \\times {out} + {out} = {params:,}$",
           fontsize=9, color="#633806", weight="500")
 
     ratio = params / (HIDDEN * N_ACTIONS + N_ACTIONS)
     label(ax, 5, y_info - 1.12,
-          f"= {ratio:.1f}× DQN final layer params",
+          f"$= {ratio:.1f}\\times$ DQN final layer params",
           fontsize=8, color=C_MUTED)
 
     label(ax, 5, y_info - 1.55,
-          f"Q via E[Z] = Σ z_i · p_i  ({N} terms)",
-          fontsize=8, color="#633806")
+          f"$Q(s,a) = \\mathbb{{E}}[Z] = \\sum_{{i=0}}^{{{N} - 1}} z_i \\, p_i$",
+          fontsize=8.5, color="#633806")
 
 # ── Shared bottom annotation ───────────────────────────────────────────────────
 fig.text(0.5, 0.005,
