@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.algorithms.networks;
 
-import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
@@ -13,13 +12,12 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import static br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP.withType;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DeepQNetworkCNNTest {
 
-    public static final float SAFE_FLOAT_COMPARISON = 1e-6f;
+    private static final float DELTA = 1e-6f;
     private static NDManager manager;
 
     @BeforeAll
@@ -96,8 +94,8 @@ class DeepQNetworkCNNTest {
         assertEquals(originalOutput.getShape(), loadedOutput.getShape());
         assertTrue(originalOutput.allClose(
                 loadedOutput,
-                SAFE_FLOAT_COMPARISON,
-                SAFE_FLOAT_COMPARISON,
+                DELTA,
+                DELTA,
                 false
         ));
     }

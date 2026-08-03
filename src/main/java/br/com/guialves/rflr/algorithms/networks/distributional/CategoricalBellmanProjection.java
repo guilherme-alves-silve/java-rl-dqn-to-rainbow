@@ -1,6 +1,7 @@
 package br.com.guialves.rflr.algorithms.networks.distributional;
 
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import lombok.Cleanup;
 import lombok.Getter;
@@ -40,8 +41,12 @@ public class CategoricalBellmanProjection {
         this.supportVectorZ = generateSupportVectorZ(atoms, vMin, zDelta);
     }
 
-    public float[] supportVectorZ() {
+    public float[] support() {
         return supportVectorZ.clone();
+    }
+
+    public NDArray support(NDManager mgr) {
+        return mgr.create(supportVectorZ);
     }
 
     private float[] generateSupportVectorZ(int atoms, float vMin, float zDelta) {
@@ -74,7 +79,7 @@ public class CategoricalBellmanProjection {
         float[] rewardsArr = rewards.reshape(-1).toFloatArray();
         float[] probNextDistArr = probNextDist.reshape(-1).toFloatArray();
         float[] donesArr = dones.toFloatArray();
-        float[] massDistribution = new float[batchSize * atoms];
+        float[] massDist = new float[batchSize * atoms];
 
         for (int batch = 0; batch < batchSize; ++batch) {
             int offset = batch * atoms;
@@ -82,23 +87,23 @@ public class CategoricalBellmanProjection {
             float notDone = 1 - donesArr[batch];
             for (int atomIdx = 0; atomIdx < atoms; ++atomIdx) {
                 // Tz = r + γ * z_j * (1 - done)
-                float targetProjection = Math.clamp(reward + gamma * supportVectorZ[atomIdx] * notDone, vMin, vMax);
+                float targetProj = Math.clamp(reward + gamma * supportVectorZ[atomIdx] * notDone, vMin, vMax);
                 // b = (Tz - vMin) / ∆z
-                float baseIdx = (targetProjection - vMin) / zDelta;
+                float baseIdx = (targetProj - vMin) / zDelta;
                 int lowerIdx = (int) Math.floor(baseIdx);
                 int upperIdx = (int) Math.ceil(baseIdx);
                 // m_l += p(s', a, θ-) * (u - b)
                 // m_u += p(s', a, θ-) * (b - l)
                 if (lowerIdx == upperIdx) {
-                    massDistribution[offset + lowerIdx] += probNextDistArr[atomIdx];
+                    massDist[offset + lowerIdx] += probNextDistArr[atomIdx];
                 } else {
-                    massDistribution[offset + lowerIdx] += probNextDistArr[atomIdx] * (upperIdx - baseIdx);
-                    massDistribution[offset + upperIdx] += probNextDistArr[atomIdx] * (baseIdx - lowerIdx);
+                    massDist[offset + lowerIdx] += probNextDistArr[atomIdx] * (upperIdx - baseIdx);
+                    massDist[offset + upperIdx] += probNextDistArr[atomIdx] * (baseIdx - lowerIdx);
                 }
             }
         }
 
-        var massDistributionTarget = sub.create(massDistribution, new Shape(batchSize, SELECTED_ACTION_PER_BATCH, atoms));
-        return sub.ret(massDistributionTarget);
+        var massDistTarget = sub.create(massDist, new Shape(batchSize, SELECTED_ACTION_PER_BATCH, atoms));
+        return sub.ret(massDistTarget);
     }
 }

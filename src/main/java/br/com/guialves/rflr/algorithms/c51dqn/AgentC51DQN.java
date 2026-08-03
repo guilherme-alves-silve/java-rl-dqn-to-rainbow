@@ -72,8 +72,6 @@ public class AgentC51DQN extends AbstractAgent {
                                 NDManager sub) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
-        //
-
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQDist = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')

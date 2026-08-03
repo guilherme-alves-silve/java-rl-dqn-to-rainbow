@@ -6,7 +6,13 @@ import ai.djl.ndarray.types.Shape;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.stream.Stream;
+
+import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.N_ATOMS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -37,24 +43,34 @@ class CategoricalBellmanProjectionTest {
                 6.0f, 6.3999996f, 6.800001f, 7.200001f, 7.6000004f, 8.0f, 8.4f,
                 8.800001f, 9.200001f, 9.6f, 10.0f};
 
-        assertArrayEquals(expectedZSupport, catProj.supportVectorZ(), DELTA);
+        assertArrayEquals(expectedZSupport, catProj.support(), DELTA);
     }
 
-    @Test
-    void shouldMakeBellmanProjectionWithCorrectShape() {
+    @ParameterizedTest(name = "[{index}] {arguments}")
+    @MethodSource("provideInputShapesRandomNormal")
+    void shouldMakeBellmanProjectionWithCorrectShape(Shape probNextDistShape) {
         int batchSize = 6;
-        int actions = 4;
         int atoms = 51;
         // discount factor
         float gamma = 0.9f;
         var expectedShape = new Shape(batchSize, 1, atoms);
-        var ndDist = manager.randomNormal(0f, 1f, new Shape(batchSize, actions * atoms), DataType.FLOAT32);
-        var ndRewards = manager.create(new float[]{0.1f, 0.2f, 0.3f, 0.4f, 0.5f, -1.0f});
-        var ndDones = manager.create(new float[] {0f, 0f, 0f, 0f, 0f, 1f});
+        var probNextDist = manager.randomNormal(0f, 1f, probNextDistShape, DataType.FLOAT32);
+        var rewards = manager.create(new float[]{0.1f, 0.2f, 0.3f, 0.4f, 0.5f, -1.0f});
+        var dones = manager.create(new float[] {0f, 0f, 0f, 0f, 0f, 1f});
 
         var catProj = new CategoricalBellmanProjection();
-        var ndOutProj = catProj.project(ndDist, ndRewards, ndDones, gamma);
+        var massDistTarget = catProj.project(probNextDist, rewards, dones, gamma);
 
-        assertEquals(expectedShape, ndOutProj.getShape());
+        assertEquals(expectedShape, massDistTarget.getShape());
+    }
+
+    static Stream<Arguments> provideInputShapesRandomNormal() {
+        int batchSize = 6;
+        int actions = 4;
+        return Stream.of(
+                Arguments.of(new Shape(batchSize * actions * N_ATOMS), "allFlatShape"),
+                Arguments.of(new Shape(batchSize, actions * N_ATOMS), "flattenShape"),
+                Arguments.of(new Shape(batchSize, actions, N_ATOMS), "distShape")
+        );
     }
 }

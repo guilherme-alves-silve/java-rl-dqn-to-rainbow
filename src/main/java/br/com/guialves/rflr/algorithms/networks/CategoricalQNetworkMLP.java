@@ -12,32 +12,50 @@ import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
 import br.com.guialves.rflr.djlutils.DJLUtils;
+import lombok.Cleanup;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
+import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
- * Architecture based on the link below:
- * <a href="https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html">...</a>
- * For coding reference:
- * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-djl.html">...</a>
- * <a href="https://d2l.djl.ai/chapter_multilayer-perceptrons/mlp-djl.html">...</a>
+ * Categorical (C51) distributional Q-network.
+ *
+ * <p>Reference: <a href="https://arxiv.org/abs/1707.06887">A Distributional Perspective on
+ * Reinforcement Learning</a>.
+ *
+ * <p>The network outputs a softmax distribution over {@code atoms} support values for each
+ * action. The shape returned by {@link #forwardDist(NDList)} is
+ * {@code (batch, atoms, actions)}; the Q-value for each (s, a) is recovered as
+ * {@code sum(z_i * p_i(s, a))} over the atom dimension (handled by {@link #forward(NDArray)}).
+ *
+ * <p>Default support: {@code Vmin = -10}, {@code Vmax = 10}, {@code atoms = 51}.
  */
 @Slf4j
 public class CategoricalQNetworkMLP implements IDeepQNetwork {
+
+    private final int[] the3rdAxis = new int[] {2};
 
     private boolean training;
     private final NDManager subManager;
     private final int observations;
     private final int actions;
+    private final int atoms;
     private final CategoricalBellmanProjection catProj;
     private final Model model;
     private final SequentialBlock net;
     private final ParameterStore parameterStore;
+    private final NDArray support;
+
+    public CategoricalQNetworkMLP(int observations,
+                                  int actions,
+                                  NDManager parent) {
+        this(observations, actions, N_ATOMS, V_MIN, V_MAX, parent);
+    }
 
     public CategoricalQNetworkMLP(int observations,
                                   int actions,
@@ -54,19 +72,20 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
     }
 
     @SneakyThrows
-    public CategoricalQNetworkMLP(int observations,
-                                  int actions,
-                                  CategoricalBellmanProjection catProj,
-                                  Path modelPath,
-                                  String prefix,
-                                  NDManager parent) {
+    CategoricalQNetworkMLP(int observations,
+                           int actions,
+                           CategoricalBellmanProjection catProj,
+                           Path modelPath,
+                           String prefix,
+                           NDManager parent) {
         this.observations = observations;
         this.actions = actions;
         this.catProj = catProj;
         this.subManager = subMgr(parent, getClass());
 
         // Configure C51 Parameters
-        int atoms = catProj.atoms();
+        this.atoms = catProj.atoms();
+        this.support = catProj.support(subManager);
         this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
         net.add(linear(128))
@@ -82,16 +101,61 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
             model.load(modelPath, prefix);
             this.training = false;
         } else {
-            net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations, atoms));
+            net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
             DJLUtils.setGradients(model.getBlock());
             this.training = true;
         }
     }
 
+    /**
+     * Applies log-softmax transformation to action distributions over atom supports.
+     *
+     * <p>For each action, the distribution over atoms is converted to log-probabilities
+     * using log-softmax. While the C51 paper describes using standard softmax for
+     * {@code p(s, a; θ)}, log-softmax is preferred for numerical stability as it
+     * prevents overflow during exponentiation.</p>
+     *
+     * <p>The output shape is {@code (batch, actions, atoms)}, with log-softmax applied along the atoms
+     * dimension (index 2).</p>
+     *
+     * <p>Reference:
+     * <a href="https://d2l.djl.ai/chapter_linear-networks/softmax-regression-djl.html">
+     * Softmax Regression — DJL</a></p>
+     *
+     * @param inputs    the input logits for each action-atom pair
+     * @return the log-softmax transformed probabilities in the specified shape
+     */
+    public NDArray forwardDist(NDList inputs) {
+        @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, inputs, training).singletonOrThrow();
+        return scoped(it -> it.reshape(-1, actions, atoms).logSoftmax(2), logits);
+    }
+
+    /**
+     * Computes the Q-value for each (batch, action) pair as the expectation of the
+     * categorical return distribution over the atom support {@code z}:
+     * {@code Q(s, a) = sum_i z_i * p_i(s, a)}. Works for both online ({@code p(s, a)})
+     * and target-network ({@code p(s', a)}) distributions.
+     *
+     * @param distribution categorical distribution over atoms, shape {@code (batch, actions, atoms)}
+     * @return Q-values, shape {@code (batch, actions)}
+     * @throws IllegalStateException if {@code distribution} is not rank 3
+     */
+    public NDArray qValuesFromDist(NDArray distribution) {
+        if (distribution.getShape().dimension() != 3) {
+            throw new IllegalStateException("Invalid shape, must be (batch, actions, atoms)!");
+        }
+        // (batch, actions, atoms) * (1, atoms) -> (batch, actions)
+        return scoped(array -> {
+            var dist = array[0];
+            var sup = array[1];
+            return dist.mul(sup.expandDims(0)).sum(the3rdAxis);
+        }, distribution, support);
+    }
+
     @Override
     public NDList forward(NDList input) {
-        var out = safeForwardSingle(subManager, net, parameterStore, input, training);
-        return null;
+        var dist = forwardDist(input);
+        return new NDList(qValuesFromDist(dist));
     }
 
     @Override
