@@ -177,7 +177,7 @@ public class DJLMemoryManagement {
      * @return a {@link ManagerNode} describing the full hierarchy, or
      *         {@link Optional#empty()} if the manager is not a
      *         {@code BaseNDManager} (which means the reflection probe
-     *         cannot run and we refuse to fabricate a partial tree)
+     *         cannot run, and we refuse to fabricate a partial tree)
      */
     @SneakyThrows
     @SuppressWarnings("unchecked")
@@ -201,7 +201,7 @@ public class DJLMemoryManagement {
                                 : resource.getClass().getSimpleName(),
                         counting()));
 
-        List<ManagerNode> children = new ArrayList<>();
+        var children = new ArrayList<ManagerNode>();
         for (var element : resources.values()) {
             if (element instanceof BaseNDManager innerBase) {
                 var child = getDebugDump(innerBase);
@@ -361,6 +361,11 @@ public class DJLMemoryManagement {
         parent.setName("parent-" + parent.getName());
         parent.cap();
         return parent;
+    }
+
+    public static NDManager setName(NDManager mgr, String name) {
+        mgr.setName(name + "-" + mgr.getName());
+        return mgr;
     }
 
     public static NDArray setName(NDArray array, String name) {

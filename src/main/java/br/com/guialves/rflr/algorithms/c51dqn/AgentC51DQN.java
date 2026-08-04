@@ -73,7 +73,7 @@ public class AgentC51DQN extends AbstractAgent {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
+        @Cleanup var targetQDist = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(the2ndAxis, true);
             // gamma * max Q(s', a')
@@ -86,7 +86,7 @@ public class AgentC51DQN extends AbstractAgent {
                     .stopGradient();
         });
 
-        float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
+        float lossItem = backwardLoss(sub, lossFunc, targetQDist, () -> {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)

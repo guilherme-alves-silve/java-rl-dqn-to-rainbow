@@ -16,6 +16,10 @@ import static java.util.Arrays.stream;
 
 public class DJLUtils {
 
+    private DJLUtils() {
+        throw new IllegalStateException("No DJLUtils!");
+    }
+
     public static void copy(final Block srcBlock,
                             final Block blockDst) {
         var allIdx = new NDIndex("...");
