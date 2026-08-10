@@ -1,6 +1,10 @@
 package br.com.guialves.rflr.algorithms.c51dqn;
 
+import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.types.DataType;
+import ai.djl.ndarray.types.Shape;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
@@ -23,6 +27,7 @@ public class AgentC51DQN extends AbstractAgent {
     private static final int AXIS_1 = 1;
     private final CategoricalQNetworkMLP onlineCatNet;
     private final CategoricalQNetworkMLP targetCatNet;
+    private final NDArray atomsBroadcaster;
 
     public AgentC51DQN(float epsilon,
                        int updateQTargetAtTimeN,
@@ -44,6 +49,8 @@ public class AgentC51DQN extends AbstractAgent {
 
         this.onlineCatNet = (CategoricalQNetworkMLP) onlineNet;
         this.targetCatNet = (CategoricalQNetworkMLP) targetNet;
+        this.atomsBroadcaster = this.targetCatNet.subManager().ones(new Shape(1, 1, targetCatNet.atoms()))
+                .stopGradient();
     }
 
     /**
@@ -92,23 +99,28 @@ public class AgentC51DQN extends AbstractAgent {
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var projectDist = targetCatNet.forwardBellmanProj(
-                samples.nextStates(),
-                samples.rewards(),
-                samples.dones(),
-                gamma,
-        targetMassDist -> {
+        @Cleanup var projectDist = targetCatNet.forwardDist(new NDList(samples.nextStates()), targetMassDist -> {
             // arg max((batch, actions, atoms), dim=1) -> expand((batch, actions*), dim=1) -> (batch, 1, actions*)
-            var bestActions = targetMassDist.argMax(AXIS_1).expandDims(AXIS_1);
+            var qNextValues = targetCatNet.qValuesFromDist(targetMassDist);
+            var nextActions = qNextValues.argMax(AXIS_1)
+                    // (batch, 1, 1)
+                    .reshape(-1, 1, 1)
+                    // (batch, 1, atoms)
+                    .mul(atomsBroadcaster);
             // now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
             // Bellman Projection - mi
-            return targetMassDist.gather(bestActions, AXIS_1).stopGradient();
+            var bestNextProbDist = targetMassDist.gather(nextActions, AXIS_1).stopGradient();
+            return targetCatNet.projectBellman(bestNextProbDist, samples.rewards(), samples.dones(), gamma);
         });
 
         // Loss = sum mi * ln (p(s, a, theta))
         float lossItem = backwardLoss(sub, lossFunc, projectDist, array -> {
             var states = array[0];
-            var actions = array[1].expandDims(AXIS_1);
+            var actions = array[1]
+                    // (batch, 1, 1)
+                    .reshape(-1, 1, 1)
+                    // (batch, 1, atoms)
+                    .mul(atomsBroadcaster);
             // p(s, a, theta)
             return onlineCatNet.forwardLogDist(states, prob -> prob.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
