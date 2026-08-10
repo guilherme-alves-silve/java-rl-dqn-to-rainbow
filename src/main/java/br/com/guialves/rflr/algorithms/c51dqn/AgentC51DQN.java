@@ -92,21 +92,21 @@ public class AgentC51DQN extends AbstractAgent {
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetMassDistBestActions = targetCatNet.forwardBellmanProj(
+        @Cleanup var projectDist = targetCatNet.forwardBellmanProj(
                 samples.nextStates(),
                 samples.rewards(),
                 samples.dones(),
                 gamma,
         targetMassDist -> {
-            // arg max((batch, actions, atoms), dim=1) -> (batch, actions*)
+            // arg max((batch, actions, atoms), dim=1) -> expand((batch, actions*), dim=1) -> (batch, 1, actions*)
             var bestActions = targetMassDist.argMax(AXIS_1).expandDims(AXIS_1);
             // now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
             // Bellman Projection - mi
-            return targetMassDist.gather(bestActions, AXIS_1);
+            return targetMassDist.gather(bestActions, AXIS_1).stopGradient();
         });
 
         // Loss = sum mi * ln (p(s, a, theta))
-        float lossItem = backwardLoss(sub, lossFunc, targetMassDistBestActions, array -> {
+        float lossItem = backwardLoss(sub, lossFunc, projectDist, array -> {
             var states = array[0];
             var actions = array[1].expandDims(AXIS_1);
             // p(s, a, theta)
