@@ -25,8 +25,6 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  */
 public class AgentC51DQNMain {
 
-    private static final int AXIS_1 = 1;
-
     static void main() {
         run();
     }
@@ -61,7 +59,7 @@ public class AgentC51DQNMain {
 
             @Override
             public Loss lossFunc() {
-                return new CategoricalCrossEntropyLoss(AXIS_1);
+                return new CategoricalCrossEntropyLoss();
             }
         });
     }

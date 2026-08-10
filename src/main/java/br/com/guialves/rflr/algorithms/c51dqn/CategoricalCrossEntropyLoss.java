@@ -6,11 +6,10 @@ import ai.djl.training.loss.Loss;
 
 public class CategoricalCrossEntropyLoss extends Loss {
 
-    private final int[] classAxis;
+    private static final int[] AXIS_1_ARR = new int[] {1};
 
-    public CategoricalCrossEntropyLoss(int classAxisPos) {
+    public CategoricalCrossEntropyLoss() {
         super(CategoricalCrossEntropyLoss.class.getSimpleName());
-        this.classAxis = new int[] {classAxisPos};
     }
 
     @Override
@@ -18,7 +17,7 @@ public class CategoricalCrossEntropyLoss extends Loss {
         var pred = dist.singletonOrThrow();
         var lab = massDist.singletonOrThrow();
         // pred must be log softmax
-        var loss = pred.mul(lab).neg().sum(classAxis, true);
+        var loss = pred.mul(lab).neg().sum(AXIS_1_ARR, true);
         return loss.mean();
     }
 }
