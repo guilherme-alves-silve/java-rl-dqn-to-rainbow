@@ -99,17 +99,17 @@ public class AgentC51DQN extends AbstractAgent {
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var projectDist = targetCatNet.forwardDist(new NDList(samples.nextStates()), targetMassDist -> {
+        @Cleanup var projectDist = targetCatNet.forwardDist(samples.nextStates(), probNextDist -> {
             // arg max((batch, actions, atoms), dim=1) -> expand((batch, actions*), dim=1) -> (batch, 1, actions*)
-            var qNextValues = targetCatNet.qValuesFromDist(targetMassDist);
-            var nextActions = qNextValues.argMax(AXIS_1)
+            var nextQValues = targetCatNet.qValuesFromDist(probNextDist);
+            var bestNextActions = nextQValues.argMax(AXIS_1)
                     // (batch, 1, 1)
                     .reshape(-1, 1, 1)
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
             // now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
+            var bestNextProbDist = probNextDist.gather(bestNextActions, AXIS_1).stopGradient();
             // Bellman Projection - mi
-            var bestNextProbDist = targetMassDist.gather(nextActions, AXIS_1).stopGradient();
             return targetCatNet.projectBellman(bestNextProbDist, samples.rewards(), samples.dones(), gamma);
         });
 
@@ -122,7 +122,7 @@ public class AgentC51DQN extends AbstractAgent {
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
             // p(s, a, theta)
-            return onlineCatNet.forwardLogDist(states, prob -> prob.gather(actions, AXIS_1));
+            return onlineCatNet.forwardLogDist(states, probDist -> probDist.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);

@@ -120,7 +120,7 @@ class CategoricalQNetworkMLPTest {
 
         @Cleanup var net = new CategoricalQNetworkMLP(observations, actions, manager);
         var batch = manager.randomUniform(0f, 1f, new Shape(batchSize, observations));
-        var output = net.forwardDist(new NDList(batch), UnaryOperator.identity());
+        var output = net.forwardDt sist(batch, UnaryOperator.identity());
         assertEquals(expectedShape, output.getShape());
 
         var sums = output.sum(new int[] {2});

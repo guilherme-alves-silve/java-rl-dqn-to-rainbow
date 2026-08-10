@@ -129,6 +129,10 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         return forwardDist(inputs, UnaryOperator.identity());
     }
 
+    public NDArray forwardDist(NDArray input, final UnaryOperator<NDArray> block) {
+        return forwardDist(new NDList(input), block);
+    }
+
     public NDArray forwardDist(NDList inputs, final UnaryOperator<NDArray> block) {
         @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, inputs, training).singletonOrThrow();
         return scoped(it -> {
