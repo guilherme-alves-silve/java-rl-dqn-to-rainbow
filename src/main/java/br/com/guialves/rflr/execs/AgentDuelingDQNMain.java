@@ -22,7 +22,7 @@ import static java.lang.System.getProperty;
  */
 public class AgentDuelingDQNMain {
 
-    public static void main() {
+    static void main() {
         run();
     }
 

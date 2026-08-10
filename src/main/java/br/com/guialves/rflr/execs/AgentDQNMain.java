@@ -20,7 +20,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  */
 public class AgentDQNMain {
 
-    public static void main() {
+    static void main() {
         run();
     }
 
@@ -36,8 +36,8 @@ public class AgentDQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .framesLimit(getIntProp("agent.framesLimit", "5000"))
-                .bufferCapacity(getIntProp("agent.bufferCapacity", "500"))
+                .framesLimit(getIntProp("agent.framesLimit", "300000"))
+                .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))

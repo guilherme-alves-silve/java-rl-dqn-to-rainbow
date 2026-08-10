@@ -19,7 +19,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
 public class AgentDDQNMain {
-    public static void main() {
+    static void main() {
         run();
     }
 

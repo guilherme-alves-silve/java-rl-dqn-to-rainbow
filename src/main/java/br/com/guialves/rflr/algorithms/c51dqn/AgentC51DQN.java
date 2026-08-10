@@ -5,10 +5,8 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -18,12 +16,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 
 @Slf4j
 public class AgentC51DQN extends AbstractAgent {
 
-    private final int[] the2ndAxis = new int[] {1};
+    private static final int AXIS_1 = 1;
     private final CategoricalQNetworkMLP onlineCatNet;
     private final CategoricalQNetworkMLP targetCatNet;
 
@@ -50,29 +47,35 @@ public class AgentC51DQN extends AbstractAgent {
     }
 
     /**
-     * \begin{align}
-     * & \text{C51 Parameters:}\\
-     * & \quad V_{\min} = -10, V_{\max} = +10, \text{atoms} = 51 \\
-     * & \quad \Delta z = \frac{V_{\max} - V_{\min}}{N - 1} \\
-     * & \text{Support vector parameter:}\\
-     * & \quad z_i = V_{\min} + i \Delta z \, , \quad \{i \in \mathbb{Z} \, | \, 0, 1, \cdots, N - 1  \} \\ \\
-     * & \text{C51 Bellman Projection:} \\
-     * & \hat{T}z_j = [r + \gamma z_j]^{V_{\max}}_{V_{\min}} \\
-     * & b = \frac{\hat{T}z_j  - V_{\min}}{\Delta z} \\
-     * & l = \lfloor b \rfloor \\
-     * & u = \lceil b \rceil \\
-     * & m_l \leftarrow m_l + p_j(s', a; \theta^{target}) \cdot (u - b) \\
-     * & m_u \leftarrow m_u + p_j(s', a; \theta^{target}) \cdot (b - l) \\
-     * & \text{if } (l = u) \text{ then: } \\
-     * & \quad m_l \leftarrow m_l + p_j(s', a; \theta^{target}) \\ \\
-     * & \text{C51 Loss:} \\
-     * & \text{Training:} \\
-     * & \mathcal{L} = -\sum\limits_{i=0}^{N-1} m_i \cdot \ln (p_i(s, a; \theta^{online})) \\
-     * & \text{Inference:} \\
-     * & \hat{y} = \arg \max\limits_a \sum\limits_{i=0}^{N - 1} z_i \cdot p_i(s, a; \theta^{online})
-     * \end{align}
-     * Reference:
-     * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-scratch.html">DJL Linear Regression from Scratch</a>
+     * C51 Distributional DQN Algorithm Implementation
+     *
+     * <p><b>C51 Parameters:</b>
+     * <br>V<sub>min</sub> = -10, V<sub>max</sub> = +10, atoms = 51
+     * <br>Δz = (V<sub>max</sub> - V<sub>min</sub>) / (N - 1)
+     *
+     * <p><b>Support vector parameter:</b>
+     * <br>z<sub>i</sub> = V<sub>min</sub> + i·Δz, &nbsp; {i ∈ ℤ | 0, 1, ..., N - 1}
+     *
+     * <p><b>C51 Bellman Projection:</b>
+     * <br>T̂z<sub>j</sub> = [r + γ·z<sub>j</sub>]<sup>V<sub>max</sub></sup><sub>V<sub>min</sub></sub>
+     * <br>b = (T̂z<sub>j</sub> - V<sub>min</sub>) / Δz
+     * <br>l = ⌊b⌋
+     * <br>u = ⌈b⌉
+     * <br>m<sub>l</sub> ← m<sub>l</sub> + p<sub>j</sub>(s', a; θ<sup>target</sup>) · (u - b)
+     * <br>m<sub>u</sub> ← m<sub>u</sub> + p<sub>j</sub>(s', a; θ<sup>target</sup>) · (b - l)
+     * <br>if (l = u) then:
+     * <br>m<sub>l</sub> ← m<sub>l</sub> + p<sub>j</sub>(s', a; θ<sup>target</sup>)
+     *
+     * <p><b>C51 Loss:</b>
+     * <br><b>Training:</b>
+     * <br>ℒ = -∑<sub>i=0</sub><sup>N-1</sup> m<sub>i</sub> · ln(p<sub>i</sub>(s, a; θ<sup>online</sup>))
+     * <br><b>Inference:</b>
+     * <br>ŷ = arg max<sub>a</sub> ∑<sub>i=0</sub><sup>N-1</sup> z<sub>i</sub> · p<sub>i</sub>(s, a; θ<sup>online</sup>)
+     *
+     * <p>Reference:
+     * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-scratch.html">
+     * DJL Linear Regression from Scratch</a>
+     *
      * @param batchSize Number of experiences to sample from the replay buffer for each training step
      * @param replayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
@@ -89,19 +92,26 @@ public class AgentC51DQN extends AbstractAgent {
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetMassDist = targetCatNet.forwardBellmanProj(
+        @Cleanup var targetMassDistBestActions = targetCatNet.forwardBellmanProj(
                 samples.nextStates(),
                 samples.rewards(),
                 samples.dones(),
-                gamma
-        );
-
-        float lossItem = backwardLoss(sub, lossFunc, targetMassDist, () -> {
-            var states = samples.states();
-            var actions = samples.actions();
-            // y_hat = q_online(s, a)
-            return onlineCatNet.forward(states, qValue -> qValue.gather(actions, 1));
+                gamma,
+        targetMassDist -> {
+            // arg max((batch, actions, atoms), dim=1) -> (batch, actions*)
+            var bestActions = targetMassDist.argMax(AXIS_1).expandDims(AXIS_1);
+            // now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
+            // Bellman Projection - mi
+            return targetMassDist.gather(bestActions, AXIS_1);
         });
+
+        // Loss = sum mi * ln (p(s, a, theta))
+        float lossItem = backwardLoss(sub, lossFunc, targetMassDistBestActions, array -> {
+            var states = array[0];
+            var actions = array[1].expandDims(AXIS_1);
+            // p(s, a, theta)
+            return onlineCatNet.forwardLogDist(states, prob -> prob.gather(actions, AXIS_1));
+        }, samples.states(), samples.actions());
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;

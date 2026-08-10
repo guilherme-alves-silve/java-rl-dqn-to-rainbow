@@ -22,7 +22,7 @@ import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 @Slf4j
 public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
 
-    private final int[] the2ndAxis = new int[] {1};
+    private static final int[] AXIS_1_ARR = new int[] {1};
     private final NoisyDuelingQNetworkMLP onlineNoisyDuelNet;
     private final NoisyDuelingQNetworkMLP targetNoisyDuelNet;
 

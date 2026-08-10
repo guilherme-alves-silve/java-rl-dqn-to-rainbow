@@ -19,7 +19,7 @@ import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 @Slf4j
 public class AgentDQN extends AbstractAgent {
 
-    private final int[] the2ndAxis = new int[] {1};
+    private static final int[] AXIS_1_ARR = new int[] {1};
 
     public AgentDQN(float epsilon,
                     int updateQTargetAtTimeN,
@@ -57,7 +57,7 @@ public class AgentDQN extends AbstractAgent {
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')
-            var maxNextQValue = nextQValue.max(the2ndAxis, true);
+            var maxNextQValue = nextQValue.max(AXIS_1_ARR, true);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)

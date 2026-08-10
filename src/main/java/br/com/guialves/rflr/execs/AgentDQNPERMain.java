@@ -24,7 +24,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  */
 public class AgentDQNPERMain {
 
-    public static void main() {
+    static void main() {
         run();
     }
 

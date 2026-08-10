@@ -24,7 +24,8 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
 public class AgentDQNPER extends AbstractAgent {
 
     private static final Float MIN_PRIORITY = 0.000_001f;
-    private final int[] the2ndAxis = new int[] {1};
+    private static final int[] AXIS_1_ARR = new int[] {1};
+
     private final float initialBeta;
     private float beta;
 
@@ -69,7 +70,7 @@ public class AgentDQNPER extends AbstractAgent {
         @Cleanup var samples = replayBuffer.sample(batchSize, beta);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')
-            var maxNextQValue = nextQValue.max(the2ndAxis, true);
+            var maxNextQValue = nextQValue.max(AXIS_1_ARR, true);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)
