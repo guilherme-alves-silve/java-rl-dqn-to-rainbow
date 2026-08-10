@@ -5,7 +5,10 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
+import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
+import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -15,11 +18,14 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 
 @Slf4j
 public class AgentC51DQN extends AbstractAgent {
 
     private final int[] the2ndAxis = new int[] {1};
+    private final CategoricalQNetworkMLP onlineCatNet;
+    private final CategoricalQNetworkMLP targetCatNet;
 
     public AgentC51DQN(float epsilon,
                        int updateQTargetAtTimeN,
@@ -35,6 +41,12 @@ public class AgentC51DQN extends AbstractAgent {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
               gamma, env, optimizer, parent,
               networkFactory, plotTrackers, debugMemoryLeak);
+        if (!(onlineNet instanceof CategoricalQNetworkMLP)) {
+            throw new IllegalArgumentException("Invalid network type! Must be of type CategoricalQNetworkMLP!");
+        }
+
+        this.onlineCatNet = (CategoricalQNetworkMLP) onlineNet;
+        this.targetCatNet = (CategoricalQNetworkMLP) targetNet;
     }
 
     /**
@@ -53,9 +65,9 @@ public class AgentC51DQN extends AbstractAgent {
      * & m_u \leftarrow m_u + p_j(s', a; \theta^{target}) \cdot (b - l) \\
      * & \text{if } (l = u) \text{ then: } \\
      * & \quad m_l \leftarrow m_l + p_j(s', a; \theta^{target}) \\ \\
-     * & \text{C51 Loss with PER:} \\
+     * & \text{C51 Loss:} \\
      * & \text{Training:} \\
-     * & \mathcal{L} = -\sum\limits_k \overline{w}^{\tiny IS}_k \sum\limits_{i=0}^{N-1} m_i \cdot \ln (p_i(s, a; \theta^{online})) \\
+     * & \mathcal{L} = -\sum\limits_{i=0}^{N-1} m_i \cdot \ln (p_i(s, a; \theta^{online})) \\
      * & \text{Inference:} \\
      * & \hat{y} = \arg \max\limits_a \sum\limits_{i=0}^{N - 1} z_i \cdot p_i(s, a; \theta^{online})
      * \end{align}
@@ -72,25 +84,23 @@ public class AgentC51DQN extends AbstractAgent {
                                 NDManager sub) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
-        @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetQDist = targetNet.forward(samples.nextStates(), nextQValue -> {
-            // max Q(s', a')
-            var maxNextQValue = nextQValue.max(the2ndAxis, true);
-            // gamma * max Q(s', a')
-            var discountNextQValue = maxNextQValue.mul(gamma);
-            // (1 - done)
-            var mask = samples.dones().neg().add(1);
-            // r + gamma * max Q(s', a') * (1 - done)
-            return samples.rewards()
-                    .add(discountNextQValue.mul(mask))
-                    .stopGradient();
-        });
+        if (!(lossFunc instanceof CategoricalCrossEntropyLoss)) {
+            throw new IllegalArgumentException("You must pass CategoricalCrossEntropyLoss!");
+        }
 
-        float lossItem = backwardLoss(sub, lossFunc, targetQDist, () -> {
+        @Cleanup var samples = replayBuffer.sample(batchSize);
+        @Cleanup var targetMassDist = targetCatNet.forwardBellmanProj(
+                samples.nextStates(),
+                samples.rewards(),
+                samples.dones(),
+                gamma
+        );
+
+        float lossItem = backwardLoss(sub, lossFunc, targetMassDist, () -> {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
-            return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineCatNet.forward(states, qValue -> qValue.gather(actions, 1));
         });
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);

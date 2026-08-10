@@ -129,4 +129,21 @@ class CategoricalQNetworkMLPTest {
                     "Distribution must sum to 1, was " + sum);
         }
     }
+
+    @Test
+    void testDistributionToQValue() {
+        int observations = 4;
+        int actions = 3;
+        int batchSize = 8;
+        int atoms = 51;
+        var expectedShape = new Shape(batchSize, actions, atoms);
+
+        @Cleanup var net = new CategoricalQNetworkMLP(observations, actions, manager);
+        var batch = manager.randomUniform(0f, 1f, new Shape(batchSize, observations));
+        var dist = net.forwardDist(new NDList(batch));
+        assertEquals(expectedShape, dist.getShape());
+
+        var qValue = net.qValuesFromDist(dist);
+        System.out.println(qValue);
+    }
 }

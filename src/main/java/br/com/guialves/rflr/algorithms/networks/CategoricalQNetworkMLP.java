@@ -152,6 +152,17 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         }, distribution, support);
     }
 
+    public NDArray forwardBellmanProj(final NDArray state,
+                                      final NDArray rewards,
+                                      final NDArray dones,
+                                      final float gamma) {
+        @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, new NDList(state), training).singletonOrThrow();
+        return scoped(it -> {
+            var probDist = it.reshape(-1, actions, atoms);
+            return catProj.project(probDist, rewards, dones, gamma);
+        }, logits);
+    }
+
     @Override
     public NDList forward(NDList input) {
         var dist = forwardDist(input);
