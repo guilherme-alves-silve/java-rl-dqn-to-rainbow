@@ -8,6 +8,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.function.UnaryOperator;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class CategoricalQNetworkMLPTest {
@@ -117,7 +119,29 @@ class CategoricalQNetworkMLPTest {
 
         @Cleanup var net = new CategoricalQNetworkMLP(observations, actions, manager);
         var batch = manager.randomUniform(0f, 1f, new Shape(batchSize, observations));
-        var output = net.forwardDist(new NDList(batch));
+        var output = net.forwardDist(new NDList(batch), UnaryOperator.identity());
+        assertEquals(expectedShape, output.getShape());
+
+        var sums = output.sum(new int[] {2});
+        float[] sumArr = sums.toFloatArray();
+        for (float sum : sumArr) {
+            // it's only softmax(input)
+            assertTrue(Math.abs(sum - 1.0f) < DELTA,
+                    "Distribution must sum to 1, was " + sum);
+        }
+    }
+
+    @Test
+    void testDistributionLogSumsToOne() {
+        int observations = 4;
+        int actions = 3;
+        int batchSize = 8;
+        int atoms = 51;
+        var expectedShape = new Shape(batchSize, actions, atoms);
+
+        @Cleanup var net = new CategoricalQNetworkMLP(observations, actions, manager);
+        var batch = manager.randomUniform(0f, 1f, new Shape(batchSize, observations));
+        var output = net.forwardLogDist(batch, UnaryOperator.identity());
         assertEquals(expectedShape, output.getShape());
 
         var logSums = output.sum(new int[] {2});
@@ -128,5 +152,23 @@ class CategoricalQNetworkMLPTest {
             assertTrue(Math.abs(sum - 1.0f) < DELTA,
                     "Distribution must sum to 1, was " + sum);
         }
+    }
+
+    @Test
+    void testDistributionToQValue() {
+        int observations = 4;
+        int actions = 3;
+        int batchSize = 8;
+        int atoms = 51;
+        var expectedShape = new Shape(batchSize, actions, atoms);
+        var expectedQValueShape = new Shape(batchSize, actions);
+
+        @Cleanup var net = new CategoricalQNetworkMLP(observations, actions, manager);
+        var batch = manager.randomUniform(0f, 1f, new Shape(batchSize, observations));
+        var dist = net.forwardDist(new NDList(batch));
+        assertEquals(expectedShape, dist.getShape());
+
+        var qValue = net.qValuesFromDist(dist);
+        assertEquals(expectedQValueShape, qValue.getShape());
     }
 }

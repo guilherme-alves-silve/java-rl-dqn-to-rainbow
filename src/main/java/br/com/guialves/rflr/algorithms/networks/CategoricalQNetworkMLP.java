@@ -17,6 +17,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.util.function.UnaryOperator;
 
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
@@ -38,7 +39,9 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 @Slf4j
 public class CategoricalQNetworkMLP implements IDeepQNetwork {
 
-    private final int[] the3rdAxis = new int[] {2};
+    private static final int AXIS_1 = 1;
+    private static final int LAST_AXIS = -1;
+    private static final int[] LAST_AXIS_ARR = new int[] {-1};
 
     private boolean training;
     private final NDManager subManager;
@@ -108,10 +111,41 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
     }
 
     /**
+     * Applies softmax transformation to action distributions over atom supports.
+     *
+     * <p>For each action, the distribution over atoms is converted to probabilities
+     * using softmax.
+     *
+     * <p>The output shape is {@code (batch, actions, atoms)}, with softmax applied along the atoms
+     * dimension (index 2).</p>
+     *
+     * <p>Reference:
+     * <a href="https://d2l.djl.ai/chapter_linear-networks/softmax-regression-djl.html">
+     * Softmax Regression — DJL</a></p>
+     *
+     * @param inputs the input logits for each action-atom pair
+     * @return the softmax transformed probabilities in the specified shape
+     */
+    public NDArray forwardDist(NDList inputs) {
+        return forwardDist(inputs, UnaryOperator.identity());
+    }
+
+    public NDArray forwardDist(NDList inputs, final UnaryOperator<NDArray> block) {
+        @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, inputs, training).singletonOrThrow();
+        return scoped(it -> {
+            var probDist = it.reshape(-1, actions, atoms)
+                             .softmax(LAST_AXIS);
+            var out = block.apply(probDist);
+            out.tempAttach(it.getManager());
+            return out;
+        }, logits);
+    }
+
+    /**
      * Applies log-softmax transformation to action distributions over atom supports.
      *
-     * <p>For each action, the distribution over atoms is converted to log-probabilities
-     * using log-softmax. While the C51 paper describes using standard softmax for
+     * <p>For each action, the distribution over atoms is converted to probabilities
+     * using softmax. While the C51 paper describes using standard softmax for
      * {@code p(s, a; θ)}, log-softmax is preferred for numerical stability as it
      * prevents overflow during exponentiation.</p>
      *
@@ -122,12 +156,22 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
      * <a href="https://d2l.djl.ai/chapter_linear-networks/softmax-regression-djl.html">
      * Softmax Regression — DJL</a></p>
      *
-     * @param inputs    the input logits for each action-atom pair
+     * @param input the input logits for each action-atom pair
      * @return the log-softmax transformed probabilities in the specified shape
      */
-    public NDArray forwardDist(NDList inputs) {
+    public NDArray forwardLogDist(NDArray input, final UnaryOperator<NDArray> block) {
+        return forwardLogDist(new NDList(input), block);
+    }
+
+    public NDArray forwardLogDist(NDList inputs, final UnaryOperator<NDArray> block) {
         @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, inputs, training).singletonOrThrow();
-        return scoped(it -> it.reshape(-1, actions, atoms).logSoftmax(2), logits);
+        return scoped(it -> {
+            var probDist = it.reshape(-1, actions, atoms)
+                    .logSoftmax(LAST_AXIS);
+            var out = block.apply(probDist);
+            out.tempAttach(it.getManager());
+            return out;
+        }, logits);
     }
 
     /**
@@ -148,8 +192,24 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         return scoped(array -> {
             var dist = array[0];
             var sup = array[1];
-            return dist.mul(sup.expandDims(0)).sum(the3rdAxis);
+            return dist.mul(sup.expandDims(0)).sum(LAST_AXIS_ARR);
         }, distribution, support);
+    }
+
+    public NDArray forwardBellmanProj(final NDArray state,
+                                      final NDArray rewards,
+                                      final NDArray dones,
+                                      final float gamma,
+                                      final UnaryOperator<NDArray> block) {
+        @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, new NDList(state), training).singletonOrThrow();
+        return scoped(it -> {
+            // softmax((batch, actions, atoms), dim=1) -> (batch, actions, prob_atoms)
+            var probDist = it.reshape(-1, actions, atoms).softmax(AXIS_1);
+            var projected = catProj.project(probDist, rewards, dones, gamma);
+            var out = block.apply(projected);
+            out.tempAttach(it.getManager());
+            return out;
+        }, logits);
     }
 
     @Override

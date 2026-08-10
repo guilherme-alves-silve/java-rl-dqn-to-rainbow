@@ -22,7 +22,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  */
 public class AgentNStepDQNMain {
 
-    public static void main() {
+    static void main() {
         run();
     }
 
