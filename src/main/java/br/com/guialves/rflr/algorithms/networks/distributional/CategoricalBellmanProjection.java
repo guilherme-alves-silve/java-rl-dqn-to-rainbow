@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
+import static br.com.guialves.rflr.djlutils.DJLUtils.equalsDims;
 
 @Accessors(fluent = true)
 public class CategoricalBellmanProjection {
@@ -26,6 +27,7 @@ public class CategoricalBellmanProjection {
     @Getter
     private final float zDelta;
     private final float[] supportVectorZ;
+    private final Shape expectedShape;
 
     public CategoricalBellmanProjection() {
         this(N_ATOMS, V_MIN, V_MAX);
@@ -39,6 +41,7 @@ public class CategoricalBellmanProjection {
         this.vMax = vMax;
         this.zDelta = (vMax - vMin)/(atoms - 1);
         this.supportVectorZ = generateSupportVectorZ(atoms, vMin, zDelta);
+        this.expectedShape = new Shape(-1, 1, atoms);
     }
 
     public float[] support() {
@@ -72,6 +75,16 @@ public class CategoricalBellmanProjection {
                            final NDArray dones,
                            final float gamma) {
 
+        var inputShape = probNextDist.getShape();
+        if (!equalsDims(inputShape, expectedShape, 1)) {
+            throw new IllegalArgumentException("Invalid shape " + inputShape + ", must be (batch, 1, %d) ".formatted(atoms));
+        }
+
+        if (inputShape.get(0) != rewards.getShape().get(0) || inputShape.get(0) != dones.getShape().get(0)) {
+            throw new IllegalArgumentException("Invalid dimensions between probNextDist (len=%d), rewards (len=%d) or dones (len=%d)"
+                    .formatted(inputShape.get(0), rewards.getShape().get(0), dones.getShape().get(0)));
+        }
+
         @Cleanup var sub = subMgr(probNextDist, "bellman-proj");
         sub.tempAttachAll(probNextDist, rewards, dones);
 
@@ -92,13 +105,14 @@ public class CategoricalBellmanProjection {
                 float baseIdx = (targetProj - vMin) / zDelta;
                 int lowerIdx = (int) Math.floor(baseIdx);
                 int upperIdx = (int) Math.ceil(baseIdx);
+                float prob = probNextDistArr[offset + atomIdx];
                 // m_l += p(s', a, θ-) * (u - b)
                 // m_u += p(s', a, θ-) * (b - l)
                 if (lowerIdx == upperIdx) {
-                    massDist[offset + lowerIdx] += probNextDistArr[atomIdx];
+                    massDist[offset + lowerIdx] += prob;
                 } else {
-                    massDist[offset + lowerIdx] += probNextDistArr[atomIdx] * (upperIdx - baseIdx);
-                    massDist[offset + upperIdx] += probNextDistArr[atomIdx] * (baseIdx - lowerIdx);
+                    massDist[offset + lowerIdx] += prob * (upperIdx - baseIdx);
+                    massDist[offset + upperIdx] += prob * (baseIdx - lowerIdx);
                 }
             }
         }

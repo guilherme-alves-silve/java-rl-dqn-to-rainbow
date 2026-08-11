@@ -5,10 +5,12 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.index.NDIndex;
 import ai.djl.ndarray.types.DataType;
+import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Block;
 import ai.djl.nn.Parameter;
 import ai.djl.util.Pair;
 
+import java.util.Arrays;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToLongFunction;
 
@@ -86,5 +88,17 @@ public class DJLUtils {
                 .toType(DataType.FLOAT32, false)
                 .expandDims(1)
                 .toDevice(subManager.getDevice(), false);
+    }
+
+    public static boolean equalsDims(Shape shape1, Shape shape2, int start) {
+        return equalsDims(shape1, shape2, start, shape1.getShape().length);
+    }
+
+    public static boolean equalsDims(Shape shape1, Shape shape2, int start, int end) {
+        if (shape1.dimension() != shape2.dimension()) {
+            throw new IllegalArgumentException("Different dimensions between shape1 and shape2: %d != %d".formatted(
+                    shape1.dimension(), shape2.dimension()));
+        }
+        return Arrays.equals(shape1.getShape(), start, end, shape2.getShape(), start, end);
     }
 }

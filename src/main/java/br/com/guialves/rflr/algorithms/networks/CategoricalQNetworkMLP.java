@@ -39,7 +39,6 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 @Slf4j
 public class CategoricalQNetworkMLP implements IDeepQNetwork {
 
-    private static final int AXIS_1 = 1;
     private static final int LAST_AXIS = -1;
     private static final int[] LAST_AXIS_ARR = new int[] {-1};
 
@@ -130,6 +129,10 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         return forwardDist(inputs, UnaryOperator.identity());
     }
 
+    public NDArray forwardDist(NDArray input, final UnaryOperator<NDArray> block) {
+        return forwardDist(new NDList(input), block);
+    }
+
     public NDArray forwardDist(NDList inputs, final UnaryOperator<NDArray> block) {
         @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, inputs, training).singletonOrThrow();
         return scoped(it -> {
@@ -192,30 +195,25 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         return scoped(array -> {
             var dist = array[0];
             var sup = array[1];
-            return dist.mul(sup.expandDims(0)).sum(LAST_AXIS_ARR);
+            return dist.mul(sup).sum(LAST_AXIS_ARR);
         }, distribution, support);
     }
 
-    public NDArray forwardBellmanProj(final NDArray state,
-                                      final NDArray rewards,
-                                      final NDArray dones,
-                                      final float gamma,
-                                      final UnaryOperator<NDArray> block) {
-        @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, new NDList(state), training).singletonOrThrow();
-        return scoped(it -> {
-            // softmax((batch, actions, atoms), dim=1) -> (batch, actions, prob_atoms)
-            var probDist = it.reshape(-1, actions, atoms).softmax(AXIS_1);
-            var projected = catProj.project(probDist, rewards, dones, gamma);
-            var out = block.apply(projected);
-            out.tempAttach(it.getManager());
-            return out;
-        }, logits);
+    public NDArray projectBellman(final NDArray probNextDist,
+                                  final NDArray rewards,
+                                  final NDArray dones,
+                                  final float gamma) {
+        return catProj.project(probNextDist, rewards, dones, gamma);
     }
 
     @Override
     public NDList forward(NDList input) {
         var dist = forwardDist(input);
         return new NDList(qValuesFromDist(dist));
+    }
+
+    public int atoms() {
+        return atoms;
     }
 
     @Override
