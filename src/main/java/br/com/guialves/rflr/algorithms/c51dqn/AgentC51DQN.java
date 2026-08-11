@@ -1,9 +1,7 @@
 package br.com.guialves.rflr.algorithms.c51dqn;
 
 import ai.djl.ndarray.NDArray;
-import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
@@ -20,11 +18,15 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
+import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
 @Slf4j
 public class AgentC51DQN extends AbstractAgent {
 
-    private static final int AXIS_1 = 1;
+    private static final float CLIP_GRAD_THRESHOLD = 10.0f;
+
     private final CategoricalQNetworkMLP onlineCatNet;
     private final CategoricalQNetworkMLP targetCatNet;
     private final NDArray atomsBroadcaster;
@@ -100,14 +102,14 @@ public class AgentC51DQN extends AbstractAgent {
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var projectDist = targetCatNet.forwardDist(samples.nextStates(), probNextDist -> {
-            // arg max((batch, actions, atoms), dim=1) -> expand((batch, actions*), dim=1) -> (batch, 1, actions*)
+            // (batch, actions, atoms) -> (batch, actions)
             var nextQValues = targetCatNet.qValuesFromDist(probNextDist);
             var bestNextActions = nextQValues.argMax(AXIS_1)
                     // (batch, 1, 1)
-                    .reshape(-1, 1, 1)
+                    .reshape(N_BATCH, 1, 1)
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
-            // now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
+            // (batch, 1, atoms) - now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
             var bestNextProbDist = probNextDist.gather(bestNextActions, AXIS_1).stopGradient();
             // Bellman Projection - mi
             return targetCatNet.projectBellman(bestNextProbDist, samples.rewards(), samples.dones(), gamma);
@@ -118,14 +120,20 @@ public class AgentC51DQN extends AbstractAgent {
             var states = array[0];
             var actions = array[1]
                     // (batch, 1, 1)
-                    .reshape(-1, 1, 1)
+                    .reshape(N_BATCH, 1, 1)
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
             // p(s, a, theta)
             return onlineCatNet.forwardLogDist(states, probDist -> probDist.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
-        DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
+        DJLOptimizer.trainStepClipGradients(onlineNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
         return lossItem;
+    }
+
+    @Override
+    public void close() {
+        super.close();
+        release(atomsBroadcaster);
     }
 }

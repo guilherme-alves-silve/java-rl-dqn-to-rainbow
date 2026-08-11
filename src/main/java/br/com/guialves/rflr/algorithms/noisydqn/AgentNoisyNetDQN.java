@@ -18,11 +18,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
 
 @Slf4j
 public class AgentNoisyNetDQN extends AbstractAgent {
-
-    private static final int[] AXIS_1_ARR = new int[] {1};
 
     private final NoisyQNetworkMLP onlineNoisyNet;
     private final NoisyQNetworkMLP targetNoisyNet;

@@ -12,8 +12,11 @@ import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingLayer;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.djlutils.DJLUtils;
+import lombok.Getter;
 import lombok.SneakyThrows;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
@@ -22,7 +25,6 @@ import java.util.List;
 
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 /**
  * After each update, it's recommended that you call the method {@code resetNoise()}
@@ -30,7 +32,8 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
  *  <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/05_noisy_net.py">Python - Noisy Net</a>
  */
 @Slf4j
-public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
+@Accessors(fluent = true)
+public class NoisyDuelingQNetworkMLP implements INoisyNetwork {
 
     private boolean training;
     private final NDManager subManager;
@@ -38,6 +41,7 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
     private final int actions;
     private final Model model;
     private final DuelingLayer net;
+    @Getter
     private final DuelingType duelingType;
     private final List<NoisyLayer> noisyLayers;
     private final ParameterStore parameterStore;
@@ -70,10 +74,10 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
                                    DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
-        this.subManager = subMgr(parent, getClass());
+        this.subManager = DJLMemoryManagement.subMgr(parent, getClass());
         this.duelingType = duelingType;
         this.noisyLayers = new ArrayList<>();
-        this.model = newModel(getClass(), subManager.getDevice());
+        this.model = DJLMemoryManagement.newModel(getClass(), subManager.getDevice());
         this.net = new DuelingLayer(
                 actions,
                 duelingType,
@@ -108,13 +112,14 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
         return noisyLayer;
     }
 
+    @Override
     public void resetNoise() {
         noisyLayers.forEach(NoisyLayer::resetNoise);
     }
 
     @Override
     public NDList forward(NDList input) {
-        return safeForwardSingle(subManager, net, parameterStore, input, training);
+        return DJLMemoryManagement.safeForwardSingle(subManager, net, parameterStore, input, training);
     }
 
     @Override
@@ -146,6 +151,7 @@ public class NoisyDuelingQNetworkMLP implements IDeepQNetwork {
     @Override
     public IDeepQNetwork clone() {
         var cloned = new NoisyDuelingQNetworkMLP(observations, actions, subManager, duelingType);
+        DJLMemoryManagement.setName(cloned.subManager, "clone");
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

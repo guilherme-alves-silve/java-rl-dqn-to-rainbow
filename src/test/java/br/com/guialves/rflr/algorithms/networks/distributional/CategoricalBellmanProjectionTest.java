@@ -14,6 +14,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.debugDump;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
+import static br.com.guialves.rflr.djlutils.DJLUtils.toFloatArray;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CategoricalBellmanProjectionTest {
@@ -117,6 +120,115 @@ class CategoricalBellmanProjectionTest {
 
         var exception2 = assertThrowsExactly(IllegalArgumentException.class, () -> catProj.project(probNextDist, rewards2, invalidDones2, gamma));
         assertEquals("Invalid dimensions between probNextDist (len=6), rewards (len=6) or dones (len=5)", exception2.getMessage());
+    }
+
+    @Test
+    void shouldNotMemoryLeak() {
+        var catProj = new CategoricalBellmanProjection();
+        int batchSize = 32;
+        float gamma = 0.99f;
+
+        var probNextDist = manager.randomUniform(0f, 1f,
+                new Shape(batchSize, 1, N_ATOMS), DataType.FLOAT32);
+        var probSum = probNextDist.sum(new int[]{2}, true);
+        probNextDist = probNextDist.div(probSum);
+        var rewards = manager.linspace(0f, 1f, batchSize);
+        var dones = manager.zeros(new Shape(batchSize), DataType.FLOAT32);
+
+        for (int i = 0; i < 5; i++) {
+            try (var out = catProj.project(probNextDist, rewards, dones, gamma)) {
+                IO.println(toFloatArray(out));
+            }
+        }
+
+        int afterWarmup = managedArrayCount(manager);
+        assertTrue(afterWarmup > 0, "Warmup deveria ter criado arrays no manager");
+        debugDump(manager);
+
+        for (int i = 0; i < 20; i++) {
+            try (var out = catProj.project(probNextDist, rewards, dones, gamma)) {
+                IO.println(toFloatArray(out));
+            }
+        }
+        int afterSteps = managedArrayCount(manager);
+
+        debugDump(manager);
+        assertEquals(afterWarmup, afterSteps,
+                "managedArrayCount must be constant after warmup. "
+                        + "before=" + afterWarmup + " after=" + afterSteps);
+    }
+
+    @Test
+    void shouldNotMemoryLeakWithDoneAtBoundary() {
+        // Edge case: dones=1 (terminal state, clamp γ*z a 0)
+        var catProj = new CategoricalBellmanProjection();
+        int batchSize = 32;
+        float gamma = 0.99f;
+
+        var probNextDist = manager.randomUniform(0f, 1f,
+                new Shape(batchSize, 1, N_ATOMS), DataType.FLOAT32);
+        var probSum = probNextDist.sum(new int[]{2}, true);
+        probNextDist = probNextDist.div(probSum);
+        var rewards = manager.linspace(0f, 1f, batchSize);
+        var dones = manager.ones(new Shape(batchSize), DataType.FLOAT32);  // todos terminais
+
+        for (int i = 0; i < 5; i++) {
+            try (var out = catProj.project(probNextDist, rewards, dones, gamma)) {
+                IO.println(toFloatArray(out));
+            }
+        }
+        int afterWarmup = managedArrayCount(manager);
+        debugDump(manager);
+
+        for (int i = 0; i < 20; i++) {
+            try (var out = catProj.project(probNextDist, rewards, dones, gamma)) {
+                IO.println(toFloatArray(out));
+            }
+        }
+        int afterSteps = managedArrayCount(manager);
+
+        debugDump(manager);
+        assertEquals(afterWarmup, afterSteps,
+                "managedArrayCount must be constant with dones=1. "
+                        + "before=" + afterWarmup + " after=" + afterSteps);
+    }
+
+    @Test
+    void shouldNotMemoryLeakWithLargeAtoms() {
+        // atoms=101, range=±200
+        int customAtoms = 101;
+        float vMin = -200f;
+        float vMax = +200f;
+        var catProj = new CategoricalBellmanProjection(customAtoms, vMin, vMax);
+        int batchSize = 32;
+        float gamma = 0.99f;
+
+        var probNextDist = manager.randomUniform(0f, 1f,
+                new Shape(batchSize, 1, customAtoms), DataType.FLOAT32);
+        var probSum = probNextDist.sum(new int[]{2}, true);
+        probNextDist = probNextDist.div(probSum);
+        var rewards = manager.linspace(0f, 1f, batchSize);
+        var dones = manager.zeros(new Shape(batchSize), DataType.FLOAT32);
+
+        for (int i = 0; i < 5; i++) {
+            try (var out = catProj.project(probNextDist, rewards, dones, gamma)) {
+                IO.println(toFloatArray(out));
+            }
+        }
+        int afterWarmup = managedArrayCount(manager);
+        debugDump(manager);
+
+        for (int i = 0; i < 20; i++) {
+            try (var out = catProj.project(probNextDist, rewards, dones, gamma)) {
+                IO.println(toFloatArray(out));
+            }
+        }
+        int afterSteps = managedArrayCount(manager);
+
+        debugDump(manager);
+        assertEquals(afterWarmup, afterSteps,
+                "managedArrayCount must be constant with atoms=101. "
+                        + "before=" + afterWarmup + " after=" + afterSteps);
     }
 
     static Stream<Arguments> provideValidInputShapesRandomNormal() {

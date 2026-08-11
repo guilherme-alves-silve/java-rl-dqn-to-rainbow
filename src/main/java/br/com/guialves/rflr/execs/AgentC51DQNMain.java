@@ -4,11 +4,8 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.c51dqn.AgentC51DQN;
 import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
-import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -40,7 +37,7 @@ public class AgentC51DQNMain {
                 .minEpsilon(0.01f)
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
-                .batchSize(128)
+                .batchSize(32)
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))

@@ -4,9 +4,10 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.training.loss.Loss;
 
-public class CategoricalCrossEntropyLoss extends Loss {
+import static br.com.guialves.rflr.djlutils.DJLUtils.KEEP_DIMS;
+import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS_ARR;
 
-    private static final int[] AXIS_1_ARR = new int[] {1};
+public class CategoricalCrossEntropyLoss extends Loss {
 
     public CategoricalCrossEntropyLoss() {
         super(CategoricalCrossEntropyLoss.class.getSimpleName());
@@ -14,10 +15,13 @@ public class CategoricalCrossEntropyLoss extends Loss {
 
     @Override
     public NDArray evaluate(NDList massDist, NDList dist) {
+        // (batch, 1, atoms)
         var pred = dist.singletonOrThrow();
+        // (batch, 1, atoms)
         var lab = massDist.singletonOrThrow();
-        // pred must be log softmax
-        var loss = pred.mul(lab).neg().sum(AXIS_1_ARR, true);
+        // (batch, 1, 1) - pred must be log softmax
+        var loss = pred.mul(lab).neg().sum(LAST_AXIS_ARR, KEEP_DIMS);
+        // () -> scalar
         return loss.mean();
     }
 }

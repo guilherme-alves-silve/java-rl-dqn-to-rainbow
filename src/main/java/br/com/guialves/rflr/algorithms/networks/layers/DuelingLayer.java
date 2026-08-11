@@ -17,6 +17,8 @@ import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
+import static br.com.guialves.rflr.djlutils.DJLUtils.KEEP_DIMS;
 
 @Accessors(fluent = true)
 public class DuelingLayer extends AbstractBlock {
@@ -29,14 +31,12 @@ public class DuelingLayer extends AbstractBlock {
     private final SequentialBlock valueHead;
     private final SequentialBlock advantageHead;
 
-    private static final int[] AXIS_PER_LINE = new int[] { 1 };
-    private static final boolean KEEP_DIMS = true;
     /**
      * Q-Value calculator for Dueling DQN using the mean operation:
      *  Q(s, a) = V(s) + (A(s, a) - mean A(s, a'))
      */
     private static final BinaryOperator<NDArray> Q_VALUE_MEAN = (value, advantage) -> {
-        var subMean = advantage.sub(advantage.mean(AXIS_PER_LINE, KEEP_DIMS));
+        var subMean = advantage.sub(advantage.mean(AXIS_1_ARR, KEEP_DIMS));
         return value.add(subMean);
     };
 
@@ -45,7 +45,7 @@ public class DuelingLayer extends AbstractBlock {
      *  Q(s, a) = V(s) + (A(s, a) - max A(s, a'))
      */
     private static final BinaryOperator<NDArray> Q_VALUE_MAX = (value, advantage) -> {
-        var subMean = advantage.sub(advantage.max(AXIS_PER_LINE, KEEP_DIMS));
+        var subMean = advantage.sub(advantage.max(AXIS_1_ARR, KEEP_DIMS));
         return value.add(subMean);
     };
 

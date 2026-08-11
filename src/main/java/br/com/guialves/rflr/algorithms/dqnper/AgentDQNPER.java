@@ -19,12 +19,13 @@ import java.util.function.Supplier;
 import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
+import static br.com.guialves.rflr.djlutils.DJLUtils.KEEP_DIMS;
 
 @Slf4j
 public class AgentDQNPER extends AbstractAgent {
 
     private static final Float MIN_PRIORITY = 0.000_001f;
-    private static final int[] AXIS_1_ARR = new int[] {1};
 
     private final float initialBeta;
     private float beta;
@@ -70,7 +71,7 @@ public class AgentDQNPER extends AbstractAgent {
         @Cleanup var samples = replayBuffer.sample(batchSize, beta);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')
-            var maxNextQValue = nextQValue.max(AXIS_1_ARR, true);
+            var maxNextQValue = nextQValue.max(AXIS_1_ARR, KEEP_DIMS);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)

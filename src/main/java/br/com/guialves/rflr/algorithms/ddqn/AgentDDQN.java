@@ -15,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
+import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
 @Slf4j
 public class AgentDDQN extends AbstractAgent {
@@ -51,10 +53,11 @@ public class AgentDDQN extends AbstractAgent {
         // a* = arg max q_online(s', a')
         var nextStates = samples.nextStates();
         @Cleanup var action = onlineNet.forward(nextStates,
-                qOnlineNext -> qOnlineNext.argMax(1).reshape(N_BATCH, 1));
+                qOnlineNext -> qOnlineNext.argMax(AXIS_1)
+                        .reshape(N_BATCH, 1));
         @Cleanup var targetQValue = targetNet.forward(nextStates, qNextValues -> {
             // q_target(s', a*)
-            var qNextValue = qNextValues.gather(action, 1);
+            var qNextValue = qNextValues.gather(action, AXIS_1);
             // gamma * q_target(s', a*)
             var discountNextQValue = qNextValue.mul(gamma);
             // (1 - done)
@@ -69,7 +72,7 @@ public class AgentDDQN extends AbstractAgent {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
-            return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineNet.forward(states, qValue -> qValue.gather(actions, AXIS_1));
         });
 
         DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);

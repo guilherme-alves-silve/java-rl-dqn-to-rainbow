@@ -9,14 +9,35 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Block;
 import ai.djl.nn.Parameter;
 import ai.djl.util.Pair;
+import lombok.Cleanup;
 
 import java.util.Arrays;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToLongFunction;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static java.util.Arrays.stream;
 
 public class DJLUtils {
+
+    public static final int AXIS_0 = 0;
+    public static final int AXIS_1 = 1;
+    public static final int AXIS_2 = 2;
+    public static final int[] AXIS_1_ARR = new int[] {1};
+    public static final int[] AXIS_2_ARR = new int[] {2};
+    public static final int LAST_AXIS = -1;
+    public static final int[] LAST_AXIS_ARR = new int[] {-1};
+    public static final long[] AXIS_EMPTY = new long[]{};
+    public static final boolean KEEP_DIMS = true;
+    /**
+     * Semantic for when you are building a batch,
+     * like (batch, 1) or (batch, n)
+     */
+    public static final int N_BATCH = -1;
+    /**
+     * Semantic when you are flatting the array
+     */
+    public static final int FLATTEN = -1;
 
     private DJLUtils() {
         throw new IllegalStateException("No DJLUtils!");
@@ -100,5 +121,19 @@ public class DJLUtils {
                     shape1.dimension(), shape2.dimension()));
         }
         return Arrays.equals(shape1.getShape(), start, end, shape2.getShape(), start, end);
+    }
+
+    public static float[] toFloatArray(NDArray array) {
+        // TODO: Remove when this is solved in 0.36
+        @Cleanup var sub = subMgr(array, "float-array");
+        array.tempAttach(sub);
+        return array.toFloatArray();
+    }
+
+    public static float getFloat(NDArray array) {
+        // TODO: Remove when this is solved in 0.36
+        @Cleanup var sub = subMgr(array, "get-float");
+        array.tempAttach(sub);
+        return array.getFloat(AXIS_EMPTY);
     }
 }

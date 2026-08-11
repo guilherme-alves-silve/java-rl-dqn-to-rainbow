@@ -5,7 +5,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.NStepExperienceReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -16,11 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
 
 @Slf4j
 public class AgentNStepDQN extends AbstractAgent {
-
-    private static final int[] AXIS_COLUMN = new int[] {1};
 
     public AgentNStepDQN(float epsilon,
                          int updateQTargetAtTimeN,
@@ -51,7 +50,7 @@ public class AgentNStepDQN extends AbstractAgent {
     @Override
     protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
-        if (!(ireplayBuffer instanceof NStepExperienceReplayBuffer replayBuffer)) {
+        if (!(ireplayBuffer instanceof NStepPrioritizedReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass NStepExperienceReplayBuffer!");
         }
 
@@ -61,7 +60,7 @@ public class AgentNStepDQN extends AbstractAgent {
             var dones = samples.dones();
 
             // max Q(s', a')
-            var maxNextQValue = nextQValue.max(AXIS_COLUMN, true);
+            var maxNextQValue = nextQValue.max(AXIS_1_ARR, true);
             float gammaNBootstramp = (float) Math.pow(gamma, replayBuffer.nStep());
             // gamma^n * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gammaNBootstramp);

@@ -70,6 +70,9 @@ class MemoryLeakTest {
     /** NoisyDuelingQNetworkMLP has 1 Linear + 4 NoisyLayer. */
     private static final int NOISY_DUELING_NET_PARAMS = 18;
 
+    /** CategoricalQNetworkMLP has 3 Linear layers (weight + bias each). */
+    private static final int AGENT_C51_DQN_NET_PARAMS = 3;
+
     /**
      * Each {@code Experience} contributes exactly 2 NDArrays to its buffer:
      * one {@code state} and one {@code nextState}. We use this as a
@@ -189,6 +192,19 @@ class MemoryLeakTest {
     }
 
     @Test
+    @DisplayName("AgentC51DQN should leave exactly the expected NDArrays after training")
+    void shouldNotLeakMemoryAfterAgentC51DQN() {
+        // TODO: Correct memory leak
+        var managerNode = AgentC51DQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentC51DQN",
+                "CategoricalQNetworkMLP-",
+                AGENT_C51_DQN_NET_PARAMS,
+                "ExperienceReplayBuffer-");
+    }
+
+    @Test
     @DisplayName("getDebugDump returns a node for the test manager")
     void getDebugDumpShouldReturnNodeForBaseManager() {
         var root = getDebugDump(manager);
@@ -248,7 +264,8 @@ class MemoryLeakTest {
                         + root.totalResources() + " with byType=" + root.byType());
 
         // 2) Both networks have the expected number of parameter arrays.
-        var networks = root.findMatching(n -> n.name().startsWith(networkPrefix));
+        var networks = root.findMatching(n -> n.name().startsWith(networkPrefix) ||
+                n.name().startsWith("clone-" + networkPrefix));
         assertEquals(2, networks.size(),
                 agentName + ": expected exactly 2 sub-managers starting with '"
                         + networkPrefix + "', found " + networks.size());

@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
-import static br.com.guialves.rflr.djlutils.DJLUtils.equalsDims;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 @Accessors(fluent = true)
 public class CategoricalBellmanProjection {
@@ -41,7 +41,7 @@ public class CategoricalBellmanProjection {
         this.vMax = vMax;
         this.zDelta = (vMax - vMin)/(atoms - 1);
         this.supportVectorZ = generateSupportVectorZ(atoms, vMin, zDelta);
-        this.expectedShape = new Shape(-1, 1, atoms);
+        this.expectedShape = new Shape(N_BATCH, 1, atoms);
     }
 
     public float[] support() {
@@ -89,8 +89,8 @@ public class CategoricalBellmanProjection {
         sub.tempAttachAll(probNextDist, rewards, dones);
 
         int batchSize = (int) rewards.getShape().get(0);
-        float[] rewardsArr = rewards.reshape(-1).toFloatArray();
-        float[] probNextDistArr = probNextDist.reshape(-1).toFloatArray();
+        float[] rewardsArr = rewards.reshape(FLATTEN).toFloatArray();
+        float[] probNextDistArr = probNextDist.reshape(FLATTEN).toFloatArray();
         float[] donesArr = dones.toFloatArray();
         float[] massDist = new float[batchSize * atoms];
 

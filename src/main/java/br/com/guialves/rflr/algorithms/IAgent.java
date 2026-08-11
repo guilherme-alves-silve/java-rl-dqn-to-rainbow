@@ -14,7 +14,6 @@ import java.util.Optional;
 public interface IAgent extends AutoCloseable {
 
     static final int DEFAULT_FRAME_SKIP = 1;
-    static final int N_BATCH = -1;
 
     default void train(int batchSize,
                        long framesLimit,
