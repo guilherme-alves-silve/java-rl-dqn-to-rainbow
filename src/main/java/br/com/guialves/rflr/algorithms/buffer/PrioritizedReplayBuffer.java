@@ -10,8 +10,7 @@ import lombok.NonNull;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
-import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
-import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 import static java.util.Arrays.stream;
 
 /**
@@ -183,7 +182,8 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
     public void updatePriorities(int[] bufferIndexes, NDArray priorities) {
         if (bufferIndexes.length != priorities.size()) throw new IllegalArgumentException("Invalid length!");
         float tempMaxPriority = this.maxPriority;
-        var rawPriorities = priorities.toFloatArray();
+        // TODO: Create test for memory leak
+        var rawPriorities = toFloatArray(priorities);
         for (int i = 0; i < bufferIndexes.length; ++i) {
             int experienceIdx = bufferIndexes[i];
             if (experienceIdx < 0 || experienceIdx >= experiences.length) {

@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.algorithms.dqnper;
+package br.com.guialves.rflr.algorithms.rainbowdqn;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
@@ -7,15 +7,12 @@ import ai.djl.training.loss.Loss;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
 /**
- * PER Loss with Importance Sampling weights for bias correction.
- *
- * <p>Implements the weighted L2 loss: L = ½ * w_i * (pred - label)²
- * where w_i are the importance sampling weights from PER.
+ * PER Loss with Importance Sampling weights for bias correction, for the Categorical DQN,
  *
  * <p>Weights must be set via {@link #normISWeights(NDArray)} before each forward pass.
  * After evaluation, weights are cleared to prevent stale usage.
  */
-public class PERL2Loss extends Loss {
+public class CategoricalCrossEntropyPERLoss extends Loss {
 
     private static final float HALF_WEIGHT = 0.5f;
     private final Reduction reduction;
@@ -28,13 +25,13 @@ public class PERL2Loss extends Loss {
     /**
      * Importance Sampling Weights used in the PER algorithm
      */
-    public PERL2Loss(Reduction reduction) {
-        super("PERL2Loss");
+    public CategoricalCrossEntropyPERLoss(Reduction reduction) {
+        super(CategoricalCrossEntropyPERLoss.class.getSimpleName());
         this.reduction = reduction;
     }
 
-    public static PERL2Loss noneReduction() {
-        return new PERL2Loss(Reduction.NONE);
+    public static CategoricalCrossEntropyPERLoss noneReduction() {
+        return new CategoricalCrossEntropyPERLoss(Reduction.NONE);
     }
 
     /**
@@ -42,8 +39,9 @@ public class PERL2Loss extends Loss {
      *
      * @param normISWeights IS weights with shape (batchSize,) or (batchSize, 1)
      */
-    public PERL2Loss normISWeights(NDArray normISWeights) {
+    public CategoricalCrossEntropyPERLoss normISWeights(NDArray normISWeights) {
         if (normISWeights.getShape().dimension() == 1) {
+            // TODO: must meet atoms requirements
             normISWeights = normISWeights.reshape(N_BATCH, 1);
         }
 
@@ -53,6 +51,7 @@ public class PERL2Loss extends Loss {
 
     @Override
     public NDArray evaluate(NDList label, NDList prediction) {
+        // TODO: must meet atoms requirements
         if (null == normISWeights) {
             throw new IllegalStateException("You must set the normISWeights before training!");
         }

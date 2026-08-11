@@ -7,6 +7,8 @@ import ai.djl.ndarray.NDManager;
 
 import java.util.function.Function;
 
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_0;
+
 public interface IReplayBuffer extends AutoCloseable {
 
     void store(Experience exp);
@@ -51,9 +53,9 @@ public interface IReplayBuffer extends AutoCloseable {
         for (var exp : batch) {
             var mapped = mapper.apply(exp);
             mapped.attach(subManager);
-            arrays.add(mapped.expandDims(0));
+            arrays.add(mapped.expandDims(AXIS_0));
         }
-        var concat = NDArrays.concat(arrays, 0);
+        var concat = NDArrays.concat(arrays, AXIS_0);
         concat.attach(subManager);
         return concat.toDevice(subManager.getDevice(), false);
     }

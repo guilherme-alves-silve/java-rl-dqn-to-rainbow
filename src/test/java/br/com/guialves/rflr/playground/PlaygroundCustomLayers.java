@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.playground;
 
-import ai.djl.Model;
 import ai.djl.inference.Predictor;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;

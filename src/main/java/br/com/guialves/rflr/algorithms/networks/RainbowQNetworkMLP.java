@@ -8,18 +8,25 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
-import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingLayer;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
+import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
 import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.Cleanup;
+import lombok.Getter;
 import lombok.SneakyThrows;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.UnaryOperator;
 
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
+import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.*;
@@ -38,7 +45,8 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.*;
  * <p>Default support: {@code Vmin = -10}, {@code Vmax = 10}, {@code atoms = 51}.
  */
 @Slf4j
-public class CategoricalQNetworkMLP implements IDeepQNetwork {
+@Accessors(fluent = true)
+public class RainbowQNetworkMLP implements INoisyNetwork {
 
     private boolean training;
     private final NDManager subManager;
@@ -46,53 +54,75 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
     private final int actions;
     private final int atoms;
     private final CategoricalBellmanProjection catProj;
+    @Getter
+    private final DuelingType duelingType;
+    private final List<NoisyLayer> noisyLayers;
     private final Model model;
-    private final SequentialBlock net;
+    private final DuelingLayer net;
     private final ParameterStore parameterStore;
     private final NDArray support;
 
-    public CategoricalQNetworkMLP(int observations,
-                                  int actions,
-                                  NDManager parent) {
-        this(observations, actions, N_ATOMS, V_MIN, V_MAX, parent);
+    public RainbowQNetworkMLP(int observations,
+                              int actions,
+                              NDManager parent,
+                              DuelingType duelingType) {
+        this(observations, actions, N_ATOMS, V_MIN, V_MAX, parent, duelingType);
     }
 
-    public CategoricalQNetworkMLP(int observations,
-                                  int actions,
-                                  int atoms,
-                                  float vMin,
-                                  float vMax,
-                                  NDManager parent) {
+    public RainbowQNetworkMLP(int observations,
+                              int actions,
+                              int atoms,
+                              float vMin,
+                              float vMax,
+                              NDManager parent,
+                              DuelingType duelingType) {
         var catProj = new CategoricalBellmanProjection(atoms, vMin, vMax);
-        this(observations, actions, catProj, null, null, parent);
+        this(observations, actions, catProj, null, null, parent, duelingType);
     }
 
-    private CategoricalQNetworkMLP(int observations, int actions, CategoricalBellmanProjection catProj, NDManager parent) {
-        this(observations, actions, catProj, null, null, parent);
+    private RainbowQNetworkMLP(int observations,
+                               int actions,
+                               CategoricalBellmanProjection catProj,
+                               NDManager parent,
+                               DuelingType duelingType) {
+        this(observations, actions, catProj, null, null, parent, duelingType);
     }
 
     @SneakyThrows
-    CategoricalQNetworkMLP(int observations,
-                           int actions,
-                           CategoricalBellmanProjection catProj,
-                           Path modelPath,
-                           String prefix,
-                           NDManager parent) {
+    RainbowQNetworkMLP(int observations,
+                       int actions,
+                       CategoricalBellmanProjection catProj,
+                       Path modelPath,
+                       String prefix,
+                       NDManager parent,
+                       DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
         this.catProj = catProj;
+        this.duelingType = duelingType;
+        this.noisyLayers = new ArrayList<>();
         this.subManager = subMgr(parent, getClass());
 
         // Configure C51 Parameters
         this.atoms = catProj.atoms();
         this.support = catProj.support(subManager);
         this.model = newModel(getClass(), subManager.getDevice());
-        this.net = new SequentialBlock();
-        net.add(linear(128))
-           .add(Activation::relu)
-           .add(linear(128))
-           .add(Activation::relu)
-           .add(linear((long) actions * atoms));
+        this.net = new DuelingLayer(
+                actions,
+                duelingType,
+                featureBackbone ->
+                        featureBackbone.add(linear(128))
+                                .add(Activation::relu)
+                                .add(addAndGet(noisyLayers, noisyLayer(128)))
+                                .add(Activation::relu)
+                                .add(addAndGet(noisyLayers, noisyLayer(128)))
+                                .add(Activation::relu),
+                valueHead ->
+                        valueHead.add(addAndGet(noisyLayers, noisyLayer(1))),
+                advantageHead ->
+                        advantageHead.add(addAndGet(noisyLayers, noisyLayer(actions * atoms)))
+        );
+
         model.setBlock(net);
 
         this.parameterStore = new ParameterStore(subManager, false);
@@ -242,8 +272,8 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new CategoricalQNetworkMLP(observations, actions,
-                catProj, subManager.getParentManager());
+        var cloned = new RainbowQNetworkMLP(observations, actions,
+                catProj, subManager.getParentManager(), duelingType);
         setName(cloned.subManager, "clone");
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
@@ -254,9 +284,20 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         return subManager;
     }
 
+    private Block addAndGet(List<NoisyLayer> list, NoisyLayer noisyLayer) {
+        list.add(noisyLayer);
+        return noisyLayer;
+    }
+
+    @Override
+    public void resetNoise() {
+        noisyLayers.forEach(NoisyLayer::resetNoise);
+    }
+
     @Override
     public void close() {
         subManager.close();
         model.close();
+        resetNoise();
     }
 }

@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AgentDQNTest {
 
-    private static final float DELTA = 0.001f;
+    private static final float DELTA = 1e-6f;
     private static NDManager manager;
 
     @BeforeAll

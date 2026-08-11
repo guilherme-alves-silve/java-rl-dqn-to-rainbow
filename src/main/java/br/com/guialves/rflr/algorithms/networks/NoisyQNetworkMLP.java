@@ -27,7 +27,7 @@ import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
  *  <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/05_noisy_net.py">Python - Noisy Net</a>
  */
 @Slf4j
-public class NoisyQNetworkMLP implements IDeepQNetwork {
+public class NoisyQNetworkMLP implements INoisyNetwork {
 
     private boolean training;
     private final NDManager subManager;
@@ -77,6 +77,7 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
         }
     }
 
+    @Override
     public void resetNoise() {
         noisyLayer1.resetNoise();
         noisyLayer2.resetNoise();
@@ -116,6 +117,7 @@ public class NoisyQNetworkMLP implements IDeepQNetwork {
     @Override
     public IDeepQNetwork clone() {
         var cloned = new NoisyQNetworkMLP(observations, actions, subManager);
+        setName(cloned.subManager, "clone");
         DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

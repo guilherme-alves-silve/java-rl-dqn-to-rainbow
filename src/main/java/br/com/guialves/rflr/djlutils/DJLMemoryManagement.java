@@ -22,6 +22,8 @@ import static java.util.stream.Collectors.*;
 
 public class DJLMemoryManagement {
 
+    public static final int NOT_FOUND_COUNT = -1;
+
     private DJLMemoryManagement() {
         throw new IllegalStateException("No DJLMemoryManagement!");
     }
@@ -74,6 +76,7 @@ public class DJLMemoryManagement {
     public static float scopedToFloat(final UnaryOperator<NDArray> block,
                                       final NDArray input) {
         @Cleanup var out = scoped(block, input);
+        // TODO: Check memory leak
         return out.getFloat();
     }
 
@@ -258,7 +261,7 @@ public class DJLMemoryManagement {
      * tree, including both NDArrays and child NDManagers. The base manager's own
      * state (engine-related resources) is included.</p>
      *
-     * @return the total resource count across the whole hierarchy, or {@code -1}
+     * @return the total resource count across the whole hierarchy, or {@code -1 (NOT_FOUND_COUNT)}
      *         if the count cannot be measured (e.g. due to reflection failures
      *         on an incompatible DJL version)
      */
@@ -266,9 +269,9 @@ public class DJLMemoryManagement {
         try {
             return getDebugDump(manager)
                     .map(ManagerNode::subtreeSize)
-                    .orElse(-1);
+                    .orElse(NOT_FOUND_COUNT);
         } catch (Exception e) {
-            return -1;
+            return NOT_FOUND_COUNT;
         }
     }
 

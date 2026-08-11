@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class PlaygroundC51PureJavaTest {
 
-    private static final double DELTA = 0.000001;
+    private static final float DELTA = 1e-6f;
 
     /**
      * The idea of this playground is to be

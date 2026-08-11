@@ -15,11 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
+import static br.com.guialves.rflr.djlutils.DJLUtils.KEEP_DIMS;
 
 @Slf4j
 public class AgentDQN extends AbstractAgent {
-
-    private static final int[] AXIS_1_ARR = new int[] {1};
 
     public AgentDQN(float epsilon,
                     int updateQTargetAtTimeN,
@@ -57,7 +57,7 @@ public class AgentDQN extends AbstractAgent {
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
             // max Q(s', a')
-            var maxNextQValue = nextQValue.max(AXIS_1_ARR, true);
+            var maxNextQValue = nextQValue.max(AXIS_1_ARR, KEEP_DIMS);
             // gamma * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gamma);
             // (1 - done)

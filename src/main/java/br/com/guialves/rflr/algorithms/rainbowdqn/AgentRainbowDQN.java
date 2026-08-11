@@ -1,28 +1,34 @@
-package br.com.guialves.rflr.algorithms.duelingdqn;
+package br.com.guialves.rflr.algorithms.rainbowdqn;
 
+import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
+import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
 import br.com.guialves.rflr.djlutils.DJLOptimizer;
+import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
-import static br.com.guialves.rflr.djlutils.DJLUtils.KEEP_DIMS;
+import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
 @Slf4j
-public class AgentDuelingDQN extends AbstractAgent {
+public class AgentRainbowDQN extends AbstractAgent {
 
-    public AgentDuelingDQN(float epsilon,
+    private final RainbowQNetworkMLP onlineRainbowNet;
+    private final RainbowQNetworkMLP targetRainbowNet;
+
+    public AgentRainbowDQN(float epsilon,
                            int updateQTargetAtTimeN,
                            float minEpsilon,
                            float epsilonDecay,
@@ -36,9 +42,12 @@ public class AgentDuelingDQN extends AbstractAgent {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, parent,
                 networkFactory, plotTrackers, debugMemoryLeak);
-        if (!(onlineNet instanceof DuelingQNetworkMLP)) {
-            throw new IllegalArgumentException("Invalid network type! Must be of type DuelingQNetworkMLP!");
+        if (!(onlineNet instanceof RainbowQNetworkMLP)) {
+            throw new IllegalArgumentException("Invalid network type! Must be of type NoisyDuelingQNetworkMLP!");
         }
+
+        this.onlineRainbowNet = (RainbowQNetworkMLP) onlineNet;
+        this.targetRainbowNet = (RainbowQNetworkMLP) targetNet;
     }
 
     /**
@@ -56,30 +65,55 @@ public class AgentDuelingDQN extends AbstractAgent {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
-        @Cleanup var targetQValue = targetNet.forward(samples.nextStates(), nextQValue -> {
-            var rewards = samples.rewards();
-            var dones = samples.dones();
 
-            // max Q(s', a')
-            var maxNextQValue = nextQValue.max(AXIS_1_ARR, KEEP_DIMS);
-            // gamma * max Q(s', a')
-            var discountNextQValue = maxNextQValue.mul(gamma);
+        // reset first time eps' for DDQN
+        onlineRainbowNet.resetNoise();
+        // a* = arg max q_online(s', a')
+        var nextStates = samples.nextStates();
+        @Cleanup var action = onlineRainbowNet.forward(nextStates,
+                qOnlineNext -> qOnlineNext.argMax(1).reshape(N_BATCH, 1));
+
+        // reset first time eps' for DDQN
+        targetRainbowNet.resetNoise();
+        @Cleanup var targetQValue = targetRainbowNet.forward(nextStates, qNextValues -> {
+            // q_target(s', a*)
+            var qNextValue = qNextValues.gather(action, 1);
+            // gamma * q_target(s', a*)
+            var discountNextQValue = qNextValue.mul(gamma);
             // (1 - done)
-            var mask = dones.neg().add(1);
-            // r + gamma * max Q(s', a') * (1 - done)
-            return rewards
+            var mask = samples.dones().neg().add(1);
+            // y = r + gamma * q_target(s', arg max q_online(s', a')) * (1 - done)
+            return samples.rewards()
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
         });
 
+        // reset second time eps' for DDQN now to compute TD-Error
+        onlineRainbowNet.resetNoise();
         float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
-            return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineRainbowNet.forward(states, qValue -> qValue.gather(actions, 1));
         });
 
-        DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
+        DJLOptimizer.trainStep(onlineRainbowNet.getBlock(), optimizer);
         return lossItem;
+    }
+
+    /**
+     * The noisy networks parameters epsilon are re-sampled
+     * before every action too, as explained in the section 3.1
+     * of the paper.
+     * @param state actual state
+     * @return selected action
+     */
+    @Override
+    public ActionSpaceType.ActionResult selectAction(NDArray state) {
+        onlineRainbowNet.resetNoise();
+        @Cleanup var oneBatchState = state.expandDims(0);
+        @Cleanup var output = onlineRainbowNet.forward(oneBatchState,
+                qValue -> qValue.stopGradient().argMax(1));
+        return actionSpaceType.get(output.getLong(0));
     }
 }
