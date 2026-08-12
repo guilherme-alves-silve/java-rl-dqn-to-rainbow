@@ -2,7 +2,6 @@ package br.com.guialves.rflr.algorithms.c51dqn;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
-import ai.djl.ndarray.types.Shape;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
@@ -17,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
@@ -30,6 +29,7 @@ public class AgentC51DQN extends AbstractAgent {
     private final CategoricalQNetworkMLP onlineCatNet;
     private final CategoricalQNetworkMLP targetCatNet;
     private final NDArray atomsBroadcaster;
+    private final NDManager subManager;
 
     public AgentC51DQN(float epsilon,
                        int updateQTargetAtTimeN,
@@ -51,8 +51,8 @@ public class AgentC51DQN extends AbstractAgent {
 
         this.onlineCatNet = (CategoricalQNetworkMLP) onlineNet;
         this.targetCatNet = (CategoricalQNetworkMLP) targetNet;
-        this.atomsBroadcaster = this.targetCatNet.subManager().ones(new Shape(1, 1, targetCatNet.atoms()))
-                .stopGradient();
+        this.subManager = subMgr(parent, "sub-atoms-broadcast");
+        this.atomsBroadcaster = this.targetCatNet.newAtomsBroadcaster(subManager);
     }
 
     /**
@@ -123,8 +123,8 @@ public class AgentC51DQN extends AbstractAgent {
                     .reshape(N_BATCH, 1, 1)
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
-            // p(s, a, theta)
-            return onlineCatNet.forwardLogDist(states, probDist -> probDist.gather(actions, AXIS_1));
+            // ln(p(s, a, theta))
+            return onlineCatNet.forwardLogDist(states, logProbDist -> logProbDist.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
         trainStepClipGradients(onlineNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
@@ -134,6 +134,6 @@ public class AgentC51DQN extends AbstractAgent {
     @Override
     public void close() {
         super.close();
-        release(atomsBroadcaster);
+        subManager.close();
     }
 }

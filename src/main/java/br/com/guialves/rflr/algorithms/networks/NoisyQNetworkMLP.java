@@ -117,7 +117,7 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new NoisyQNetworkMLP(observations, actions, subManager);
+        var cloned = new NoisyQNetworkMLP(observations, actions, subManager.getParentManager());
         setName(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
