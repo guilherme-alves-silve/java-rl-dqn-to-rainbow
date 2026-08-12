@@ -205,12 +205,23 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        var dist = forwardDist(input);
+        @Cleanup var dist = forwardDist(input);
         return new NDList(qValuesFromDist(dist));
     }
 
     public int atoms() {
         return atoms;
+    }
+
+    /**
+     * Return an array of ones so we
+     * broadcast the actions to transform from (batch, 1, 1)
+     * to (batch, 1, atoms), e.g.: (32, 1, 1) -> (32, 1, 51)
+     * @return NDArray of shape (1, 1, atoms), e.g.: (1, 1, 51)
+     */
+    public NDArray newAtomsBroadcaster(NDManager external) {
+        return external.ones(new Shape(1, 1, atoms))
+                .stopGradient();
     }
 
     @Override
@@ -242,7 +253,7 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
     @Override
     public IDeepQNetwork clone() {
         var cloned = new CategoricalQNetworkMLP(observations, actions,
-                catProj, subManager.getParentManager());
+                                                catProj, subManager.getParentManager());
         setName(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;

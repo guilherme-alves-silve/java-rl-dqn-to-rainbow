@@ -7,6 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.getDebugDump;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.systemResourceCount;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,8 +55,8 @@ class MemoryLeakTest {
     private static final int GC_TRIES = 3;
     private static final int MIN_SLEEP = 100;
 
-    /** Root manager: online + target network sub-managers. */
-    private static final int EXPECTED_ROOT_SUBMANAGERS = 2;
+    /** Root manager: experience replay buffer + online + target network sub-managers. */
+    private static final int EXPECTED_ROOT_SUBMANAGERS = 3;
 
     /** DeepQNetworkMLP has 3 Linear layers (weight + bias each). */
     private static final int DEEP_NET_PARAMS = 6;
@@ -69,7 +71,7 @@ class MemoryLeakTest {
     private static final int NOISY_DUELING_NET_PARAMS = 18;
 
     /** CategoricalQNetworkMLP has 3 Linear layers (weight + bias each). */
-    private static final int AGENT_C51_DQN_NET_PARAMS = 3;
+    private static final int AGENT_C51_DQN_NET_PARAMS = 7;
 
     /**
      * Each {@code Experience} contributes exactly 2 NDArrays to its buffer:
@@ -192,14 +194,15 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentC51DQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentC51DQN() {
-        // TODO: Correct memory leak
+        int additionalAtomBroadcastSubManager = 1;
         var managerNode = AgentC51DQNMain.run().orElseThrow();
         assertAgentStructure(
                 managerNode,
                 "AgentC51DQN",
                 "CategoricalQNetworkMLP-",
                 AGENT_C51_DQN_NET_PARAMS,
-                "ExperienceReplayBuffer-");
+                "ExperienceReplayBuffer-",
+                additionalAtomBroadcastSubManager);
     }
 
     @Test
@@ -253,11 +256,13 @@ class MemoryLeakTest {
                                       String agentName,
                                       String networkPrefix,
                                       int expectedParamsPerNetwork,
-                                      String bufferPrefix) {
+                                      String bufferPrefix,
+                                      int customAdditionalSubManagers) {
         // 1) Root has exactly the two network sub-managers.
-        assertEquals(EXPECTED_ROOT_SUBMANAGERS, root.totalResources(),
+        int expectedSubManagers = EXPECTED_ROOT_SUBMANAGERS + customAdditionalSubManagers;
+        assertEquals(expectedSubManagers, root.totalResources(),
                 agentName + ": root should have exactly "
-                        + EXPECTED_ROOT_SUBMANAGERS
+                        + expectedSubManagers
                         + " direct sub-managers (online + target networks), got "
                         + root.totalResources() + " with byType=" + root.byType());
 
@@ -267,8 +272,7 @@ class MemoryLeakTest {
         assertEquals(2, networks.size(),
                 agentName + ": expected exactly 2 sub-managers starting with '"
                         + networkPrefix + "', found " + networks.size());
-        for (int i = 0; i < networks.size(); i++) {
-            var net = networks.get(i);
+        for (ManagerNode net : networks) {
             long paramCount = countNDArrays(net);
             assertEquals(expectedParamsPerNetwork, paramCount,
                     agentName + ": network '" + net.name()
@@ -286,7 +290,7 @@ class MemoryLeakTest {
         assertEquals(1, buffers.size(),
                 agentName + ": expected exactly 1 sub-manager starting with '"
                         + bufferPrefix + "', found " + buffers.size());
-        var buffer = buffers.get(0);
+        var buffer = buffers.getFirst();
         long bufferNDArrayCount = countNDArrays(buffer);
         assertTrue(bufferNDArrayCount >= 0 && bufferNDArrayCount % NDARRAYS_PER_EXPERIENCE == 0,
                 agentName + ": buffer '" + buffer.name()
@@ -302,6 +306,14 @@ class MemoryLeakTest {
                         + bufferNDArrayCount + " NDArrays (byType=" + buffer.byType() + ")");
     }
 
+    private void assertAgentStructure(ManagerNode root,
+                                      String agentName,
+                                      String networkPrefix,
+                                      int expectedParamsPerNetwork,
+                                      String bufferPrefix) {
+        assertAgentStructure(root, agentName, networkPrefix, expectedParamsPerNetwork, bufferPrefix, 0);
+    }
+
     /**
      * Counts only the NDArrays in a manager's resources, ignoring any
      * sub-managers (e.g. {@code PtNDManager}). The class name is matched
@@ -315,7 +327,7 @@ class MemoryLeakTest {
     private long countNDArrays(ManagerNode node) {
         return node.byType().entrySet().stream()
                 .filter(e -> e.getKey().endsWith("NDArray"))
-                .mapToLong(java.util.Map.Entry::getValue)
+                .mapToLong(Map.Entry::getValue)
                 .sum();
     }
 }

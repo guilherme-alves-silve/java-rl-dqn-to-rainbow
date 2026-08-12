@@ -127,7 +127,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
     @Override
     public IDeepQNetwork clone() {
         var cloned = new DeepQNetworkCNN(channels, observations, actions,
-                                         modelPath, prefix, subManager);
+                                         modelPath, prefix, subManager.getParentManager());
         setName(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;

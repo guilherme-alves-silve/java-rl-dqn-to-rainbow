@@ -129,7 +129,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
 
     @Override
     public IDeepQNetwork clone() {
-        var cloned = new DuelingQNetworkMLP(observations, actions, subManager, duelingType());
+        var cloned = new DuelingQNetworkMLP(observations, actions, subManager.getParentManager(), duelingType());
         setName(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
