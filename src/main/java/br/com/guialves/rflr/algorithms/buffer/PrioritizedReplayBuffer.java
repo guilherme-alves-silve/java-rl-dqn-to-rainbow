@@ -10,7 +10,9 @@ import lombok.NonNull;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
-import static br.com.guialves.rflr.djlutils.DJLUtils.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
+import static br.com.guialves.rflr.djlutils.DJLUtils.toFloatArray;
 import static java.util.Arrays.stream;
 
 /**
@@ -29,7 +31,7 @@ import static java.util.Arrays.stream;
 public class PrioritizedReplayBuffer implements IReplayBuffer {
 
     public static final float DEFAULT_BETA = 0.4f;
-    private static final float MIN_DELTA = 0.000_000_001f;
+    public static final Float MIN_PRIORITY = 0.000_000_001f;
 
     private final Experience[] experiences;
     private final NDManager subManager;
@@ -158,7 +160,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
      */
     private NDArray calculateWeights(NDManager sub, int[] bufferIndexes, float beta) {
         float sum = sumSegmentTree.sum();
-        float pMin = Math.max(minSegmentTree.min() / sum, MIN_DELTA);
+        float pMin = Math.max(minSegmentTree.min() / sum, MIN_PRIORITY);
         int count = minSegmentTree.size();
         float maxISWeight = (float) Math.pow(count * pMin, -beta);
         return sub.create(stream(bufferIndexes)

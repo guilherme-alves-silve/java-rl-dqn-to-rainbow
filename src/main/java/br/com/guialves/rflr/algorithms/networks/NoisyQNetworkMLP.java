@@ -11,7 +11,6 @@ import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,6 +19,8 @@ import java.nio.file.Path;
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
+import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
 
 /**
  * After each update, it's recommended that you call the method {@code resetNoise()}
@@ -72,7 +73,7 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
-            DJLUtils.setGradients(model.getBlock());
+            setGradients(model.getBlock());
             this.training = true;
         }
     }
@@ -118,7 +119,7 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
     public IDeepQNetwork clone() {
         var cloned = new NoisyQNetworkMLP(observations, actions, subManager);
         setName(cloned.subManager, "clone");
-        DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
+        copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 

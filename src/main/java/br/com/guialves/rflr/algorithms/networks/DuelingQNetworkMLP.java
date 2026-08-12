@@ -10,7 +10,6 @@ import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingLayer;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
+import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
 
 /**
  * Architecture based on the links below:
@@ -86,7 +87,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
-            DJLUtils.setGradients(model.getBlock());
+            setGradients(model.getBlock());
             this.training = true;
         }
     }
@@ -130,7 +131,7 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
     public IDeepQNetwork clone() {
         var cloned = new DuelingQNetworkMLP(observations, actions, subManager, duelingType());
         setName(cloned.subManager, "clone");
-        DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
+        copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 

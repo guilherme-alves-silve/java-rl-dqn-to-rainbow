@@ -8,7 +8,6 @@ import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.NoisyQNetworkMLP;
-import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -18,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStep;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
 
 @Slf4j
@@ -82,10 +83,10 @@ public class AgentNoisyNetDQN extends AbstractAgent {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
-            return onlineNoisyNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineNoisyNet.forward(states, qValue -> qValue.gather(actions, AXIS_1));
         });
 
-        DJLOptimizer.trainStep(onlineNoisyNet.getBlock(), optimizer);
+        trainStep(onlineNoisyNet.getBlock(), optimizer);
         return lossItem;
     }
 
@@ -100,8 +101,8 @@ public class AgentNoisyNetDQN extends AbstractAgent {
     public ActionSpaceType.ActionResult selectAction(NDArray state) {
         onlineNoisyNet.resetNoise();
         @Cleanup var oneBatchState = state.expandDims(0);
-        @Cleanup var output = onlineNoisyNet.forward(oneBatchState,
+        long action = onlineNoisyNet.forwardLong(oneBatchState,
                 qValue -> qValue.stopGradient().argMax(1));
-        return actionSpaceType.get(output.getLong(0));
+        return actionSpaceType.get(action);
     }
 }

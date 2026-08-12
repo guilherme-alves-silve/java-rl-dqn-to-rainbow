@@ -122,20 +122,17 @@ class AgentDQNTest {
         );
 
         var oneBatchState = mock(NDArray.class);
-        var mockArgMax = mock(NDArray.class);
 
         when(mockState.expandDims(0)).thenReturn(oneBatchState);
-        when(onlineNet.forward(eq(oneBatchState), any(UnaryOperator.class)))
-                .thenReturn(mockArgMax);
-        when(mockArgMax.getLong(0)).thenReturn(2L);
+        when(onlineNet.forwardLong(eq(oneBatchState), any(UnaryOperator.class)))
+                .thenReturn(2L);
 
         var result = exploitativeAgent.selectAction(mockState);
 
         assertNotNull(result);
         verify(mockState, times(1)).expandDims(0);
-        verify(onlineNet, times(1)).forward(eq(oneBatchState), any(UnaryOperator.class));
+        verify(onlineNet, times(1)).forwardLong(eq(oneBatchState), any(UnaryOperator.class));
         verify(oneBatchState, times(1)).close();
-        verify(mockArgMax, times(1)).close();
     }
 
     @Test

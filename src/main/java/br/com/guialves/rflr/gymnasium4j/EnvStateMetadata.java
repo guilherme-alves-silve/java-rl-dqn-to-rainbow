@@ -10,6 +10,7 @@ import org.bytedeco.cpython.PyObject;
 
 import java.util.Arrays;
 
+import static br.com.guialves.rflr.gymnasium4j.utils.NumPy2DJLTypeMapper.*;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
 
@@ -32,10 +33,10 @@ public class EnvStateMetadata {
         String dtype = attrStr(arr, "dtype");
 
         long[] longShape = Arrays.stream(shape).mapToLong(i -> i).toArray();
-        DataType djlType = NumPy2DJLTypeMapper.numpyToDjl(dtype);
+        DataType djlType = numpyToDjl(dtype);
 
         int elements = Arrays.stream(shape).reduce(1, Math::multiplyExact);
-        int size = elements * NumPy2DJLTypeMapper.bytesPerElement(dtype);
+        int size = elements * bytesPerElement(dtype);
 
         return new EnvStateMetadata(shape, dtype,
                 new Shape(longShape), djlType, size);

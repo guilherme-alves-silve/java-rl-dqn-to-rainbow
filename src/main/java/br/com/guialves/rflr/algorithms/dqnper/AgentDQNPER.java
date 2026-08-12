@@ -16,16 +16,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Supplier;
 
+import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN_PRIORITY;
 import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
-import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
-import static br.com.guialves.rflr.djlutils.DJLUtils.KEEP_DIMS;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 @Slf4j
 public class AgentDQNPER extends AbstractAgent {
-
-    private static final Float MIN_PRIORITY = 0.000_001f;
 
     private final float initialBeta;
     private float beta;
@@ -88,14 +87,14 @@ public class AgentDQNPER extends AbstractAgent {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
-            return onlineNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineNet.forward(states, qValue -> qValue.gather(actions, AXIS_1));
         });
 
         var lossItem = scopedToFloat(NDArray::mean, losses);
         @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
 
         replayBuffer.updatePriorities(samples.bufferIndexes(), priorities);
-        DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
+        trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;
     }
 

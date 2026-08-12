@@ -13,7 +13,6 @@ import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellma
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingLayer;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.Cleanup;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -28,8 +27,16 @@ import java.util.function.UnaryOperator;
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
-import static br.com.guialves.rflr.djlutils.DJLUtils.*;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.newModel;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.setName;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
+import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS;
+import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS_ARR;
+import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
+import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
+import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
 
 /**
  * Categorical (C51) distributional Q-network.
@@ -132,7 +139,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
-            DJLUtils.setGradients(model.getBlock());
+            setGradients(model.getBlock());
             this.training = true;
         }
     }
@@ -275,7 +282,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
         var cloned = new RainbowQNetworkMLP(observations, actions,
                 catProj, subManager.getParentManager(), duelingType);
         setName(cloned.subManager, "clone");
-        DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
+        copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 

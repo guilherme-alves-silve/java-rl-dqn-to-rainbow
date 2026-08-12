@@ -9,7 +9,6 @@ import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -19,6 +18,7 @@ import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
@@ -127,7 +127,7 @@ public class AgentC51DQN extends AbstractAgent {
             return onlineCatNet.forwardLogDist(states, probDist -> probDist.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
-        DJLOptimizer.trainStepClipGradients(onlineNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
+        trainStepClipGradients(onlineNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
         return lossItem;
     }
 

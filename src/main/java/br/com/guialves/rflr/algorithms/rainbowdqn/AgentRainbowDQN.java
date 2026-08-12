@@ -6,33 +6,40 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
-import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
-import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
 import java.util.function.Supplier;
 
-import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
+import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN_PRIORITY;
+import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 @Slf4j
 public class AgentRainbowDQN extends AbstractAgent {
 
+    private static final float CLIP_GRAD_THRESHOLD = 10.0f;
+
     private final RainbowQNetworkMLP onlineRainbowNet;
     private final RainbowQNetworkMLP targetRainbowNet;
+    private final float initialBeta;
+    private float beta;
 
     public AgentRainbowDQN(float epsilon,
                            int updateQTargetAtTimeN,
                            float minEpsilon,
                            float epsilonDecay,
                            float gamma,
+                           float beta,
                            IEnv env,
                            Optimizer optimizer,
                            NDManager parent,
@@ -48,6 +55,7 @@ public class AgentRainbowDQN extends AbstractAgent {
 
         this.onlineRainbowNet = (RainbowQNetworkMLP) onlineNet;
         this.targetRainbowNet = (RainbowQNetworkMLP) targetNet;
+        this.initialBeta = beta;
     }
 
     /**
@@ -57,12 +65,18 @@ public class AgentRainbowDQN extends AbstractAgent {
      * Reference:
      * <a href="https://d2l.djl.ai/chapter_linear-networks/linear-regression-scratch.html">DJL Linear Regression from Scratch</a>
      * @param batchSize Number of experiences to sample from the replay buffer for each training step
-     * @param replayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
+     * @param ireplayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
-    protected float trainOnline(int batchSize, IReplayBuffer replayBuffer, Loss lossFunc, NDManager sub) {
-        if (!replayBuffer.enough(batchSize)) return Float.NaN;
+    protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
+        if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
+        if (!(ireplayBuffer instanceof NStepPrioritizedReplayBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
+        }
+        if (!(lossFunc instanceof CategoricalCrossEntropyPERLoss catLossFunc)) {
+            throw new IllegalArgumentException("You must pass CategoricalCrossEntropyPERLoss!");
+        }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
 
@@ -75,29 +89,37 @@ public class AgentRainbowDQN extends AbstractAgent {
 
         // reset first time eps' for DDQN
         targetRainbowNet.resetNoise();
-        @Cleanup var targetQValue = targetRainbowNet.forward(nextStates, qNextValues -> {
+        @Cleanup var targetQValue = targetRainbowNet.forward(nextStates, nextQValues -> {
+            var rewards = samples.rewards();
+            var dones = samples.dones();
             // q_target(s', a*)
-            var qNextValue = qNextValues.gather(action, 1);
-            // gamma * q_target(s', a*)
-            var discountNextQValue = qNextValue.mul(gamma);
+            var nextQValue = nextQValues.gather(action, AXIS_1);
+            float gammaNBootstramp = (float) Math.pow(gamma, replayBuffer.nStep());
+            // gamma^n * max Q(s', a')
+            var discountNextQValues = nextQValue.mul(gammaNBootstramp);
             // (1 - done)
-            var mask = samples.dones().neg().add(1);
-            // y = r + gamma * q_target(s', arg max q_online(s', a')) * (1 - done)
-            return samples.rewards()
-                    .add(discountNextQValue.mul(mask))
+            var mask = dones.neg().add(1);
+            // r + gamma * max Q(s', a') * (1 - done)
+            return rewards
+                    .add(discountNextQValues.mul(mask))
                     .stopGradient();
         });
 
         // reset second time eps' for DDQN now to compute TD-Error
         onlineRainbowNet.resetNoise();
-        float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
+        catLossFunc.normISWeights(samples.weights());
+        var losses = rawBackwardLoss(sub, catLossFunc, targetQValue, () -> {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
-            return onlineRainbowNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineRainbowNet.forward(states, qValue -> qValue.gather(actions, AXIS_1));
         });
 
-        DJLOptimizer.trainStep(onlineRainbowNet.getBlock(), optimizer);
+        var lossItem = scopedToFloat(NDArray::mean, losses);
+        @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
+
+        replayBuffer.updatePriorities(samples.bufferIndexes(), priorities);
+        trainStepClipGradients(onlineRainbowNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
         return lossItem;
     }
 
@@ -112,8 +134,8 @@ public class AgentRainbowDQN extends AbstractAgent {
     public ActionSpaceType.ActionResult selectAction(NDArray state) {
         onlineRainbowNet.resetNoise();
         @Cleanup var oneBatchState = state.expandDims(0);
-        @Cleanup var output = onlineRainbowNet.forward(oneBatchState,
+        long action = onlineRainbowNet.forwardLong(oneBatchState,
                 qValue -> qValue.stopGradient().argMax(1));
-        return actionSpaceType.get(output.getLong(0));
+        return actionSpaceType.get(action);
     }
 }

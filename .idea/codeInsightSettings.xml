@@ -6,6 +6,7 @@
       <name>org.bytedeco.cpython.global.python</name>
       <name>br.com.guialves.rflr.djlutils.DJLMemoryManagement</name>
       <name>br.com.guialves.rflr.djlutils.DJLUtils</name>
+      <name>br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer</name>
     </included-static-names>
   </component>
 </project>
