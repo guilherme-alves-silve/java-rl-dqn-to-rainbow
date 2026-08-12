@@ -89,7 +89,7 @@ public class DJLUtils {
         }
     }
 
-    public static void setGradients(final Block block) {
+    public static void initGradients(final Block block) {
         for (var params : block.getParameters()) {
             params.getValue().freeze(false);
         }
@@ -125,14 +125,14 @@ public class DJLUtils {
     }
 
     public static float[] toFloatArray(NDArray array) {
-        // TODO: Remove when this is solved in 0.36
+        // TODO: Remove when this is solved past 0.36
         @Cleanup var sub = subMgr(array, "float-array");
         array.tempAttach(sub);
         return array.toFloatArray();
     }
 
     public static float getFloat(NDArray array) {
-        // TODO: Remove when this is solved in 0.36
+        // TODO: Remove when this is solved past 0.36
         @Cleanup var sub = subMgr(array, "get-float");
         array.tempAttach(sub);
         return array.getFloat(AXIS_EMPTY);

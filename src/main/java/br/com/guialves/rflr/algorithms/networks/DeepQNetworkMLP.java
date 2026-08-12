@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
-import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
+import static br.com.guialves.rflr.djlutils.DJLUtils.initGradients;
 
 /**
  * Architecture based on the link below:
@@ -69,7 +69,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
-            setGradients(model.getBlock());
+            initGradients(model.getBlock());
             this.training = true;
         }
     }

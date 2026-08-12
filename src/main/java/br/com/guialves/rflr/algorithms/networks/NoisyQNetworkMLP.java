@@ -20,7 +20,7 @@ import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLa
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
-import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
+import static br.com.guialves.rflr.djlutils.DJLUtils.initGradients;
 
 /**
  * After each update, it's recommended that you call the method {@code resetNoise()}
@@ -73,7 +73,7 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
-            setGradients(model.getBlock());
+            initGradients(model.getBlock());
             this.training = true;
         }
     }

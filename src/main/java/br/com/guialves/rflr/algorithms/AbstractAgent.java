@@ -115,7 +115,7 @@ public abstract class AbstractAgent implements IAgent {
             int episodeSteps = 0;
 
             do {
-                @Cleanup var sub = subMgr(parentPerEpisode, "inner-sub");
+                @Cleanup var sub = subMgr(parentPerEpisode, "sub-frame");
                 @Cleanup var action = selectAction(state);
 
                 var stepResult = env.step(action, sub);
@@ -149,12 +149,12 @@ public abstract class AbstractAgent implements IAgent {
                 state = transfer(parentPerEpisode, state, nextState);
 
                 pbar.stepTo(frames);
-                plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), sub);
+                plotTrackers.updateTrackersMessage(pbar, frames, replayBuffer.size(), parent, parentPerEpisode);
                 templateExtraProcessing(frames, framesLimit);
                 epsilon = reduceEpsilon(epsilon);
             } while (frames < framesLimit);
         } while ((frames < framesLimit));
-        plotTrackers.setTrackersMessage(pbar, frames, replayBuffer.size(), parent);
+        plotTrackers.updateTrackersMessage(pbar, frames, replayBuffer.size(), parent);
 
         if (debugMemoryLeak) {
             this.managerNode = getDebugDump(parent).orElse(null);

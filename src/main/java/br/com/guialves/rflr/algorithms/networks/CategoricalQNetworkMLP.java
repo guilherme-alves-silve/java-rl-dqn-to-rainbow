@@ -101,7 +101,7 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
-            setGradients(model.getBlock());
+            initGradients(model.getBlock());
             this.training = true;
         }
     }

@@ -15,9 +15,10 @@ public class PlotTrackers {
     private final List<Float> meanEpisodeLoss;
     private final int framesToCalcMemResources;
     private int lastResourcesCount;
+    private int lastResourcesCountPerEpisode;
 
     public PlotTrackers() {
-        this(10_000);
+        this(100);
     }
 
     public PlotTrackers(int framesToCalcMemResources) {
@@ -27,26 +28,36 @@ public class PlotTrackers {
         this.framesToCalcMemResources = framesToCalcMemResources;
     }
 
-    public void setTrackersMessage(ProgressBar pbar,
-                                   int frames,
-                                   int bufferSize,
-                                   NDManager parent) {
+    public void updateTrackersMessage(ProgressBar pbar,
+                                      int frames,
+                                      int bufferSize,
+                                      NDManager parent) {
+        updateTrackersMessage(pbar, frames, bufferSize, parent, null);
+    }
+
+    public void updateTrackersMessage(ProgressBar pbar,
+                                      int frames,
+                                      int bufferSize,
+                                      NDManager parent,
+                                      NDManager parentPerEpisode) {
         if (!episodeEpsilons.isEmpty() &&
                 !meanEpisodeRewards.isEmpty() &&
                 !meanEpisodeLoss.isEmpty()) {
 
             if (frames % framesToCalcMemResources == 0) {
                 lastResourcesCount = managedArrayCount(parent);
+                lastResourcesCountPerEpisode = null == parentPerEpisode? 0 : managedArrayCount(parentPerEpisode);
             }
 
             pbar.setExtraMessage(String.format(
-                    "ε=%.4f 🪙=%.4f 📉=%.4f 🖼️=%d, 📥=%d, res=%d",
+                    "ε=%.4f 🪙=%.4f 📉=%.4f 🖼️=%d, 📥=%d, res=(all=%d, epi=%d)",
                     episodeEpsilons.getLast(),
                     meanEpisodeRewards.getLast(),
                     meanEpisodeLoss.getLast(),
                     frames,
                     bufferSize,
-                    lastResourcesCount
+                    lastResourcesCount,
+                    lastResourcesCountPerEpisode
             ));
         }
     }

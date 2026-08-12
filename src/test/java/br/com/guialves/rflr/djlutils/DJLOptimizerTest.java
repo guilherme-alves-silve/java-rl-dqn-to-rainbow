@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
-import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
+import static br.com.guialves.rflr.djlutils.DJLUtils.initGradients;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,7 +33,7 @@ class DJLOptimizerTest {
                 .add(Linear.builder().setUnits(2).optBias(true).build());
 
         block.initialize(manager, DataType.FLOAT32, new Shape(1, 4));
-        setGradients(block);
+        initGradients(block);
         var parameterStore = new ParameterStore(manager, false);
         var optimizer = Adam.builder()
                 .optLearningRateTracker(Tracker.fixed(0.01f))
@@ -72,7 +72,7 @@ class DJLOptimizerTest {
                 .add(Linear.builder().setUnits(2).optBias(true).build());
 
         block.initialize(manager, DataType.FLOAT32, new Shape(1, 4));
-        setGradients(block);
+        initGradients(block);
 
         var parameterStore = new ParameterStore(manager, false);
         var optimizer = Adam.builder()
