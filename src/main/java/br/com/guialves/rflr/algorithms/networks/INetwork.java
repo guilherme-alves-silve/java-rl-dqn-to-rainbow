@@ -9,6 +9,7 @@ import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFirstLong;
 
 public interface INetwork extends AutoCloseable {
 
@@ -32,5 +33,13 @@ public interface INetwork extends AutoCloseable {
             out.tempAttach(itInput.getManager());
             return block.apply(out, itArrays);
         }, input, arrays);
+    }
+
+    default long forwardLong(NDArray input, final UnaryOperator<NDArray> block) {
+        return scopedToFirstLong(it -> {
+            @Cleanup var out = forward(it);
+            out.tempAttach(it.getManager());
+            return block.apply(out);
+        }, input);
     }
 }

@@ -11,7 +11,6 @@ import ai.djl.nn.Block;
 import ai.djl.nn.Blocks;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,6 +19,8 @@ import java.nio.file.Path;
 import static br.com.guialves.rflr.djlutils.DJLLayers.conv2d;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
+import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
 
 @Slf4j
 public class DeepQNetworkCNN implements IDeepQNetwork {
@@ -82,7 +83,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
             net.initialize(subManager,
                     DataType.FLOAT32,
                     new Shape(1, channels, observations, observations));
-            DJLUtils.setGradients(model.getBlock());
+            setGradients(model.getBlock());
             this.training = true;
         }
     }
@@ -128,7 +129,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
         var cloned = new DeepQNetworkCNN(channels, observations, actions,
                                          modelPath, prefix, subManager);
         setName(cloned.subManager, "clone");
-        DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
+        copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 

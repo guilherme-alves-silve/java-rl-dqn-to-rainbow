@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.getDebugDump;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.systemResourceCount;
-import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
-import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

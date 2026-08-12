@@ -11,7 +11,6 @@ import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 import lombok.Cleanup;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -102,7 +101,7 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));
-            DJLUtils.setGradients(model.getBlock());
+            setGradients(model.getBlock());
             this.training = true;
         }
     }
@@ -245,7 +244,7 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         var cloned = new CategoricalQNetworkMLP(observations, actions,
                 catProj, subManager.getParentManager());
         setName(cloned.subManager, "clone");
-        DJLUtils.copy(model.getBlock(), cloned.model.getBlock());
+        copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }
 

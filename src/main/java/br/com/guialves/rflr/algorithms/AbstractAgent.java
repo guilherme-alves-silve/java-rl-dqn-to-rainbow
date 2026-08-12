@@ -7,7 +7,6 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -28,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static java.util.Objects.requireNonNull;
 
@@ -78,7 +78,7 @@ public abstract class AbstractAgent implements IAgent {
         this.plotTrackers = plotTrackers;
         this.targetNet = onlineNet.clone();
         this.targetNet.eval();
-        DJLUtils.freeze(this.targetNet.getBlock());
+        freeze(this.targetNet.getBlock());
         this.optimizer = optimizer;
         this.parent = parent;
         parent.cap();
@@ -204,8 +204,8 @@ public abstract class AbstractAgent implements IAgent {
 
     protected void updateTargetNetworkAtN(int frames) {
         if (frames % updateQTargetAtTimeN == 0) {
-            DJLUtils.copy(onlineNet.getBlock(), targetNet.getBlock());
-            DJLUtils.freeze(targetNet.getBlock());
+            copy(onlineNet.getBlock(), targetNet.getBlock());
+            freeze(targetNet.getBlock());
         }
     }
 
@@ -219,9 +219,9 @@ public abstract class AbstractAgent implements IAgent {
         }
 
         @Cleanup var oneBatchState = state.expandDims(0);
-        @Cleanup var output = onlineNet.forward(oneBatchState,
+        long action = onlineNet.forwardLong(oneBatchState,
                 qValue -> qValue.stopGradient().argMax(1));
-        return actionSpaceType.get(output.getLong(0));
+        return actionSpaceType.get(action);
     }
 
     @Override

@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
@@ -75,7 +76,7 @@ public class AgentDDQN extends AbstractAgent {
             return onlineNet.forward(states, qValue -> qValue.gather(actions, AXIS_1));
         });
 
-        DJLOptimizer.trainStep(onlineNet.getBlock(), optimizer);
+        trainStep(onlineNet.getBlock(), optimizer);
         return lossItem;
     }
 }

@@ -37,7 +37,7 @@ public class AgentC51DQNMain {
                 .minEpsilon(0.01f)
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
-                .batchSize(32)
+                .batchSize(128)
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))

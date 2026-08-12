@@ -11,7 +11,6 @@ import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -62,7 +61,7 @@ public class RLRunner {
                 .build();
 
         IO.println("Engine: " + Engine.getInstance().getEngineName());
-        IO.println("GPU count: " + DJLUtils.gpuCount());
+        IO.println("GPU count: " + gpuCount());
         IO.println("Device: " + device);
         IO.println("Observation space: " + env.observationSpaceStr());
         IO.println("Action space: " + env.actionSpaceStr());

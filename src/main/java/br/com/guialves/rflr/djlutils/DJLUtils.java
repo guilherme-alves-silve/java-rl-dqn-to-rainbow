@@ -28,6 +28,7 @@ public class DJLUtils {
     public static final int LAST_AXIS = -1;
     public static final int[] LAST_AXIS_ARR = new int[] {-1};
     public static final long[] AXIS_EMPTY = new long[]{};
+    public static final long[] FIRST_POS = new long[]{0};
     public static final boolean KEEP_DIMS = true;
     /**
      * Semantic for when you are building a batch,

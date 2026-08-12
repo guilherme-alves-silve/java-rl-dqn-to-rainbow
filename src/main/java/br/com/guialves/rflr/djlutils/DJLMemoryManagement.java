@@ -18,6 +18,8 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.*;
 
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_EMPTY;
+import static br.com.guialves.rflr.djlutils.DJLUtils.FIRST_POS;
 import static java.util.stream.Collectors.*;
 
 public class DJLMemoryManagement {
@@ -73,11 +75,31 @@ public class DJLMemoryManagement {
         return sub.ret(result);
     }
 
+
+    private static NDArray scopedNotReturned(final NDManager sub,
+                                             final UnaryOperator<NDArray> block,
+                                             final NDArray input) {
+        input.tempAttach(sub);
+        var result = block.apply(input);
+        if (result == input) {
+            throw new IllegalStateException("scoped block returned the input NDArray itself");
+        }
+
+        return result;
+    }
+
     public static float scopedToFloat(final UnaryOperator<NDArray> block,
                                       final NDArray input) {
-        @Cleanup var out = scoped(block, input);
-        // TODO: Check memory leak
-        return out.getFloat();
+        @Cleanup var sub = subMgr(input, "scoped-out-float");
+        var out = scopedNotReturned(sub, block, input);
+        return out.getFloat(AXIS_EMPTY);
+    }
+
+    public static long scopedToFirstLong(final UnaryOperator<NDArray> block,
+                                          final NDArray input) {
+        @Cleanup var sub = subMgr(input, "scoped-out-float");
+        var out = scopedNotReturned(sub, block, input);
+        return out.getLong(FIRST_POS);
     }
 
     public static NDArray scoped(final BinaryOperator<NDArray> block,

@@ -8,7 +8,6 @@ import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.NoisyDuelingQNetworkMLP;
-import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -18,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStep;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
 @Slf4j
@@ -75,7 +76,7 @@ public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
         targetNoisyDuelNet.resetNoise();
         @Cleanup var targetQValue = targetNoisyDuelNet.forward(nextStates, qNextValues -> {
             // q_target(s', a*)
-            var qNextValue = qNextValues.gather(action, 1);
+            var qNextValue = qNextValues.gather(action, AXIS_1);
             // gamma * q_target(s', a*)
             var discountNextQValue = qNextValue.mul(gamma);
             // (1 - done)
@@ -92,10 +93,10 @@ public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)
-            return onlineNoisyDuelNet.forward(states, qValue -> qValue.gather(actions, 1));
+            return onlineNoisyDuelNet.forward(states, qValue -> qValue.gather(actions, AXIS_1));
         });
 
-        DJLOptimizer.trainStep(onlineNoisyDuelNet.getBlock(), optimizer);
+        trainStep(onlineNoisyDuelNet.getBlock(), optimizer);
         return lossItem;
     }
 
@@ -110,8 +111,8 @@ public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
     public ActionSpaceType.ActionResult selectAction(NDArray state) {
         onlineNoisyDuelNet.resetNoise();
         @Cleanup var oneBatchState = state.expandDims(0);
-        @Cleanup var output = onlineNoisyDuelNet.forward(oneBatchState,
+        long action = onlineNoisyDuelNet.forwardLong(oneBatchState,
                 qValue -> qValue.stopGradient().argMax(1));
-        return actionSpaceType.get(output.getLong(0));
+        return actionSpaceType.get(action);
     }
 }
