@@ -38,6 +38,9 @@ public class AgentC51DQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
+                .atoms(101)
+                .vMin(-50.0f)
+                .vMax(+50.0f)
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
@@ -78,6 +81,9 @@ public class AgentC51DQNMain {
                 () -> new CategoricalQNetworkMLP(
                     config.observations(),
                     config.actions(),
+                    config.atoms(),
+                    config.vMin(),
+                    config.vMax(),
                     parent
                 ),
                 plotTrackers,

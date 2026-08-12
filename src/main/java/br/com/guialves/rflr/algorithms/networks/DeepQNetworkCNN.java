@@ -20,7 +20,7 @@ import static br.com.guialves.rflr.djlutils.DJLLayers.conv2d;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
-import static br.com.guialves.rflr.djlutils.DJLUtils.setGradients;
+import static br.com.guialves.rflr.djlutils.DJLUtils.initGradients;
 
 @Slf4j
 public class DeepQNetworkCNN implements IDeepQNetwork {
@@ -83,7 +83,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
             net.initialize(subManager,
                     DataType.FLOAT32,
                     new Shape(1, channels, observations, observations));
-            setGradients(model.getBlock());
+            initGradients(model.getBlock());
             this.training = true;
         }
     }
