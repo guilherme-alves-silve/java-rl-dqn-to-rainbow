@@ -21,6 +21,25 @@ import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
+/**
+ * C51 distributional DQN agent.
+ *
+ * <p>Reference: <a href="https://arxiv.org/abs/1707.06887">A Distributional Perspective on RL</a>.
+ *
+ * <p>The agent:
+ * <ol>
+ *   <li>Computes Q(s', a) = sum_i (z_i * p_i(s', a)) for the next-state distribution
+ *       (Double-DQN style: action selection uses the online net)</li>
+ *   <li>Selects {@code a* = argmax_a Q(s', a)} from the online net and gathers the
+ *       target distribution {@code p(s', a*)}</li>
+ *   <li>Applies the Bellman projection to get the target categorical distribution m</li>
+ *   <li>Minimizes the cross-entropy {@code -sum(m * log p(s, a))} between the projected
+ *       target distribution and the online distribution for the action actually taken</li>
+ * </ol>
+ *
+ * <p>The online and target networks must be {@link CategoricalQNetworkMLP} instances so that
+ * the categorical projection, the support vector and the distribution head are all in sync.
+ */
 @Slf4j
 public class AgentC51DQN extends AbstractAgent {
 
@@ -104,15 +123,15 @@ public class AgentC51DQN extends AbstractAgent {
         @Cleanup var projectDist = targetCatNet.forwardDist(samples.nextStates(), probNextDist -> {
             // (batch, actions, atoms) -> (batch, actions)
             var nextQValues = targetCatNet.qValuesFromDist(probNextDist);
-            var bestNextActions = nextQValues.argMax(AXIS_1)
+            var maxNextActions = nextQValues.argMax(AXIS_1)
                     // (batch, 1, 1)
                     .reshape(N_BATCH, 1, 1)
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
             // (batch, 1, atoms) - now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
-            var bestNextProbDist = probNextDist.gather(bestNextActions, AXIS_1).stopGradient();
+            var maxNextProbDist = probNextDist.gather(maxNextActions, AXIS_1).stopGradient();
             // Bellman Projection - mi
-            return targetCatNet.projectBellman(bestNextProbDist, samples.rewards(), samples.dones(), gamma);
+            return targetCatNet.projectBellman(maxNextProbDist, samples.rewards(), samples.dones(), gamma);
         });
 
         // Loss = sum mi * ln (p(s, a, theta))

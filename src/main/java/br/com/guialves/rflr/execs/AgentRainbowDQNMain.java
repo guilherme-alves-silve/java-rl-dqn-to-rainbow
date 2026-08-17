@@ -5,10 +5,11 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
-import br.com.guialves.rflr.algorithms.dqnper.AgentDQNPER;
-import br.com.guialves.rflr.algorithms.dqnper.PERL2Loss;
-import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
+import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
+import br.com.guialves.rflr.algorithms.rainbowdqn.AgentRainbowDQN;
+import br.com.guialves.rflr.algorithms.rainbowdqn.CategoricalCrossEntropyPERLoss;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -17,12 +18,13 @@ import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
+import static java.lang.System.getProperty;
 
 /**
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
-public class AgentDQNPERMain {
+public class AgentRainbowDQNMain {
 
     static void main() {
         run();
@@ -32,8 +34,8 @@ public class AgentDQNPERMain {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
-                .runnerClass(AgentDQNPERMain.class.getSimpleName())
-                .algorithmName("dqnper")
+                .runnerClass(AgentRainbowDQNMain.class.getSimpleName())
+                .algorithmName("rainbow_dqn")
                 .observations(8)
                 .actions(4)
                 .alpha(0.2f)
@@ -44,6 +46,11 @@ public class AgentDQNPERMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
+                .nStep(3)
+                .atoms(50)
+                .vMin(-10.0f)
+                .vMax(+10.0f)
+                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
@@ -56,40 +63,50 @@ public class AgentDQNPERMain {
 
             @Override
             public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {
-                return buildDQNPER(config, env, optimizer, plotTrackers, parent);
+                return buildRainbowDQN(config, env, optimizer, plotTrackers, parent);
             }
 
             @Override
             public Loss lossFunc() {
-                return PERL2Loss.noneReduction();
+                return new CategoricalCrossEntropyPERLoss();
             }
 
             @Override
             public IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
-                return new PrioritizedReplayBuffer(config.bufferCapacity(), config.alpha(), manager);
+                return new NStepPrioritizedReplayBuffer(
+                        config.nStep(),
+                        config.discountFactor(),
+                        config.alpha(),
+                        config.bufferCapacity(),
+                        manager
+                );
             }
         });
     }
 
-    private static IAgent buildDQNPER(RLConfig config,
-                                      IEnv env,
-                                      Optimizer optimizer,
-                                      PlotTrackers plotTrackers,
-                                      NDManager parent) {
-        return new AgentDQNPER(
+    private static IAgent buildRainbowDQN(RLConfig config,
+                                          IEnv env,
+                                          Optimizer optimizer,
+                                          PlotTrackers plotTrackers,
+                                          NDManager parent) {
+        return new AgentRainbowDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
                 config.epsilonDecay(),
-                config.discountFactor(),
+                config.discountFactor(), // gamma
                 config.beta(),
                 env,
                 optimizer,
                 parent,
-                () -> new DeepQNetworkMLP(
+                () -> new RainbowQNetworkMLP(
                     config.observations(),
                     config.actions(),
-                    parent
+                    config.atoms(),
+                    config.vMin(),
+                    config.vMax(),
+                    parent,
+                    config.duelingType()
                 ),
                 plotTrackers,
                 config.debugMemoryLeak()

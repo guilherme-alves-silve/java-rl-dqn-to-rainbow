@@ -19,10 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.tongfei.progressbar.ProgressBar;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
@@ -194,6 +191,7 @@ public abstract class AbstractAgent implements IAgent {
      */
     @Override
     public Map<Object, Object> lastInfo() {
+        if (null == lastInfo) return Collections.emptyMap();
         return lastInfo;
     }
 
@@ -220,7 +218,7 @@ public abstract class AbstractAgent implements IAgent {
 
         @Cleanup var oneBatchState = state.expandDims(0);
         long action = onlineNet.forwardLong(oneBatchState,
-                qValue -> qValue.stopGradient().argMax(1));
+                qValue -> qValue.stopGradient().argMax(AXIS_1));
         return actionSpaceType.get(action);
     }
 

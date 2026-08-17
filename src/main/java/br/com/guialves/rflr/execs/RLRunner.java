@@ -19,6 +19,7 @@ import lombok.Cleanup;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.Optional;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.cappedParentMgr;
@@ -80,10 +81,13 @@ public class RLRunner {
         }
 
         double totalReward = agent.run(config.runMaxTries(), config.renderRun()).getLast();
-        IO.println("Info: " + agent.lastInfo());
-        IO.println("Replay Buffer size: " + replayBuffer.size());
-        IO.println("Total episodes: " + agent.episodes());
-        IO.println("Total reward: " + totalReward);
+        var runOutput = Map.of(
+                "Info", agent.lastInfo(),
+                "Replay Buffer size", replayBuffer.size(),
+                "Total episodes", agent.episodes(),
+                "Total reward", totalReward
+        );
+        runOutput.forEach((desc, result) -> IO.println(desc + ": " + result));
 
         if (config.saveModel()) {
             validateModelFile(path, modelFileName);
@@ -92,7 +96,7 @@ public class RLRunner {
         var managerNode = agent.getManagerNode();
 
         if (getBoolProp("agent.saveConfig", "true")) {
-            config.saveConfig(managerNode);
+            config.saveConfig(managerNode, runOutput);
         }
 
         return managerNode;

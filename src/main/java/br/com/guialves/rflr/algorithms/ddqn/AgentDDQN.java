@@ -6,7 +6,6 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.djlutils.DJLOptimizer;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -15,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLOptimizer.*;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStep;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
@@ -54,11 +53,11 @@ public class AgentDDQN extends AbstractAgent {
         // a* = arg max q_online(s', a')
         var nextStates = samples.nextStates();
         @Cleanup var action = onlineNet.forward(nextStates,
-                qOnlineNext -> qOnlineNext.argMax(AXIS_1)
+                onlineQNextValue -> onlineQNextValue.stopGradient().argMax(AXIS_1)
                         .reshape(N_BATCH, 1));
-        @Cleanup var targetQValue = targetNet.forward(nextStates, qNextValues -> {
-            // q_target(s', a*)
-            var qNextValue = qNextValues.gather(action, AXIS_1);
+        @Cleanup var targetQValue = targetNet.forward(nextStates, nextQValues -> {
+            // q_target(s', a*) - DDQN
+            var qNextValue = nextQValues.gather(action, AXIS_1);
             // gamma * q_target(s', a*)
             var discountNextQValue = qNextValue.mul(gamma);
             // (1 - done)
@@ -69,7 +68,7 @@ public class AgentDDQN extends AbstractAgent {
                     .stopGradient();
         });
 
-        float lossItem = backwardLoss(sub, lossFunc, targetQValue, arrays -> {
+        float lossItem = backwardLoss(sub, lossFunc, targetQValue, () -> {
             var states = samples.states();
             var actions = samples.actions();
             // y_hat = q_online(s, a)

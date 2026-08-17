@@ -1,8 +1,9 @@
 # Implementation of Rainbow-DQN (and it's derivatives) in Java 
 
 ## My articles
+- [Connecting Java Reinforcement Learning to Python Gymnasium](https://javapro.io/2026/07/29/connecting-java-reinforcement-learning-to-python-gymnasium/)
+  - [Substack](https://guilhermealvessilveira.substack.com/p/connecting-java-reinforcement-learning)
 - [How to Never Forget Deep Q-Networks: Memory Palaces Meet Reinforcement Learning](https://neuralpalace.substack.com/p/how-to-never-forget-deep-q-networks)
-- [Connecting Java Reinforcement Learning to Python Gymnasium](https://guilhermealvessilveira.substack.com/p/connecting-java-reinforcement-learning)
 
 ## Codes and books used as reference
 
@@ -23,8 +24,9 @@ This project bridges the Java ecosystem and Python's [Gymnasium](https://gymnasi
 
 The series progresses in three articles:
 
-1. **Part 1** — Gymnasium integration via JavaCPP
-2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
+**Part 1** — Gymnasium integration via JavaCPP
+
+**Part 2** — Incremental algorithm upgrades from DQN to full Rainbow DQN
 - [x] DQN
 - [x] Double DQN
 - [x] PER
@@ -32,8 +34,9 @@ The series progresses in three articles:
 - [x] n-Step
 - [x] Noisy Networks
 - [x] C51
-- [ ] Rainbow
-3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN
+- [x] Rainbow
+
+**Part 3 (WIP)** — CARLA autonomous driving integration with Rainbow DQN
 
 ### Related articles:
 - [Video Games and Reinforcement Learning](https://guilhermealvessilveira.substack.com/p/video-games-and-reinforcement-learning)

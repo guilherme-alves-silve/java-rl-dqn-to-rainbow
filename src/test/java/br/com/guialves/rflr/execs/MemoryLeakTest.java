@@ -74,6 +74,9 @@ class MemoryLeakTest {
     /** CategoricalQNetworkMLP has 3 Linear layers (weight + bias each). */
     private static final int AGENT_C51_DQN_NET_PARAMS = 7;
 
+    /** RainbowQNetworkMLP has 3 Linear layers (weight + bias each). */
+    private static final int AGENT_RAINBOW_DQN_NET_PARAMS = 19;
+
     /**
      * Each {@code Experience} contributes exactly 2 NDArrays to its buffer:
      * one {@code state} and one {@code nextState}. We use this as a
@@ -204,6 +207,20 @@ class MemoryLeakTest {
                 "CategoricalQNetworkMLP-",
                 AGENT_C51_DQN_NET_PARAMS,
                 "ExperienceReplayBuffer-",
+                additionalAtomBroadcastSubManager);
+    }
+
+    @Test
+    @DisplayName("AgentRainbowDQN should leave exactly the expected NDArrays after training")
+    void shouldNotLeakMemoryAfterAgentRainbowDQN() {
+        int additionalAtomBroadcastSubManager = 1;
+        var managerNode = AgentRainbowDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentRainbowDQN",
+                "RainbowQNetworkMLP-",
+                AGENT_RAINBOW_DQN_NET_PARAMS,
+                "NStepPrioritizedReplayBuffer-",
                 additionalAtomBroadcastSubManager);
     }
 

@@ -7,6 +7,7 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -19,11 +20,26 @@ import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN_PRIORITY;
 import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
-import static br.com.guialves.rflr.djlutils.DJLUtils.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
+import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
+/**
+ * Rainbow DQN — the union of all seven improvements from Hessel et al. (2017):
+ * <ol>
+ *   <li>DQN baseline (target network + replay buffer)</li>
+ *   <li>Double DQN (action selection on the online net)</li>
+ *   <li>Prioritized Experience Replay (proportional sampling, importance-sampling weights)</li>
+ *   <li>Dueling network (value + advantage streams)</li>
+ *   <li>N-Step Learning returns ({@code n}-step)</li>
+ *   <li>Noisy networks (parametric noise for exploration, no ε-greedy)</li>
+ *   <li>C51 distributional (categorical Bellman projection + cross-entropy loss)</li>
+ * </ol>
+ *
+ * <p>The buffer must be a {@link PrioritizedReplayBuffer} or {@link NStepPrioritizedReplayBuffer};
+ * the loss must be {@link CategoricalCrossEntropyPERLoss}; the networks must be {@link RainbowQNetworkMLP}.
+ */
 @Slf4j
 public class AgentRainbowDQN extends AbstractAgent {
 
@@ -31,6 +47,8 @@ public class AgentRainbowDQN extends AbstractAgent {
 
     private final RainbowQNetworkMLP onlineRainbowNet;
     private final RainbowQNetworkMLP targetRainbowNet;
+    private final NDManager subManager;
+    private final NDArray atomsBroadcaster;
     private final float initialBeta;
     private float beta;
 
@@ -55,6 +73,8 @@ public class AgentRainbowDQN extends AbstractAgent {
 
         this.onlineRainbowNet = (RainbowQNetworkMLP) onlineNet;
         this.targetRainbowNet = (RainbowQNetworkMLP) targetNet;
+        this.subManager = subMgr(parent, "sub-atoms-broadcast");
+        this.atomsBroadcaster = this.targetRainbowNet.newAtomsBroadcaster(subManager);
         this.initialBeta = beta;
     }
 
@@ -78,42 +98,42 @@ public class AgentRainbowDQN extends AbstractAgent {
             throw new IllegalArgumentException("You must pass CategoricalCrossEntropyPERLoss!");
         }
 
-        @Cleanup var samples = replayBuffer.sample(batchSize);
+        @Cleanup var samples = replayBuffer.sample(batchSize, beta);
 
         // reset first time eps' for DDQN
         onlineRainbowNet.resetNoise();
         // a* = arg max q_online(s', a')
         var nextStates = samples.nextStates();
         @Cleanup var action = onlineRainbowNet.forward(nextStates,
-                qOnlineNext -> qOnlineNext.argMax(1).reshape(N_BATCH, 1));
+                onlineNextQValues -> onlineNextQValues.stopGradient().argMax(AXIS_1)
+                        // (batch, 1, 1)
+                        .reshape(N_BATCH, 1, 1)
+                        // (batch, 1, atoms)
+                        .mul(atomsBroadcaster));
 
         // reset first time eps' for DDQN
         targetRainbowNet.resetNoise();
-        @Cleanup var targetQValue = targetRainbowNet.forward(nextStates, nextQValues -> {
-            var rewards = samples.rewards();
-            var dones = samples.dones();
-            // q_target(s', a*)
-            var nextQValue = nextQValues.gather(action, AXIS_1);
-            float gammaNBootstramp = (float) Math.pow(gamma, replayBuffer.nStep());
-            // gamma^n * max Q(s', a')
-            var discountNextQValues = nextQValue.mul(gammaNBootstramp);
-            // (1 - done)
-            var mask = dones.neg().add(1);
-            // r + gamma * max Q(s', a') * (1 - done)
-            return rewards
-                    .add(discountNextQValues.mul(mask))
-                    .stopGradient();
+        @Cleanup var targetQValue = targetRainbowNet.forwardDist(nextStates, probNextDist -> {
+            float gammaNBootstrap = (float) Math.pow(gamma, replayBuffer.nStep());
+            // q_target(s', a*) - DDQN
+            var bestNextProbDist = probNextDist.gather(action, AXIS_1);
+            // Bellman Projection - mi (with n-step gammaNBootstrap instead of just gamma)
+            return targetRainbowNet.projectBellman(bestNextProbDist, samples.rewards(), samples.dones(), gammaNBootstrap);
         });
 
         // reset second time eps' for DDQN now to compute TD-Error
         onlineRainbowNet.resetNoise();
         catLossFunc.normISWeights(samples.weights());
-        var losses = rawBackwardLoss(sub, catLossFunc, targetQValue, () -> {
-            var states = samples.states();
-            var actions = samples.actions();
-            // y_hat = q_online(s, a)
-            return onlineRainbowNet.forward(states, qValue -> qValue.gather(actions, AXIS_1));
-        });
+        var losses = rawBackwardLoss(sub, catLossFunc, targetQValue, array -> {
+            var states = array[0];
+            var actions = array[1]
+                    // (batch, 1, 1)
+                    .reshape(N_BATCH, 1, 1)
+                    // (batch, 1, atoms)
+                    .mul(atomsBroadcaster);
+            // ln(p(s, a, theta))
+            return onlineRainbowNet.forwardLogDist(states, logProbDist -> logProbDist.gather(actions, AXIS_1));
+        }, samples.states(), samples.actions());
 
         var lossItem = scopedToFloat(NDArray::mean, losses);
         @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
@@ -135,7 +155,32 @@ public class AgentRainbowDQN extends AbstractAgent {
         onlineRainbowNet.resetNoise();
         @Cleanup var oneBatchState = state.expandDims(0);
         long action = onlineRainbowNet.forwardLong(oneBatchState,
-                qValue -> qValue.stopGradient().argMax(1));
+                qValue -> qValue.stopGradient().argMax(AXIS_1));
         return actionSpaceType.get(action);
+    }
+
+    /**
+     * Updates the importance sampling annealing parameter (beta) based on the current training progress.
+     *
+     * <p>Beta is annealed from {@code initialBeta} to 1.0 over the course of training to
+     * gradually correct the bias introduced by prioritized experience replay. This follows
+     * the approach described in the Prioritized Experience Replay paper (Schaul et al., 2015).
+     *
+     * <p>The annealing formula is:
+     * \[ \beta = \beta_{initial} + \text{fraction} \times (1.0 - \beta_{initial}) \]
+     *
+     * @throws IllegalArgumentException if {@code totalFramesLimit} <= 0 or {@code framesSkip} < 0
+     * @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
+     */
+    @Override
+    protected void templateExtraProcessing(int frames, long frameLimit) {
+        float fraction = Math.min((float) frames / frameLimit, 1.0f);
+        this.beta = this.initialBeta + fraction * (1.0f - this.initialBeta);
+    }
+
+    @Override
+    public void close() {
+        super.close();
+        subManager.close();
     }
 }
