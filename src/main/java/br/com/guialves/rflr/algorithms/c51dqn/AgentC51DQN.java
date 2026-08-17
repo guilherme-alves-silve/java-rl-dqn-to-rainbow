@@ -28,9 +28,8 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
  *
  * <p>The agent:
  * <ol>
- *   <li>Computes Q(s', a) = sum_i (z_i * p_i(s', a)) for the next-state distribution
- *       (Double-DQN style: action selection uses the online net)</li>
- *   <li>Selects {@code a* = argmax_a Q(s', a)} from the online net and gathers the
+ *   <li>Computes Q(s', a) = sum_i (z_i * p_i(s', a)) for the next-state distribution (DQN style in this case)</li>
+ *   <li>Selects {@code a* = argmax_a Q(s', a)} from the target net and gathers the
  *       target distribution {@code p(s', a*)}</li>
  *   <li>Applies the Bellman projection to get the target categorical distribution m</li>
  *   <li>Minimizes the cross-entropy {@code -sum(m * log p(s, a))} between the projected

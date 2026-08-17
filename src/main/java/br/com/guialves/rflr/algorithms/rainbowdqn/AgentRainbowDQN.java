@@ -75,7 +75,7 @@ public class AgentRainbowDQN extends AbstractAgent {
         this.targetRainbowNet = (RainbowQNetworkMLP) targetNet;
         this.subManager = subMgr(parent, "sub-atoms-broadcast");
         this.atomsBroadcaster = this.targetRainbowNet.newAtomsBroadcaster(subManager);
-        this.initialBeta = beta;
+        this.beta = this.initialBeta = beta;
     }
 
     /**

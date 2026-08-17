@@ -44,7 +44,7 @@ public class AgentDQNPER extends AbstractAgent {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, parent,
                 networkFactory, plotTrackers, debugMemoryLeak);
-        this.initialBeta = beta;
+        this.beta = this.initialBeta = beta;
     }
 
     /**
