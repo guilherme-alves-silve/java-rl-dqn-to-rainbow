@@ -3,10 +3,8 @@ package br.com.guialves.rflr.algorithms.rainbowdqn;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.training.loss.Loss;
-import br.com.guialves.rflr.djlutils.DJLUtils;
 
-import static br.com.guialves.rflr.djlutils.DJLUtils.KEEP_DIMS;
-import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS_ARR;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 /**
  * PER Loss with Importance Sampling weights for bias correction, for the Categorical DQN,
@@ -16,29 +14,14 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS_ARR;
  */
 public class CategoricalCrossEntropyPERLoss extends Loss {
 
-    private static final float HALF_WEIGHT = 0.5f;
-    private final int atoms;
-    private final Reduction reduction;
     private NDArray normISWeights;
-
-    public enum Reduction {
-        MEAN, NONE
-    }
 
     /**
      * Importance Sampling Weights used in the PER algorithm
      */
-    public CategoricalCrossEntropyPERLoss(int atoms, Reduction reduction) {
+    public CategoricalCrossEntropyPERLoss() {
         super(CategoricalCrossEntropyPERLoss.class.getSimpleName());
-        this.atoms = atoms;
-        this.reduction = reduction;
     }
-
-    public static CategoricalCrossEntropyPERLoss noneReduction(int atoms) {
-        return new CategoricalCrossEntropyPERLoss(atoms, Reduction.NONE);
-    }
-
-
 
     /**
      * Sets the normalized importance sampling weights for the current batch.
@@ -47,7 +30,7 @@ public class CategoricalCrossEntropyPERLoss extends Loss {
      */
     public CategoricalCrossEntropyPERLoss normISWeights(NDArray normISWeights) {
         if (normISWeights.getShape().dimension() == 1) {
-            normISWeights = normISWeights.reshape(DJLUtils.N_BATCH, 1, atoms);
+            normISWeights = normISWeights.reshape(N_BATCH, 1);
         }
 
         this.normISWeights = normISWeights;
@@ -75,10 +58,6 @@ public class CategoricalCrossEntropyPERLoss extends Loss {
                 .mul(pred.mul(lab)
                 .sum(LAST_AXIS_ARR, KEEP_DIMS)).neg();
         this.normISWeights = null;
-        if (reduction.equals(Reduction.MEAN)) {
-            return loss.mean();
-        }
-
         return loss;
     }
 }

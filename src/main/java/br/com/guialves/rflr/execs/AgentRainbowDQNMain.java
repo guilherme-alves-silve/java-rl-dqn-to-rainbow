@@ -7,6 +7,7 @@ import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.algorithms.rainbowdqn.AgentRainbowDQN;
 import br.com.guialves.rflr.algorithms.rainbowdqn.CategoricalCrossEntropyPERLoss;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
@@ -17,6 +18,7 @@ import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
+import static java.lang.System.getProperty;
 
 /**
  * Reference:
@@ -45,9 +47,10 @@ public class AgentRainbowDQNMain {
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
                 .nStep(3)
-                .atoms(101)
-                .vMin(-50.0f)
-                .vMax(+50.0f)
+                .atoms(50)
+                .vMin(-10.0f)
+                .vMax(+10.0f)
+                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
@@ -65,7 +68,7 @@ public class AgentRainbowDQNMain {
 
             @Override
             public Loss lossFunc() {
-                return CategoricalCrossEntropyPERLoss.noneReduction(config.atoms());
+                return new CategoricalCrossEntropyPERLoss();
             }
 
             @Override

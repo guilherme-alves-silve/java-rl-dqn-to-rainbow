@@ -28,10 +28,13 @@ public class DuelingCategoricalLayer extends DuelingLayer {
     public NDList forwardInternal(ParameterStore parameterStore, NDList inputs, boolean training, PairList<String, Object> params) {
         if (inputs.size() != 1) throw new IllegalArgumentException("The dueling categorical dqn just accepts one input!");
         var feature = featureBackbone.forward(parameterStore, inputs, training);
+        // (batch, 1, atoms)
         var value = valueHead.forward(parameterStore, feature, training).singletonOrThrow()
                 .reshape(N_BATCH, 1, atoms);
+        // (batch, actions, atoms)
         var advantage = advantageHead.forward(parameterStore, feature, training).singletonOrThrow()
                 .reshape(N_BATCH, actions, atoms);
+        // (batch, actions, atoms)
         return new NDList(qValueCalc.apply(value, advantage));
     }
 

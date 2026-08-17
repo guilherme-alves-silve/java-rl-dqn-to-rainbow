@@ -220,7 +220,7 @@ public abstract class AbstractAgent implements IAgent {
 
         @Cleanup var oneBatchState = state.expandDims(0);
         long action = onlineNet.forwardLong(oneBatchState,
-                qValue -> qValue.stopGradient().argMax(1));
+                qValue -> qValue.stopGradient().argMax(AXIS_1));
         return actionSpaceType.get(action);
     }
 

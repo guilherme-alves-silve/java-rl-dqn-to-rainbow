@@ -70,7 +70,7 @@ public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
         // a* = arg max q_online(s', a')
         var nextStates = samples.nextStates();
         @Cleanup var action = onlineNoisyDuelNet.forward(nextStates,
-                qOnlineNext -> qOnlineNext.argMax(1).reshape(N_BATCH, 1));
+                qOnlineNext -> qOnlineNext.argMax(AXIS_1).reshape(N_BATCH, 1));
 
         // reset first time eps' for DDQN
         targetNoisyDuelNet.resetNoise();
@@ -112,7 +112,7 @@ public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
         onlineNoisyDuelNet.resetNoise();
         @Cleanup var oneBatchState = state.expandDims(0);
         long action = onlineNoisyDuelNet.forwardLong(oneBatchState,
-                qValue -> qValue.stopGradient().argMax(1));
+                qValue -> qValue.stopGradient().argMax(AXIS_1));
         return actionSpaceType.get(action);
     }
 }

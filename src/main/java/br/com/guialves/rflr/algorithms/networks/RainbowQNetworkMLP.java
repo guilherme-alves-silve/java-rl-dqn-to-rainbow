@@ -301,4 +301,15 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
         model.close();
         resetNoise();
     }
+
+    /**
+     * Return an array of ones so we
+     * broadcast the actions to transform from (batch, 1, 1)
+     * to (batch, 1, atoms), e.g.: (32, 1, 1) -> (32, 1, 51)
+     * @return NDArray of shape (1, 1, atoms), e.g.: (1, 1, 51)
+     */
+    public NDArray newAtomsBroadcaster(NDManager external) {
+        return external.ones(new Shape(1, 1, atoms))
+                .stopGradient();
+    }
 }

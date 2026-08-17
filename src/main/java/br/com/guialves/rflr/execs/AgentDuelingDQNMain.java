@@ -40,13 +40,13 @@ public class AgentDuelingDQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
+                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))
                 .runMaxTries(getIntProp("agent.maxTries", "1"))
-                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .build();
 
         return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->

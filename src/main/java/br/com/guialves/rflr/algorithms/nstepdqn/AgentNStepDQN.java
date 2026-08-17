@@ -63,9 +63,9 @@ public class AgentNStepDQN extends AbstractAgent {
 
             // max Q(s', a')
             var maxNextQValue = nextQValue.max(AXIS_1_ARR, true);
-            float gammaNBootstramp = (float) Math.pow(gamma, replayBuffer.nStep());
+            float gammaNBootstrap = (float) Math.pow(gamma, replayBuffer.nStep());
             // gamma^n * max Q(s', a')
-            var discountNextQValue = maxNextQValue.mul(gammaNBootstramp);
+            var discountNextQValue = maxNextQValue.mul(gammaNBootstrap);
             // (1 - done)
             var mask = dones.neg().add(1);
             // r + gamma * max Q(s', a') * (1 - done)
