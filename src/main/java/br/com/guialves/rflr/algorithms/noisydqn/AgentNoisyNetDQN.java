@@ -21,6 +21,17 @@ import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStep;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
 
+/**
+ * DQN agent that replaces ε-greedy exploration with parametric noise added to the weights
+ * (NoisyNet). The agent still uses a target network with the same hard-update cadence as DQN
+ * but does not anneal any ε.
+ *
+ * <p>Before every optimization step (and every action selection) the agent calls
+ * {@link NoisyQNetworkMLP#resetNoise()} on both online and target networks to sample a fresh
+ * noise realization.
+ *
+ * <p>Reference: <a href="https://arxiv.org/abs/1706.10295">Noisy Networks for Exploration</a>.
+ */
 @Slf4j
 public class AgentNoisyNetDQN extends AbstractAgent {
 

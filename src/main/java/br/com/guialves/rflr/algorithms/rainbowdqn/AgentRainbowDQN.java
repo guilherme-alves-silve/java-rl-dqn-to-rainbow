@@ -105,22 +105,18 @@ public class AgentRainbowDQN extends AbstractAgent {
         // a* = arg max q_online(s', a')
         var nextStates = samples.nextStates();
         @Cleanup var action = onlineRainbowNet.forward(nextStates,
-                qOnlineNext -> qOnlineNext.argMax(AXIS_1).reshape(N_BATCH, 1));
+                onlineNextQValues -> onlineNextQValues.stopGradient().argMax(AXIS_1)
+                        // (batch, 1, 1)
+                        .reshape(N_BATCH, 1, 1)
+                        // (batch, 1, atoms)
+                        .mul(atomsBroadcaster));
 
         // reset first time eps' for DDQN
         targetRainbowNet.resetNoise();
         @Cleanup var targetQValue = targetRainbowNet.forwardDist(nextStates, probNextDist -> {
             float gammaNBootstrap = (float) Math.pow(gamma, replayBuffer.nStep());
-            // (batch, actions, atoms) -> (batch, actions)
-            var nextQValues = targetRainbowNet.qValuesFromDist(probNextDist);
             // q_target(s', a*) - DDQN
-            var bestNextActions = nextQValues.gather(action, AXIS_1)
-                    // (batch, 1, 1)
-                    .reshape(N_BATCH, 1, 1)
-                    // (batch, 1, atoms)
-                    .mul(atomsBroadcaster);
-            // (batch, 1, atoms) - now we are really selecting only actions a*, not all actions -> p(s', a*, theta-).
-            var bestNextProbDist = probNextDist.gather(bestNextActions, AXIS_1).stopGradient();
+            var bestNextProbDist = probNextDist.gather(action, AXIS_1);
             // Bellman Projection - mi (with n-step gammaNBootstrap instead of just gamma)
             return targetRainbowNet.projectBellman(bestNextProbDist, samples.rewards(), samples.dones(), gammaNBootstrap);
         });

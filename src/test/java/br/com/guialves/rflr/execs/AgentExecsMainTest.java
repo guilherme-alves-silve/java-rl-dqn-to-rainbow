@@ -67,6 +67,11 @@ class AgentExecsMainTest {
     }
 
     @Test
+    void shouldRunAgentC51RReLUDQNMain() {
+        assertDoesNotThrow(AgentC51RReLUDQNMain::main);
+    }
+
+    @Test
     void shouldRunAgentRainbowDQNMain() {
         assertDoesNotThrow(AgentRainbowDQNMain::main);
     }

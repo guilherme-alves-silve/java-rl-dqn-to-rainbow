@@ -1,7 +1,6 @@
 package br.com.guialves.rflr.execs;
 
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
-import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
 import lombok.Builder;
@@ -13,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Map;
 import java.util.Optional;
 
 import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.DEFAULT_ALPHA;
@@ -103,11 +103,12 @@ public record RLConfig(
     }
 
     @SneakyThrows
-    public void saveConfig(@NonNull Optional<DJLMemoryManagement.ManagerNode> managerNode) {
+    public void saveConfig(@NonNull Optional<ManagerNode> managerNode, Map<String, Object> runOutput) {
         var strManagerNode = managerNode.map(ManagerNode::toString).orElse("null");
         var outputPath = Paths.get("./docs/training_results/%s/%s.txt".formatted(algorithmName, runnerClass));
         Files.createDirectories(outputPath.getParent());
-        Files.writeString(outputPath, this + System.lineSeparator() + strManagerNode, StandardCharsets.UTF_8,
+        Files.writeString(outputPath, this + System.lineSeparator() + strManagerNode +
+                        System.lineSeparator() + runOutput.toString(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE);
     }
 }

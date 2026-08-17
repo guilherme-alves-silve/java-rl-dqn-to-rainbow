@@ -24,7 +24,7 @@ This project bridges the Java ecosystem and Python's [Gymnasium](https://gymnasi
 The series progresses in three articles:
 
 1. **Part 1** — Gymnasium integration via JavaCPP
-2. **Part 2 (WIP)** — Incremental algorithm upgrades from DQN to full Rainbow DQN
+2. **Part 2** — Incremental algorithm upgrades from DQN to full Rainbow DQN
 - [x] DQN
 - [x] Double DQN
 - [x] PER
@@ -32,8 +32,8 @@ The series progresses in three articles:
 - [x] n-Step
 - [x] Noisy Networks
 - [x] C51
-- [ ] Rainbow
-3. **Part 3** — CARLA autonomous driving integration with Rainbow DQN
+- [x] Rainbow
+3. **Part 3 (WIP)** — CARLA autonomous driving integration with Rainbow DQN
 
 ### Related articles:
 - [Video Games and Reinforcement Learning](https://guilhermealvessilveira.substack.com/p/video-games-and-reinforcement-learning)

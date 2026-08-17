@@ -29,8 +29,8 @@ public class CategoricalCrossEntropyPERLoss extends Loss {
      * @param normISWeights IS weights with shape (batchSize,) or (batchSize, 1)
      */
     public CategoricalCrossEntropyPERLoss normISWeights(NDArray normISWeights) {
-        if (normISWeights.getShape().dimension() == 1) {
-            normISWeights = normISWeights.reshape(N_BATCH, 1);
+        if (normISWeights.getShape().dimension() != 3) {
+            normISWeights = normISWeights.reshape(N_BATCH, 1, 1);
         }
 
         this.normISWeights = normISWeights;
@@ -54,9 +54,8 @@ public class CategoricalCrossEntropyPERLoss extends Loss {
         // (batch, 1, atoms)
         var lab = massDist.singletonOrThrow();
         // (batch, 1, 1) - pred must be log softmax
-        var loss = normISWeights.sum()
-                .mul(pred.mul(lab)
-                .sum(LAST_AXIS_ARR, KEEP_DIMS)).neg();
+        var loss = normISWeights.mul(pred.mul(lab).sum(LAST_AXIS_ARR, KEEP_DIMS))
+                .neg();
         this.normISWeights = null;
         return loss;
     }

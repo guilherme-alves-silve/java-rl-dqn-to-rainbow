@@ -21,6 +21,14 @@ import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStep;
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
 import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
 
+/**
+ * DQN agent backed by a {@link br.com.guialves.rflr.algorithms.networks.DuelingQNetworkMLP}
+ * network. The Q-value head is split into a value stream and an advantage stream with the
+ * classic combination {@code Q(s, a) = V(s) + (A(s, a) - mean_a(A(s, a)))}.
+ *
+ * <p>Reference: <a href="https://arxiv.org/abs/1511.06581">Dueling Network Architectures for
+ * Deep RL</a>.
+ */
 @Slf4j
 public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
 
@@ -69,16 +77,18 @@ public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
         onlineNoisyDuelNet.resetNoise();
         // a* = arg max q_online(s', a')
         var nextStates = samples.nextStates();
+        // (batch, 1)
         @Cleanup var action = onlineNoisyDuelNet.forward(nextStates,
-                qOnlineNext -> qOnlineNext.argMax(AXIS_1).reshape(N_BATCH, 1));
+                onlineNextQValues -> onlineNextQValues.stopGradient().argMax(AXIS_1)
+                        .reshape(N_BATCH, 1));
 
         // reset first time eps' for DDQN
         targetNoisyDuelNet.resetNoise();
-        @Cleanup var targetQValue = targetNoisyDuelNet.forward(nextStates, qNextValues -> {
+        @Cleanup var targetQValue = targetNoisyDuelNet.forward(nextStates, nextQValues -> {
             // q_target(s', a*)
-            var qNextValue = qNextValues.gather(action, AXIS_1);
+            var nextQValue = nextQValues.gather(action, AXIS_1);
             // gamma * q_target(s', a*)
-            var discountNextQValue = qNextValue.mul(gamma);
+            var discountNextQValue = nextQValue.mul(gamma);
             // (1 - done)
             var mask = samples.dones().neg().add(1);
             // y = r + gamma * q_target(s', arg max q_online(s', a')) * (1 - done)

@@ -53,11 +53,11 @@ public class AgentDDQN extends AbstractAgent {
         // a* = arg max q_online(s', a')
         var nextStates = samples.nextStates();
         @Cleanup var action = onlineNet.forward(nextStates,
-                qOnlineNext -> qOnlineNext.argMax(AXIS_1)
+                onlineQNextValue -> onlineQNextValue.stopGradient().argMax(AXIS_1)
                         .reshape(N_BATCH, 1));
-        @Cleanup var targetQValue = targetNet.forward(nextStates, qNextValues -> {
+        @Cleanup var targetQValue = targetNet.forward(nextStates, nextQValues -> {
             // q_target(s', a*) - DDQN
-            var qNextValue = qNextValues.gather(action, AXIS_1);
+            var qNextValue = nextQValues.gather(action, AXIS_1);
             // gamma * q_target(s', a*)
             var discountNextQValue = qNextValue.mul(gamma);
             // (1 - done)

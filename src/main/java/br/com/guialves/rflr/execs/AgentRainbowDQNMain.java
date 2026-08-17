@@ -35,7 +35,7 @@ public class AgentRainbowDQNMain {
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
                 .runnerClass(AgentRainbowDQNMain.class.getSimpleName())
-                .algorithmName("c51_dqn")
+                .algorithmName("rainbow_dqn")
                 .observations(8)
                 .actions(4)
                 .alpha(0.2f)
