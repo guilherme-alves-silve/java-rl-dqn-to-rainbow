@@ -30,6 +30,8 @@ public class AgentDuelingDQNMain {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
+                .runnerClass(AgentDuelingDQNMain.class.getSimpleName())
+                .algorithmName("dueling_dqn")
                 .observations(8)
                 .actions(4)
                 .learningRate(0.0005f)
@@ -45,7 +47,6 @@ public class AgentDuelingDQNMain {
                 .renderRun(getBoolProp("agent.renderRun", "true"))
                 .runMaxTries(getIntProp("agent.maxTries", "1"))
                 .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
-                .algorithmName("dueling_dqn")
                 .build();
 
         return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->

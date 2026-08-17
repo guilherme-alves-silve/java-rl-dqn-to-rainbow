@@ -33,6 +33,8 @@ public class AgentDQNPERMain {
         float alpha = 0.4f;
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
+                .runnerClass(AgentDQNPERMain.class.getSimpleName())
+                .algorithmName("dqnper")
                 .observations(8)
                 .actions(4)
                 .learningRate(0.0005f)
@@ -47,7 +49,6 @@ public class AgentDQNPERMain {
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))
                 .runMaxTries(getIntProp("agent.maxTries", "1"))
-                .algorithmName("dqnper")
                 .build();
 
         return RLRunner.run(config, new RLRunner.AgentFactory() {

@@ -25,11 +25,11 @@ public class DuelingLayer extends AbstractBlock {
 
     private static final byte VERSION = 1;
 
-    private final int actions;
-    private final BinaryOperator<NDArray> qValueCalc;
-    private final SequentialBlock featureBackbone;
-    private final SequentialBlock valueHead;
-    private final SequentialBlock advantageHead;
+    protected final int actions;
+    protected final BinaryOperator<NDArray> qValueCalc;
+    protected final SequentialBlock featureBackbone;
+    protected final SequentialBlock valueHead;
+    protected final SequentialBlock advantageHead;
 
     /**
      * Q-Value calculator for Dueling DQN using the mean operation:

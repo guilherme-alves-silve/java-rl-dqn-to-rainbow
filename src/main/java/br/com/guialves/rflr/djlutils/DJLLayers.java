@@ -3,6 +3,7 @@ package br.com.guialves.rflr.djlutils;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.convolutional.Conv2d;
 import ai.djl.nn.core.Linear;
+import ai.djl.nn.norm.Dropout;
 
 public class DJLLayers {
 
@@ -26,6 +27,12 @@ public class DJLLayers {
                 .setFilters(filters)
                 .setKernelShape(new Shape(shape, shape))
                 .optStride(new Shape(stride, stride))
+                .build();
+    }
+
+    public static Dropout dropout(float rate) {
+        return Dropout.builder()
+                .optRate(rate)
                 .build();
     }
 }

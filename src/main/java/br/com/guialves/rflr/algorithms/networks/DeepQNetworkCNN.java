@@ -138,4 +138,9 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
         subManager.close();
         model.close();
     }
+
+    @Override
+    public boolean isTraining() {
+        return training;
+    }
 }

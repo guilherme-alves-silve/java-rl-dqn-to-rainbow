@@ -24,4 +24,6 @@ public interface IDeepQNetwork extends INetwork {
     void eval();
 
     void train();
+
+    boolean isTraining();
 }

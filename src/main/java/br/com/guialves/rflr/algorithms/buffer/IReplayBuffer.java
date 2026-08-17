@@ -57,7 +57,7 @@ public interface IReplayBuffer extends AutoCloseable {
         }
         var concat = NDArrays.concat(arrays, AXIS_0);
         concat.attach(subManager);
-        return concat.toDevice(subManager.getDevice(), false);
+        return concat;
     }
 
     boolean isOpen();

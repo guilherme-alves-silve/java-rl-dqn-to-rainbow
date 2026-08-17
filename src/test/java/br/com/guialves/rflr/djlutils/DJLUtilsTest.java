@@ -6,27 +6,34 @@ import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.core.Linear;
+import br.com.guialves.rflr.algorithms.buffer.Experience;
+import br.com.guialves.rflr.fixture.ExperienceFixture;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.debugDump;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
+import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DJLUtilsTest {
 
     public static final float DELTA = 1e-6f;
+    private static final int BATCH_SIZE = 32;
 
     private static NDManager manager;
+    private static NDManager testManager;
 
     @BeforeAll
     static void setUp() {
         manager = NDManager.newBaseManager();
+        testManager = subMgr(manager, "test-manager");
     }
 
     @AfterAll
     static void shutdown() {
+        testManager.close();
         manager.close();
     }
 
@@ -68,7 +75,6 @@ class DJLUtilsTest {
         assertTrue(afterWarmup > 0, "Warmup must at least allocate one input array");
         debugDump(manager);
 
-        // 50 iterações
         for (int i = 0; i < 50; i++) {
             float[] result = DJLUtils.toFloatArray(array);
             assertEquals(size, result.length);
@@ -181,5 +187,158 @@ class DJLUtilsTest {
         assertEquals(afterWarmup, afterSteps,
                 "getFloat in scalar array cannot leak. "
                         + "before=" + afterWarmup + " after=" + afterSteps);
+    }
+
+    @Test
+    void djlMapToLongShouldNotLeakIntoSystemManager() {
+        var batch = createBatch(BATCH_SIZE);
+
+        for (int i = 0; i < 5; ++i) {
+            try (var sub = subMgr(testManager, "warmup-long-" + i)) {
+                var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
+                assertNotNull(actions);
+            }
+        }
+
+        int afterWarmup = managedArrayCount(manager);
+        assertTrue(afterWarmup > 0,
+                "System manager must hold at least one resource after warmup");
+
+        for (int i = 0; i < 50; ++i) {
+            try (var sub = subMgr(testManager, "step-long-" + i)) {
+                var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
+                assertNotNull(actions);
+            }
+        }
+
+        int afterSteps = managedArrayCount(manager);
+        assertEquals(afterWarmup, afterSteps,
+                "djlMapToLong must not leak into the system manager across calls. "
+                        + "before=" + afterWarmup + " after=" + afterSteps
+                        + " delta=" + (afterSteps - afterWarmup));
+        int afterStepsTestMgr = managedArrayCount(testManager);
+        assertTrue(afterWarmup >= afterStepsTestMgr,
+                "djlMapToLong must not leak into the test manager across calls. "
+                        + "before=" + afterWarmup + " after=" + afterStepsTestMgr
+                        + " delta=" + (afterStepsTestMgr - afterWarmup));
+    }
+
+    @Test
+    void djlMapToLongMustPreserveShapeAndOwnership() {
+        var batch = createBatch(BATCH_SIZE);
+        try (var sub = subMgr(testManager, "shape-long")) {
+            var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
+            assertEquals(new Shape(BATCH_SIZE, 1), actions.getShape(),
+                    "Output shape must be (batchSize, 1)");
+            assertEquals(sub, actions.getManager(),
+                    "Returned array must be attached to the caller-supplied subManager "
+                            + "so that closing the sub releases it. "
+                            + "Actual manager=" + actions.getManager().getName());
+        }
+    }
+
+    @Test
+    void djlMapToFloat32ShouldNotLeakIntoSystemManager() {
+        var batch = createBatch(BATCH_SIZE);
+
+        for (int i = 0; i < 5; ++i) {
+            try (var sub = subMgr(testManager, "warmup-f32-" + i)) {
+                var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+                assertNotNull(rewards);
+            }
+        }
+
+        int afterWarmup = managedArrayCount(manager);
+        assertTrue(afterWarmup > 0,
+                "System manager must hold at least one resource after warmup");
+
+        for (int i = 0; i < 50; ++i) {
+            try (var sub = subMgr(testManager, "step-f32-" + i)) {
+                var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+                assertNotNull(rewards);
+            }
+        }
+
+        int afterSteps = managedArrayCount(manager);
+        assertEquals(afterWarmup, afterSteps,
+                "djlMapToFloat32 must not leak into the system manager across calls. "
+                        + "before=" + afterWarmup + " after=" + afterSteps
+                        + " delta=" + (afterSteps - afterWarmup));
+        int afterStepsTestMgr = managedArrayCount(testManager);
+        assertTrue(afterWarmup >= afterStepsTestMgr,
+                "djlMapToFloat32 must not leak into the test manager across calls. "
+                        + "before=" + afterWarmup + " after=" + afterStepsTestMgr
+                        + " delta=" + (afterStepsTestMgr - afterWarmup));
+    }
+
+    @Test
+    void djlMapToFloat32ShouldNotLeakOnLargeBatch() {
+        int largeBatch = 1024;
+        var batch = createBatch(largeBatch);
+
+        for (int i = 0; i < 5; ++i) {
+            try (var sub = subMgr(testManager, "warmup-f32-large-" + i)) {
+                var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+                assertNotNull(rewards);
+            }
+        }
+
+        int afterWarmup = managedArrayCount(manager);
+
+        for (int i = 0; i < 20; ++i) {
+            try (var sub = subMgr(testManager, "step-f32-large-" + i)) {
+                var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+                assertNotNull(rewards);
+            }
+        }
+
+        int afterSteps = managedArrayCount(manager);
+        assertEquals(afterWarmup, afterSteps,
+                "djlMapToFloat32 on a " + largeBatch + "-size batch must not leak. "
+                        + "before=" + afterWarmup + " after=" + afterSteps
+                        + " delta=" + (afterSteps - afterWarmup));
+        int afterStepsTestMgr = managedArrayCount(testManager);
+        assertTrue(afterWarmup >= afterStepsTestMgr,
+                "djlMapToFloat32 must not leak into the test manager across calls. "
+                        + "before=" + afterWarmup + " after=" + afterStepsTestMgr
+                        + " delta=" + (afterStepsTestMgr - afterWarmup));
+    }
+
+    @Test
+    void djlMapToFloat32MustPreserveShapeAndDtype() {
+        var batch = createBatch(BATCH_SIZE);
+        try (var sub = subMgr(testManager, "shape-f32")) {
+            var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+            assertEquals(new Shape(BATCH_SIZE, 1), rewards.getShape(),
+                    "Output shape must be (batchSize, 1)");
+            assertEquals(DataType.FLOAT32, rewards.getDataType(),
+                    "Output dtype must be FLOAT32");
+            assertEquals(sub, rewards.getManager(),
+                    "Returned array must be attached to the caller-supplied subManager "
+                            + "so that closing the sub releases it. "
+                            + "Actual manager=" + rewards.getManager().getName());
+        }
+    }
+
+    @Test
+    void djlMapToFloat32MustPreserveValues() {
+        var batch = createBatch(BATCH_SIZE);
+        try (var sub = subMgr(testManager, "values-f32")) {
+            var rewards = djlMapToFloat32(sub, batch, Experience::reward);
+            var asFloats = DJLUtils.toFloatArray(rewards);
+            assertEquals(BATCH_SIZE, asFloats.length);
+            for (int i = 0; i < BATCH_SIZE; ++i) {
+                assertEquals((float) batch[i].reward(), asFloats[i], DELTA,
+                        "Reward at index " + i + " must equal Experience.reward");
+            }
+        }
+    }
+
+    private Experience[] createBatch(int n) {
+        var batch = new Experience[n];
+        for (int i = 0; i < n; ++i) {
+            batch[i] = ExperienceFixture.createRandomExperience(testManager, i);
+        }
+        return batch;
     }
 }

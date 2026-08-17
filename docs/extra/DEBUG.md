@@ -20,7 +20,7 @@ Each runtime has its own memory model.
 
 ---
 
-# 1️⃣ Memory Domains in Hybrid Systems
+# 1 - Memory Domains in Hybrid Systems
 
 In a Java + C + CPython environment, memory is divided into:
 
@@ -35,7 +35,7 @@ Leaks often occur in #2, #3, or #4.
 
 ---
 
-# 2️⃣ Initial Symptom Pattern
+# 2 - Initial Symptom Pattern
 
 Common leak symptoms:
 
@@ -51,7 +51,7 @@ This strongly indicates:
 
 ---
 
-# 3️⃣ First-Level Inspection: JVM Native Tracking
+# 3 - First-Level Inspection: JVM Native Tracking
 
 Enable JVM native tracking:
 
@@ -76,7 +76,7 @@ Then leak is likely in:
 
 ---
 
-# 4️⃣ CPython Memory Model
+# 4 - CPython Memory Model
 
 CPython uses:
 
@@ -94,7 +94,7 @@ Important facts:
 
 ---
 
-# 5️⃣ Common CPython Leak Patterns in JVM Embedding
+# 5 - Common CPython Leak Patterns in JVM Embedding
 
 ## Pattern A — Missing Py_DECREF
 
@@ -152,7 +152,7 @@ Must instrument malloc.
 
 ---
 
-# 6️⃣ Instrumenting Native Allocations
+# 6 - Instrumenting Native Allocations
 
 To debug C-level and CPython-level leaks, replace or instrument malloc.
 
@@ -163,7 +163,7 @@ Two production-grade allocators:
 
 ---
 
-# 7️⃣ Using tcmalloc (Java + CPython)
+# 7 - Using tcmalloc (Java + CPython)
 
 Example:
 
@@ -187,7 +187,7 @@ Allows identification of:
 
 ---
 
-# 8️⃣ Using jemalloc
+# 8 - Using jemalloc
 
 Example:
 
@@ -206,7 +206,7 @@ Useful for:
 
 ---
 
-# 9️⃣ Debugging CPython-Specific Leaks
+# 9 - Debugging CPython-Specific Leaks
 
 ## Enable Python Fault Handler
 
@@ -244,7 +244,7 @@ Useful to detect refcount growth per request cycle.
 
 ---
 
-# 🔟 JNI ↔ CPython ↔ C Ownership Rules
+# 10 - JNI ↔ CPython ↔ C Ownership Rules
 
 Every allocation must have:
 
@@ -266,7 +266,7 @@ Never:
 
 ---
 
-# 1️⃣1️⃣ Structured Debugging Workflow
+# 11 - Structured Debugging Workflow
 
 Step-by-step:
 
@@ -283,7 +283,7 @@ Step-by-step:
 
 ---
 
-# 1️⃣2️⃣ Mixed Runtime Crash Investigation
+# 12 - Mixed Runtime Crash Investigation
 
 If crash occurs:
 
@@ -302,7 +302,7 @@ If libpython appears in stack:
 
 ---
 
-# 1️⃣3️⃣ Production Hardening for Java + CPython
+# 13 - Production Hardening for Java + CPython
 
 Recommended practices:
 
@@ -316,7 +316,7 @@ Recommended practices:
 
 ---
 
-# 1️⃣4️⃣ Core Insight
+# 14 - Core Insight
 
 In hybrid systems:
 

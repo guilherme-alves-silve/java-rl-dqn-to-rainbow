@@ -277,7 +277,7 @@ public class DJLMemoryManagement {
             return base.getManagedArrays().size();
         }
 
-        return -1;
+        return NOT_FOUND_COUNT;
     }
 
     /**

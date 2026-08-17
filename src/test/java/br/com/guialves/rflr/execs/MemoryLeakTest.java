@@ -51,6 +51,7 @@ class MemoryLeakTest {
     private static final String DONT_RECORD = "false";
     private static final String DONT_SHOW_METRICS = "false";
     private static final String DONT_RENDER = "false";
+    private static final String DONT_SAVE_CONFIG = "false";
 
     private static final int GC_TRIES = 3;
     private static final int MIN_SLEEP = 100;
@@ -95,6 +96,7 @@ class MemoryLeakTest {
         System.setProperty("agent.records", DONT_RECORD);
         System.setProperty("agent.showAllMetrics", DONT_SHOW_METRICS);
         System.setProperty("agent.renderRun", DONT_RENDER);
+        System.setProperty("agent.saveConfig", DONT_SAVE_CONFIG);
     }
 
     @AfterEach

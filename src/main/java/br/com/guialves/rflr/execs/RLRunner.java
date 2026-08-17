@@ -66,7 +66,7 @@ public class RLRunner {
         IO.println("Observation space: " + env.observationSpaceStr());
         IO.println("Action space: " + env.actionSpaceStr());
 
-        var plotTrackers = new PlotTrackers();
+        var plotTrackers = new PlotTrackers(config.algorithmName());
 
         @Cleanup var agent = agentFactory.create(env, optimizer, plotTrackers, parent);
 
@@ -89,7 +89,13 @@ public class RLRunner {
             validateModelFile(path, modelFileName);
         }
 
-        return agent.getManagerNode();
+        var managerNode = agent.getManagerNode();
+
+        if (getBoolProp("agent.saveConfig", "true")) {
+            config.saveConfig(managerNode);
+        }
+
+        return managerNode;
     }
 
     private static void validateModelFile(Path path, String modelFileName) {
