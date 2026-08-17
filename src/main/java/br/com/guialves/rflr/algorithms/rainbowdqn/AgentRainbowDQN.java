@@ -78,7 +78,7 @@ public class AgentRainbowDQN extends AbstractAgent {
             throw new IllegalArgumentException("You must pass CategoricalCrossEntropyPERLoss!");
         }
 
-        @Cleanup var samples = replayBuffer.sample(batchSize);
+        @Cleanup var samples = replayBuffer.sample(batchSize, beta);
 
         // reset first time eps' for DDQN
         onlineRainbowNet.resetNoise();
@@ -137,5 +137,24 @@ public class AgentRainbowDQN extends AbstractAgent {
         long action = onlineRainbowNet.forwardLong(oneBatchState,
                 qValue -> qValue.stopGradient().argMax(1));
         return actionSpaceType.get(action);
+    }
+
+    /**
+     * Updates the importance sampling annealing parameter (beta) based on the current training progress.
+     *
+     * <p>Beta is annealed from {@code initialBeta} to 1.0 over the course of training to
+     * gradually correct the bias introduced by prioritized experience replay. This follows
+     * the approach described in the Prioritized Experience Replay paper (Schaul et al., 2015).
+     *
+     * <p>The annealing formula is:
+     * \[ \beta = \beta_{initial} + \text{fraction} \times (1.0 - \beta_{initial}) \]
+     *
+     * @throws IllegalArgumentException if {@code totalFramesLimit} <= 0 or {@code framesSkip} < 0
+     * @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
+     */
+    @Override
+    protected void templateExtraProcessing(int frames, long frameLimit) {
+        float fraction = Math.min((float) frames / frameLimit, 1.0f);
+        this.beta = this.initialBeta + fraction * (1.0f - this.initialBeta);
     }
 }

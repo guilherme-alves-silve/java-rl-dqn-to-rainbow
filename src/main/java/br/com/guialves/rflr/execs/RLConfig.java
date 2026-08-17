@@ -9,9 +9,14 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Optional;
 
+import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.DEFAULT_ALPHA;
+import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.DEFAULT_BETA;
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
 
@@ -27,6 +32,8 @@ public record RLConfig(
     float minEpsilon,
     float epsilonDecay,
     float discountFactor, // or gamma
+    float alpha, // for PER
+    float beta, // for PER
     int updateQTargetAtTimeN,
     int batchSize,
     int nStep,
@@ -42,6 +49,10 @@ public record RLConfig(
     int runMaxTries,
     boolean renderRun
 ) {
+
+    private static final int DEFAULT_N_STEP = 1;
+    private static final float DELTA = 1e-6f;
+
     public RLConfig {
         epsilonDecay = (maxEpsilon - minEpsilon) / framesLimit;
         path = Paths.get("./output_models/", algorithmName);
@@ -49,13 +60,13 @@ public record RLConfig(
 
     @Override
     public float vMin() {
-        if (vMin <= 0) return V_MIN;
+        if (vMin <= DELTA) return V_MIN;
         return vMin;
     }
 
     @Override
     public float vMax() {
-        if (vMax <= 0) return V_MAX;
+        if (vMax <= DELTA) return V_MAX;
         return vMax;
     }
 
@@ -63,6 +74,24 @@ public record RLConfig(
     public int atoms() {
         if (atoms <= 0) return N_ATOMS;
         return atoms;
+    }
+
+    @Override
+    public int nStep() {
+        if (nStep <= 0) return DEFAULT_N_STEP;
+        return nStep;
+    }
+
+    @Override
+    public float beta() {
+        if (beta <= DELTA) return DEFAULT_BETA;
+        return beta;
+    }
+
+    @Override
+    public float alpha() {
+        if (alpha <= DELTA) return DEFAULT_ALPHA;
+        return alpha;
     }
 
     public RecordVideo recordVideo() {

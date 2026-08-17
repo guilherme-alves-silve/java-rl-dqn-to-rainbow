@@ -30,7 +30,8 @@ import static java.util.Arrays.stream;
  */
 public class PrioritizedReplayBuffer implements IReplayBuffer {
 
-    public static final float DEFAULT_BETA = 0.4f;
+    public static final float DEFAULT_ALPHA = 0.2f;
+    public static final float DEFAULT_BETA = 0.6f;
     public static final float MIN_PRIORITY = 0.000_000_001f;
 
     private final Experience[] experiences;
