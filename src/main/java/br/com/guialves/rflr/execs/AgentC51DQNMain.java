@@ -30,6 +30,8 @@ public class AgentC51DQNMain {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
+                .runnerClass(AgentC51DQNMain.class.getSimpleName())
+                .algorithmName("c51_dqn")
                 .observations(8)
                 .actions(4)
                 .learningRate(0.0005f)
@@ -47,7 +49,6 @@ public class AgentC51DQNMain {
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))
                 .runMaxTries(getIntProp("agent.maxTries", "1"))
-                .algorithmName("c51_dqn")
                 .build();
 
         return RLRunner.run(config, new RLRunner.AgentFactory() {

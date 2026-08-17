@@ -68,7 +68,7 @@ class AgentDQNLoadModelTest {
 
     @Test
     @DisplayName("DeepQNetworkMLP loads cleanly from the resource file")
-    void deepQNetworkMLP_loadsFromResources() {
+    void shouldDeepQNetworkMLPLoadsFromResources() {
         var modelPath = AgentDQNResourceFixture.RESOURCE_DIR;
 
         @Cleanup var net = new DeepQNetworkMLP(OBSERVATIONS, ACTIONS,
@@ -114,7 +114,7 @@ class AgentDQNLoadModelTest {
 
     @Test
     @DisplayName("AgentDQN can be built around a network loaded from resources")
-    void agentDQN_isConstructibleWithLoadedNetwork() {
+    void shouldAgentDQNBeConstructibleWithLoadedNetwork() {
         var modelPath = AgentDQNResourceFixture.RESOURCE_DIR;
 
         Optimizer optimizer = AdamW.builder()
@@ -132,7 +132,7 @@ class AgentDQNLoadModelTest {
                 parent,
                 () -> new DeepQNetworkMLP(OBSERVATIONS, ACTIONS, modelPath,
                         AgentDQNResourceFixture.MODEL_NAME, parent),
-                new PlotTrackers(),
+                new PlotTrackers("test"),
                 /* debugMemoryLeak */ false
         );
 

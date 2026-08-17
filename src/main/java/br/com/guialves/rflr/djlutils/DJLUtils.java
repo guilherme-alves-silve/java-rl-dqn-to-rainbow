@@ -101,15 +101,13 @@ public class DJLUtils {
 
     public static <T> NDArray djlMapToLong(NDManager subManager, T[] input, ToLongFunction<T> mapper) {
         return subManager.create(stream(input).mapToLong(mapper).toArray())
-                .expandDims(1)
-                .toDevice(subManager.getDevice(), false);
+                .expandDims(AXIS_1);
     }
 
     public static <T> NDArray djlMapToFloat32(NDManager subManager, T[] input, ToDoubleFunction<T> mapper) {
         return subManager.create(stream(input).mapToDouble(mapper).toArray())
                 .toType(DataType.FLOAT32, false)
-                .expandDims(1)
-                .toDevice(subManager.getDevice(), false);
+                .expandDims(AXIS_1);
     }
 
     public static boolean equalsDims(Shape shape1, Shape shape2, int start) {

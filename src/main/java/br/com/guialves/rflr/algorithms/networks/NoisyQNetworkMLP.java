@@ -15,6 +15,8 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
@@ -36,8 +38,7 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
     private final int actions;
     private final Model model;
     private final SequentialBlock net;
-    private final NoisyLayer noisyLayer1;
-    private final NoisyLayer noisyLayer2;
+    private final List<NoisyLayer> noisyLayers;
     private final ParameterStore parameterStore;
 
     public NoisyQNetworkMLP(int observations,
@@ -55,15 +56,14 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
         this.observations = observations;
         this.actions = actions;
         this.subManager = subMgr(parent, getClass());
+        this.noisyLayers = new ArrayList<>();
         this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
-        this.noisyLayer1 = noisyLayer(128);
-        this.noisyLayer2 = noisyLayer(actions);
         net.add(linear(128))
            .add(Activation::relu)
-           .add(noisyLayer1)
+           .add(addAndGet(noisyLayers, noisyLayer(128)))
            .add(Activation::relu)
-           .add(noisyLayer2);
+           .add(addAndGet(noisyLayers, noisyLayer(actions)));
         model.setBlock(net);
 
         this.parameterStore = new ParameterStore(subManager, false);
@@ -80,8 +80,7 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
 
     @Override
     public void resetNoise() {
-        noisyLayer1.resetNoise();
-        noisyLayer2.resetNoise();
+        noisyLayers.forEach(NoisyLayer::resetNoise);
     }
 
     @Override
@@ -133,5 +132,10 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
         subManager.close();
         model.close();
         resetNoise();
+    }
+
+    @Override
+    public boolean isTraining() {
+        return training;
     }
 }

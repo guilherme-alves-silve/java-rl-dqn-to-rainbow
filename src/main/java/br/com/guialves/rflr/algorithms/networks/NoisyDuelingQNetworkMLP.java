@@ -108,11 +108,6 @@ public class NoisyDuelingQNetworkMLP implements INoisyNetwork {
         }
     }
 
-    private Block addAndGet(List<NoisyLayer> list, NoisyLayer noisyLayer) {
-        list.add(noisyLayer);
-        return noisyLayer;
-    }
-
     @Override
     public void resetNoise() {
         noisyLayers.forEach(NoisyLayer::resetNoise);
@@ -147,6 +142,11 @@ public class NoisyDuelingQNetworkMLP implements INoisyNetwork {
     @Override
     public void train() {
         this.training = true;
+    }
+
+    @Override
+    public boolean isTraining() {
+        return training;
     }
 
     @Override

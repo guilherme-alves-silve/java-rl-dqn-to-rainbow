@@ -6,9 +6,10 @@ import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
+import ai.djl.nn.norm.BatchNorm;
+import ai.djl.nn.norm.Dropout;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
 import lombok.Cleanup;
@@ -19,6 +20,8 @@ import java.nio.file.Path;
 import java.util.function.UnaryOperator;
 
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
+import static br.com.guialves.rflr.algorithms.networks.layers.activation.RReLU.rrelu;
+import static br.com.guialves.rflr.djlutils.DJLLayers.dropout;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.*;
@@ -37,7 +40,7 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.*;
  * <p>Default support: {@code Vmin = -10}, {@code Vmax = 10}, {@code atoms = 51}.
  */
 @Slf4j
-public class CategoricalQNetworkMLP implements IDeepQNetwork {
+public class CategoricalQNetworkRReLUMLP implements IDeepQNetwork {
 
     private boolean training;
     private final NDManager subManager;
@@ -50,33 +53,33 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
     private final ParameterStore parameterStore;
     private final NDArray support;
 
-    public CategoricalQNetworkMLP(int observations,
-                                  int actions,
-                                  NDManager parent) {
+    public CategoricalQNetworkRReLUMLP(int observations,
+                                       int actions,
+                                       NDManager parent) {
         this(observations, actions, N_ATOMS, V_MIN, V_MAX, parent);
     }
 
-    public CategoricalQNetworkMLP(int observations,
-                                  int actions,
-                                  int atoms,
-                                  float vMin,
-                                  float vMax,
-                                  NDManager parent) {
+    public CategoricalQNetworkRReLUMLP(int observations,
+                                       int actions,
+                                       int atoms,
+                                       float vMin,
+                                       float vMax,
+                                       NDManager parent) {
         var catProj = new CategoricalBellmanProjection(atoms, vMin, vMax);
         this(observations, actions, catProj, null, null, parent);
     }
 
-    private CategoricalQNetworkMLP(int observations, int actions, CategoricalBellmanProjection catProj, NDManager parent) {
+    private CategoricalQNetworkRReLUMLP(int observations, int actions, CategoricalBellmanProjection catProj, NDManager parent) {
         this(observations, actions, catProj, null, null, parent);
     }
 
     @SneakyThrows
-    CategoricalQNetworkMLP(int observations,
-                           int actions,
-                           CategoricalBellmanProjection catProj,
-                           Path modelPath,
-                           String prefix,
-                           NDManager parent) {
+    CategoricalQNetworkRReLUMLP(int observations,
+                                int actions,
+                                CategoricalBellmanProjection catProj,
+                                Path modelPath,
+                                String prefix,
+                                NDManager parent) {
         this.observations = observations;
         this.actions = actions;
         this.catProj = catProj;
@@ -88,9 +91,11 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
         this.model = newModel(getClass(), subManager.getDevice());
         this.net = new SequentialBlock();
         net.add(linear(128))
-           .add(Activation::relu)
+           .add(dropout(0.5f))
+           .add(rrelu())
            .add(linear(128))
-           .add(Activation::relu)
+           .add(dropout(0.5f))
+           .add(rrelu())
            .add(linear((long) actions * atoms));
         model.setBlock(net);
 
@@ -251,13 +256,8 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
     }
 
     @Override
-    public boolean isTraining() {
-        return training;
-    }
-
-    @Override
     public IDeepQNetwork clone() {
-        var cloned = new CategoricalQNetworkMLP(observations, actions,
+        var cloned = new CategoricalQNetworkRReLUMLP(observations, actions,
                                                 catProj, subManager.getParentManager());
         setName(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
@@ -273,5 +273,10 @@ public class CategoricalQNetworkMLP implements IDeepQNetwork {
     public void close() {
         subManager.close();
         model.close();
+    }
+
+    @Override
+    public boolean isTraining() {
+        return training;
     }
 }

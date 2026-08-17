@@ -28,6 +28,8 @@ public class AgentNoisyNetDQNMain {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
+                .runnerClass(AgentNoisyNetDQNMain.class.getSimpleName())
+                .algorithmName("noisy_nets_dqn")
                 .observations(8)
                 .actions(4)
                 .learningRate(0.0005f)
@@ -42,7 +44,6 @@ public class AgentNoisyNetDQNMain {
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))
                 .runMaxTries(getIntProp("agent.maxTries", "1"))
-                .algorithmName("noisy_nets_dqn")
                 .build();
 
         return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->

@@ -237,6 +237,7 @@ public abstract class AbstractAgent implements IAgent {
     @Override
     public List<Double> run(int maxTries, boolean render) {
         this.test = true;
+        this.onlineNet.eval();
 
         var totalRewardPerTry = new ArrayList<Double>(maxTries);
         @Cleanup var envRender = new EnvRenderWindow();

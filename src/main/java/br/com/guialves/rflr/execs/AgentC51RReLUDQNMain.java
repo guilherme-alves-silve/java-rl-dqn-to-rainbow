@@ -1,11 +1,12 @@
 package br.com.guialves.rflr.execs;
 
 import ai.djl.ndarray.NDManager;
+import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.networks.NoisyDuelingQNetworkMLP;
-import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
-import br.com.guialves.rflr.algorithms.noisydqn.AgentNoisyDuelingNetDDQN;
+import br.com.guialves.rflr.algorithms.c51dqn.AgentC51RReLUDQN;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
+import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkRReLUMLP;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -14,13 +15,12 @@ import java.util.Optional;
 
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
-import static java.lang.System.getProperty;
 
 /**
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
-public class AgentNoisyDuelingNetDDQNMain {
+public class AgentC51RReLUDQNMain {
 
     static void main() {
         run();
@@ -30,8 +30,8 @@ public class AgentNoisyDuelingNetDDQNMain {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
-                .runnerClass(AgentNoisyDuelingNetDDQNMain.class.getSimpleName())
-                .algorithmName("noisy_dueling_nets_ddqn")
+                .runnerClass(AgentC51RReLUDQNMain.class.getSimpleName())
+                .algorithmName("c51_rrelu_dqn")
                 .observations(8)
                 .actions(4)
                 .learningRate(0.0005f)
@@ -46,19 +46,28 @@ public class AgentNoisyDuelingNetDDQNMain {
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))
                 .runMaxTries(getIntProp("agent.maxTries", "1"))
-                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .build();
 
-        return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
-                buildNoisyDuelingNetDDQN(config, env, optimizer, plotTrackers, parent));
+        return RLRunner.run(config, new RLRunner.AgentFactory() {
+
+            @Override
+            public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {
+                return buildC51RReLUDQN(config, env, optimizer, plotTrackers, parent);
+            }
+
+            @Override
+            public Loss lossFunc() {
+                return new CategoricalCrossEntropyLoss();
+            }
+        });
     }
 
-    private static IAgent buildNoisyDuelingNetDDQN(RLConfig config,
-                                                   IEnv env,
-                                                   Optimizer optimizer,
-                                                   PlotTrackers plotTrackers,
-                                                   NDManager parent) {
-        return new AgentNoisyDuelingNetDDQN(
+    private static IAgent buildC51RReLUDQN(RLConfig config,
+                                           IEnv env,
+                                           Optimizer optimizer,
+                                           PlotTrackers plotTrackers,
+                                           NDManager parent) {
+        return new AgentC51RReLUDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
@@ -67,11 +76,13 @@ public class AgentNoisyDuelingNetDDQNMain {
                 env,
                 optimizer,
                 parent,
-                () -> new NoisyDuelingQNetworkMLP(
+                () -> new CategoricalQNetworkRReLUMLP(
                     config.observations(),
                     config.actions(),
-                    parent,
-                    config.duelingType()
+                    config.atoms(),
+                    config.vMin(),
+                    config.vMax(),
+                    parent
                 ),
                 plotTrackers,
                 config.debugMemoryLeak()

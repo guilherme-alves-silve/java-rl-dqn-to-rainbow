@@ -30,6 +30,8 @@ public class AgentNStepDQNMain {
 
         var config = RLConfig.builder()
                 .envName("LunarLander-v3")
+                .runnerClass(AgentNStepDQNMain.class.getSimpleName())
+                .algorithmName("nstep_dqn")
                 .observations(8)
                 .actions(4)
                 .learningRate(0.0005f)
@@ -45,7 +47,6 @@ public class AgentNStepDQNMain {
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))
                 .runMaxTries(getIntProp("agent.maxTries", "1"))
-                .algorithmName("nstep_dqn")
                 .build();
 
         return RLRunner.run(config, new RLRunner.AgentFactory() {

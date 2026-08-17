@@ -12,6 +12,8 @@ class AgentExecsMainTest {
     private static final String DONT_SAVE_MODEL = "false";
     private static final String DONT_RECORD =  "false";
     private static final String DONT_SHOW_METRICS = "false";
+    private static final String DONT_RENDER = "false";
+    private static final String DONT_SAVE_CONFIG = "false";
 
     @BeforeEach
     public void setUpEach() {
@@ -20,6 +22,8 @@ class AgentExecsMainTest {
         System.setProperty("agent.saveModel", DONT_SAVE_MODEL);
         System.setProperty("agent.records", DONT_RECORD);
         System.setProperty("agent.showAllMetrics", DONT_SHOW_METRICS);
+        System.setProperty("agent.renderRun", DONT_RENDER);
+        System.setProperty("agent.saveConfig", DONT_SAVE_CONFIG);
     }
 
     @Test

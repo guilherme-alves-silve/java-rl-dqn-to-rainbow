@@ -10,6 +10,7 @@ import ai.djl.nn.Activation;
 import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
+import br.com.guialves.rflr.algorithms.networks.layers.DuelingCategoricalLayer;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingLayer;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer;
@@ -27,16 +28,8 @@ import java.util.function.UnaryOperator;
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
 import static br.com.guialves.rflr.algorithms.networks.layers.NoisyLayer.noisyLayer;
 import static br.com.guialves.rflr.djlutils.DJLLayers.linear;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.newModel;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.safeForwardSingle;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.setName;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
-import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS;
-import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS_ARR;
-import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
-import static br.com.guialves.rflr.djlutils.DJLUtils.copy;
-import static br.com.guialves.rflr.djlutils.DJLUtils.initGradients;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 /**
  * Categorical (C51) distributional Q-network.
@@ -114,8 +107,9 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
         this.atoms = catProj.atoms();
         this.support = catProj.support(subManager);
         this.model = newModel(getClass(), subManager.getDevice());
-        this.net = new DuelingLayer(
+        this.net = new DuelingCategoricalLayer(
                 actions,
+                atoms,
                 duelingType,
                 featureBackbone ->
                         featureBackbone.add(linear(128))
@@ -125,7 +119,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
                                 .add(addAndGet(noisyLayers, noisyLayer(128)))
                                 .add(Activation::relu),
                 valueHead ->
-                        valueHead.add(addAndGet(noisyLayers, noisyLayer(1))),
+                        valueHead.add(addAndGet(noisyLayers, noisyLayer(atoms))),
                 advantageHead ->
                         advantageHead.add(addAndGet(noisyLayers, noisyLayer(actions * atoms)))
         );
@@ -243,7 +237,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        var dist = forwardDist(input);
+        @Cleanup var dist = forwardDist(input);
         return new NDList(qValuesFromDist(dist));
     }
 
@@ -278,6 +272,16 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
     }
 
     @Override
+    public void resetNoise() {
+        noisyLayers.forEach(NoisyLayer::resetNoise);
+    }
+
+    @Override
+    public boolean isTraining() {
+        return training;
+    }
+
+    @Override
     public IDeepQNetwork clone() {
         var cloned = new RainbowQNetworkMLP(observations, actions,
                 catProj, subManager.getParentManager(), duelingType);
@@ -289,16 +293,6 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
     @Override
     public NDManager subManager() {
         return subManager;
-    }
-
-    private Block addAndGet(List<NoisyLayer> list, NoisyLayer noisyLayer) {
-        list.add(noisyLayer);
-        return noisyLayer;
-    }
-
-    @Override
-    public void resetNoise() {
-        noisyLayers.forEach(NoisyLayer::resetNoise);
     }
 
     @Override

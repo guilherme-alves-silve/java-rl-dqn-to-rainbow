@@ -145,4 +145,9 @@ public class DuelingQNetworkMLP implements IDeepQNetwork {
         subManager.close();
         model.close();
     }
+
+    @Override
+    public boolean isTraining() {
+        return training;
+    }
 }
