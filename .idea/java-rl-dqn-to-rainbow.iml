@@ -6,9 +6,4 @@
       <excludeFolder url="file://$MODULE_DIR$/gymnasium/.venv" />
     </content>
   </component>
-  <component name="FacetManager">
-    <facet type="Python" name="Python">
-      <configuration sdkName="uv (gymnasium)" />
-    </facet>
-  </component>
 </module>
