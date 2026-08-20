@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="AgentDQNMainLoadModel" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="br.com.guialves.rflr.execs.AgentDQNMain" />
+    <module name="java-rl-dqn-to-rainbow" />
+    <option name="PROGRAM_PARAMETERS" value="--load-model LunarLander-v3_1787202869783_dqn" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="br.com.guialves.rflr.execs.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

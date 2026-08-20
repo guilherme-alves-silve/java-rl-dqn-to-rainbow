@@ -74,10 +74,17 @@ public class RLRunner {
         @Cleanup var replayBuffer = agentFactory.replayBuffer(config, parent);
         var lossFunc = agentFactory.lossFunc();
 
-        agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
+        boolean loadOnly = config.loadModelPrefix() != null;
 
-        if (config.saveModel()) {
-            agent.save(path, modelFileName);
+        if (!loadOnly) {
+            agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
+
+            if (config.saveModel()) {
+                agent.save(path, modelFileName);
+            }
+        } else {
+            IO.println("Load-only mode: skipping training. Loaded model prefix: "
+                    + config.loadModelPrefix());
         }
 
         double totalReward = agent.run(config.runMaxTries(), config.renderRun()).getLast();
@@ -89,7 +96,7 @@ public class RLRunner {
         );
         runOutput.forEach((desc, result) -> IO.println(desc + ": " + result));
 
-        if (config.saveModel()) {
+        if (!loadOnly && config.saveModel()) {
             validateModelFile(path, modelFileName);
         }
 

@@ -2,6 +2,7 @@ package br.com.guialves.rflr.execs;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
@@ -28,51 +29,51 @@ class AgentExecsMainTest {
 
     @Test
     void shouldRunAgentDQNMain() {
-        assertDoesNotThrow(AgentDQNMain::main);
+        assertDoesNotThrow((Executable) AgentDQNMain::main);
     }
 
     @Test
     void shouldRunAgentDDQNMain() {
-        assertDoesNotThrow(AgentDDQNMain::main);
+        assertDoesNotThrow((Executable) AgentDDQNMain::main);
     }
 
     @Test
     void shouldRunAgentDQNPERMain() {
-        assertDoesNotThrow(AgentDQNPERMain::main);
+        assertDoesNotThrow((Executable) AgentDQNPERMain::main);
     }
 
     @Test
     void shouldRunAgentDuelingDQNMain() {
-        assertDoesNotThrow(AgentDuelingDQNMain::main);
+        assertDoesNotThrow((Executable) AgentDuelingDQNMain::main);
     }
 
     @Test
     void shouldRunAgentNStepDQNMain() {
-        assertDoesNotThrow(AgentNStepDQNMain::main);
+        assertDoesNotThrow((Executable) AgentNStepDQNMain::main);
     }
 
     @Test
     void shouldRunAgentNoisyNetDQNMain() {
-        assertDoesNotThrow(AgentNoisyNetDQNMain::main);
+        assertDoesNotThrow((Executable) AgentNoisyNetDQNMain::main);
     }
 
     @Test
     void shouldRunAgentNoisyDuelingNetDDQNMain() {
-        assertDoesNotThrow(AgentNoisyDuelingNetDDQNMain::main);
+        assertDoesNotThrow((Executable) AgentNoisyDuelingNetDDQNMain::main);
     }
 
     @Test
     void shouldRunAgentC51DQNMain() {
-        assertDoesNotThrow(AgentC51DQNMain::main);
+        assertDoesNotThrow((Executable) AgentC51DQNMain::main);
     }
 
     @Test
     void shouldRunAgentC51RReLUDQNMain() {
-        assertDoesNotThrow(AgentC51RReLUDQNMain::main);
+        assertDoesNotThrow((Executable) AgentC51RReLUDQNMain::main);
     }
 
     @Test
     void shouldRunAgentRainbowDQNMain() {
-        assertDoesNotThrow(AgentRainbowDQNMain::main);
+        assertDoesNotThrow((Executable) AgentRainbowDQNMain::main);
     }
 }
