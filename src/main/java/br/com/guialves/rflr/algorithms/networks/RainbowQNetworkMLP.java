@@ -89,13 +89,13 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
     }
 
     @SneakyThrows
-    RainbowQNetworkMLP(int observations,
-                       int actions,
-                       CategoricalBellmanProjection catProj,
-                       Path modelPath,
-                       String prefix,
-                       NDManager parent,
-                       DuelingType duelingType) {
+    public RainbowQNetworkMLP(int observations,
+                              int actions,
+                              CategoricalBellmanProjection catProj,
+                              Path modelPath,
+                              String prefix,
+                              NDManager parent,
+                              DuelingType duelingType) {
         this.observations = observations;
         this.actions = actions;
         this.catProj = catProj;

@@ -74,12 +74,12 @@ public class CategoricalQNetworkRReLUMLP implements IDeepQNetwork {
     }
 
     @SneakyThrows
-    CategoricalQNetworkRReLUMLP(int observations,
-                                int actions,
-                                CategoricalBellmanProjection catProj,
-                                Path modelPath,
-                                String prefix,
-                                NDManager parent) {
+    public CategoricalQNetworkRReLUMLP(int observations,
+                                       int actions,
+                                       CategoricalBellmanProjection catProj,
+                                       Path modelPath,
+                                       String prefix,
+                                       NDManager parent) {
         this.observations = observations;
         this.actions = actions;
         this.catProj = catProj;

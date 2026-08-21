@@ -10,7 +10,7 @@ public class MainUtils {
         throw new IllegalStateException("No MainUtils!");
     }
 
-    static RLRunOptions parseArgs(String[] args) {
+    static RLRunOptions parseArgs(String[] args, String className) {
         String loadPrefix = null;
         for (int i = 0; i < args.length; i++) {
             var arg = args[i];
@@ -27,7 +27,7 @@ public class MainUtils {
                     }
                 }
                 case "--help", "-h" -> {
-                    printUsage();
+                    printUsage(className);
                     System.exit(0);
                 }
                 default -> throw new IllegalArgumentException("Unknown argument: " + arg);
@@ -36,22 +36,22 @@ public class MainUtils {
         return new RLRunOptions(loadPrefix);
     }
 
-    private static void printUsage() {
+    private static void printUsage(String className) {
         IO.println("""
-            Usage: AgentDQNMain [options]
+            Usage: %s [options]
 
             Options:
               --load-model <prefix>, -l <prefix>   Load a trained model whose file name
                                                   starts with <prefix> from
-                                                  ./output_models/dqn/ and only run
-                                                  evaluation (no training, no saving).
+                                                  ./output_models/<algorithm>/ and only
+                                                  run evaluation (no training, no saving).
               --help, -h                           Show this help message.
 
             Without options the agent trains a new model, saves it, and runs one
             evaluation episode.
 
             Example:
-              java AgentDQNMain --load-model LunarLander-v3_1787202869783_dqn
-            """);
+              java %s --load-model LunarLander-v3_1787202869783_dqn
+            """.formatted(className, className));
     }
 }

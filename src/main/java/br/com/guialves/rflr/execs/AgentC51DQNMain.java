@@ -7,12 +7,16 @@ import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.c51dqn.AgentC51DQN;
 import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
+import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
+import static br.com.guialves.rflr.execs.MainUtils.parseArgs;
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
 
@@ -26,9 +30,17 @@ public class AgentC51DQNMain {
         run();
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run() {
+    static void main(String[] args) {
+        var opts = parseArgs(args, AgentC51DQNMain.class.getSimpleName());
+        run(opts);
+    }
 
-        var config = RLConfig.builder()
+    public static Optional<DJLMemoryManagement.ManagerNode> run() {
+        return run(RLRunOptions.defaults());
+    }
+
+    public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
+        var builder = RLConfig.builder()
                 .envName("LunarLander-v3")
                 .runnerClass(AgentC51DQNMain.class.getSimpleName())
                 .algorithmName("c51_dqn")
@@ -48,8 +60,13 @@ public class AgentC51DQNMain {
                 .saveModel(getBoolProp("agent.saveModel", "true"))
                 .debugMemoryLeak(getBoolProp("agent.debugMemoryLeak", "true"))
                 .renderRun(getBoolProp("agent.renderRun", "true"))
-                .runMaxTries(getIntProp("agent.maxTries", "1"))
-                .build();
+                .runMaxTries(getIntProp("agent.maxTries", "1"));
+
+        if (opts.loadModelPrefix() != null) {
+            builder = builder.loadModelPrefix(opts.loadModelPrefix());
+        }
+
+        var config = builder.build();
 
         return RLRunner.run(config, new RLRunner.AgentFactory() {
 
@@ -70,6 +87,24 @@ public class AgentC51DQNMain {
                                       Optimizer optimizer,
                                       PlotTrackers plotTrackers,
                                       NDManager parent) {
+        boolean loadModel = config.loadModelPrefix() != null;
+        Supplier<IDeepQNetwork> networkFactory = loadModel
+                ? () -> new CategoricalQNetworkMLP(
+                        config.observations(),
+                        config.actions(),
+                        new CategoricalBellmanProjection(
+                                config.atoms(), config.vMin(), config.vMax()),
+                        config.path(),
+                        config.loadModelPrefix(),
+                        parent)
+                : () -> new CategoricalQNetworkMLP(
+                        config.observations(),
+                        config.actions(),
+                        config.atoms(),
+                        config.vMin(),
+                        config.vMax(),
+                        parent);
+
         return new AgentC51DQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
@@ -79,14 +114,7 @@ public class AgentC51DQNMain {
                 env,
                 optimizer,
                 parent,
-                () -> new CategoricalQNetworkMLP(
-                    config.observations(),
-                    config.actions(),
-                    config.atoms(),
-                    config.vMin(),
-                    config.vMax(),
-                    parent
-                ),
+                networkFactory,
                 plotTrackers,
                 config.debugMemoryLeak()
         );

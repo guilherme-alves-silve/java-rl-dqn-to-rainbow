@@ -37,7 +37,7 @@ public class AgentDQNMain {
      * ({@code ./output_models/dqn/}), and only runs evaluation.
      */
     static void main(String[] args) {
-        var opts = parseArgs(args);
+        var opts = parseArgs(args, AgentDQNMain.class.getSimpleName());
         run(opts);
     }
 
