@@ -170,7 +170,7 @@ public class DJLMemoryManagement {
                                            ParameterStore parameterStore,
                                            NDList inputs,
                                            boolean training) {
-        if (inputs.size() != 1) throw new IllegalArgumentException("The dueling dqn just accepts one input!");
+        if (inputs.size() != 1) throw new IllegalArgumentException("The network just accepts one head input!");
         @Cleanup var sub = subMgr(manager, "safe-forward-single");
         inputs.getFirst().tempAttach(sub);
         var output = block.forward(parameterStore, inputs, training);

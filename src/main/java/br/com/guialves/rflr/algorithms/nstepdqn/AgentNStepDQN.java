@@ -16,8 +16,7 @@ import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStep;
-import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
-import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1_ARR;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 /**
  * DQN with n-step returns.
@@ -72,7 +71,7 @@ public class AgentNStepDQN extends AbstractAgent {
             var dones = samples.dones();
 
             // max Q(s', a')
-            var maxNextQValue = nextQValue.max(AXIS_1_ARR, true);
+            var maxNextQValue = nextQValue.max(AXIS_1_ARR, KEEP_DIMS);
             float gammaNBootstrap = (float) Math.pow(gamma, replayBuffer.nStep());
             // gamma^n * max Q(s', a')
             var discountNextQValue = maxNextQValue.mul(gammaNBootstrap);

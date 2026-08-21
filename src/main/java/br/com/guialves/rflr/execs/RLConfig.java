@@ -47,7 +47,8 @@ public record RLConfig(
     Path path,
     boolean debugMemoryLeak,
     int runMaxTries,
-    boolean renderRun
+    boolean renderRun,
+    String loadModelPrefix
 ) {
 
     private static final int DEFAULT_N_STEP = 1;

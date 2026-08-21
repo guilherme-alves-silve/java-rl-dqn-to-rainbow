@@ -185,7 +185,6 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
     public void updatePriorities(int[] bufferIndexes, NDArray priorities) {
         if (bufferIndexes.length != priorities.size()) throw new IllegalArgumentException("Invalid length!");
         float tempMaxPriority = this.maxPriority;
-        // TODO: Create test for memory leak
         var rawPriorities = toFloatArray(priorities);
         for (int i = 0; i < bufferIndexes.length; ++i) {
             int experienceIdx = bufferIndexes[i];

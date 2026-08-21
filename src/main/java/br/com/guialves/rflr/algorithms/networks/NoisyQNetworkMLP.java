@@ -129,9 +129,9 @@ public class NoisyQNetworkMLP implements INoisyNetwork {
 
     @Override
     public void close() {
+        resetNoise();
         subManager.close();
         model.close();
-        resetNoise();
     }
 
     @Override

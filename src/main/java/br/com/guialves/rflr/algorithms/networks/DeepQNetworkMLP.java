@@ -65,7 +65,7 @@ public class DeepQNetworkMLP implements IDeepQNetwork {
         this.parameterStore = new ParameterStore(subManager, false);
         if (modelPath != null) {
             log.info("Loading model: {}, {}", modelPath, prefix);
-            model.load(modelPath, prefix);
+            model.load(modelPath.normalize(), prefix);
             this.training = false;
         } else {
             net.initialize(subManager, DataType.FLOAT32, new Shape(1, observations));

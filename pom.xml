@@ -27,6 +27,8 @@
     <assertj.version>3.27.7</assertj.version>
     <progressbar.version>0.10.2</progressbar.version>
     <tablesaw.version>0.44.4</tablesaw.version>
+    <carla.version>0.2.0</carla.version>
+    <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
   </properties>
 
   <dependencyManagement>
@@ -77,6 +79,19 @@
       <groupId>org.bytedeco</groupId>
       <artifactId>cpython</artifactId>
       <version>${python.version}-${javacpp.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.github.guilherme-alves-silve</groupId>
+      <artifactId>carla-simulator-javacpp</artifactId>
+      <version>${carla.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.github.guilherme-alves-silve</groupId>
+      <artifactId>carla-simulator-javacpp</artifactId>
+      <version>${carla.version}</version>
+      <classifier>${os.detected.classifier}</classifier>
     </dependency>
 
     <!-- Source: https://mvnrepository.com/artifact/ai.djl/api -->
@@ -260,6 +275,21 @@
         </configuration>
       </plugin>
     </plugins>
+    <extensions>
+      <!--
+        Detects the host OS/arch at build time and exposes it
+        as ${os.detected.classifier} (e.g. windows-x86_64,
+        linux-x86_64). Required so the JavaCPP @Platform
+        selection and the maven-jar-plugin classifier stay in
+        sync with the actual build host. Standard pattern used
+        by all official JavaCPP presets.
+      -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>${os-maven-plugin.version}</version>
+      </extension>
+    </extensions>
   </build>
 
   <profiles>
