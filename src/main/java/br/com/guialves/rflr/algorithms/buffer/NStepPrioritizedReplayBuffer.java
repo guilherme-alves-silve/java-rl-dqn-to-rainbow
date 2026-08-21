@@ -9,7 +9,6 @@ import java.util.Deque;
 import static java.util.Objects.requireNonNull;
 
 /**
- * TODO: Update doc
  * N-Step Prioritized Vectorized experience replay buffer
  * Sources:
  * <a href="https://d2l.djl.ai/chapter_preliminaries/ndarray.html">DLJ - 2.1. Data Manipulation</a>
