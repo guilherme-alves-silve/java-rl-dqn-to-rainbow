@@ -36,6 +36,9 @@ The series progresses in three articles:
 - [x] C51
 - [x] Rainbow
 
+Agent DQN execution:
+![Lunar Lander agent demo Java](docs/lunar_lander_agent_demo_java.gif)
+
 **Part 3 (WIP)** — CARLA autonomous driving integration with Rainbow DQN
 
 ### Related articles:
