@@ -254,7 +254,23 @@ class CategoricalNLLPERLossTest {
         var out = loss.evaluate(new NDList(mUniform), new NDList(logUniform));
 
         // Reference: PERL2Loss.NONE returns (batch, 1). See PERL2LossTest.
-        assertEquals("(batch, 1)", out.getShape().toString(),
+        assertEquals(new Shape(batch, 1), out.getShape(),
                 "Categorical and PER L2 losses must have matching NONE shapes");
+    }
+
+    @Test
+    void shouldReturnSameShapeAsPERL2LossForMeanScalargitReduction() {
+        int batch = 3;
+        var logUniform = manager.full(new Shape(batch, 1, ATOMS), (float) Math.log(1.0 / ATOMS));
+        var mUniform = manager.full(new Shape(batch, 1, ATOMS), 1.0f / ATOMS);
+        var weights = manager.ones(new Shape(batch, 1, 1));
+
+        var loss = new CategoricalNLLPERLoss(CategoricalNLLPERLoss.Reduction.MEAN);
+        loss.normISWeights(weights);
+        var out = loss.evaluate(new NDList(mUniform), new NDList(logUniform));
+
+        // Reference: PERL2Loss.NONE returns (batch, 1). See PERL2LossTest.
+        assertEquals(new Shape(), out.getShape(),
+                "Categorical and PER L2 losses must have matching MEAN shapes");
     }
 }
