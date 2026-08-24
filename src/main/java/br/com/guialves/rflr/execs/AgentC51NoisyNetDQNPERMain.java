@@ -4,9 +4,11 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.c51dqn.AgentC51DQN;
-import br.com.guialves.rflr.algorithms.c51dqn.AgentC51NoisyNetDQN;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.c51dqn.AgentC51NoisyNetDQNPER;
 import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyPERLoss;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNoisyNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
@@ -25,14 +27,14 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
-public class AgentC51NoisyNetDQNMain {
+public class AgentC51NoisyNetDQNPERMain {
 
     static void main() {
         run();
     }
 
     static void main(String[] args) {
-        var opts = parseArgs(args, AgentC51NoisyNetDQNMain.class.getSimpleName());
+        var opts = parseArgs(args, AgentC51NoisyNetDQNPERMain.class.getSimpleName());
         run(opts);
     }
 
@@ -43,10 +45,12 @@ public class AgentC51NoisyNetDQNMain {
     public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
         var builder = RLConfig.builder()
                 .envName("LunarLander-v3")
-                .runnerClass(AgentC51NoisyNetDQNMain.class.getSimpleName())
-                .algorithmName("c51_noisy_net_dqn")
+                .runnerClass(AgentC51NoisyNetDQNPERMain.class.getSimpleName())
+                .algorithmName("c51_noisy_net_dqnper")
                 .observations(8)
                 .actions(4)
+                .alpha(0.2f)
+                .beta(0.6f)
                 .learningRate(0.0005f)
                 .maxEpsilon(1.0f)
                 .minEpsilon(0.01f)
@@ -73,21 +77,30 @@ public class AgentC51NoisyNetDQNMain {
 
             @Override
             public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {
-                return buildC51NoisyNetDQN(config, env, optimizer, plotTrackers, parent);
+                return buildC51NoisyNetDQNPER(config, env, optimizer, plotTrackers, parent);
             }
 
             @Override
             public Loss lossFunc() {
-                return new CategoricalCrossEntropyLoss();
+                return new CategoricalCrossEntropyPERLoss();
+            }
+
+            @Override
+            public IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
+                return new PrioritizedReplayBuffer(
+                        config.bufferCapacity(),
+                        config.alpha(),
+                        manager
+                );
             }
         });
     }
 
-    private static IAgent buildC51NoisyNetDQN(RLConfig config,
-                                              IEnv env,
-                                              Optimizer optimizer,
-                                              PlotTrackers plotTrackers,
-                                              NDManager parent) {
+    private static IAgent buildC51NoisyNetDQNPER(RLConfig config,
+                                                 IEnv env,
+                                                 Optimizer optimizer,
+                                                 PlotTrackers plotTrackers,
+                                                 NDManager parent) {
         boolean loadModel = config.loadModelPrefix() != null;
         Supplier<IDeepQNetwork> networkFactory = loadModel
                 ? () -> new CategoricalQNoisyNetworkMLP(
@@ -106,12 +119,13 @@ public class AgentC51NoisyNetDQNMain {
                         config.vMax(),
                         parent);
 
-        return new AgentC51NoisyNetDQN(
+        return new AgentC51NoisyNetDQNPER(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
                 config.epsilonDecay(),
                 config.discountFactor(), // gamma
+                config.beta(),
                 env,
                 optimizer,
                 parent,

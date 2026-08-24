@@ -8,6 +8,7 @@ import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyPERLoss;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -71,11 +72,11 @@ public class AgentRainbowDQN extends AbstractAgent {
             throw new IllegalArgumentException("Invalid network type! Must be of type NoisyDuelingQNetworkMLP!");
         }
 
+        this.beta = this.initialBeta = beta;
         this.onlineRainbowNet = (RainbowQNetworkMLP) onlineNet;
         this.targetRainbowNet = (RainbowQNetworkMLP) targetNet;
         this.subManager = subMgr(parent, "sub-atoms-broadcast");
         this.atomsBroadcaster = this.targetRainbowNet.newAtomsBroadcaster(subManager);
-        this.beta = this.initialBeta = beta;
     }
 
     /**

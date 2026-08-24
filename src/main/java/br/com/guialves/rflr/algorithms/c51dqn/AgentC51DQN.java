@@ -133,7 +133,7 @@ public class AgentC51DQN extends AbstractAgent {
             return targetCatNet.projectBellman(maxNextProbDist, samples.rewards(), samples.dones(), gamma);
         });
 
-        // Loss = sum mi * ln (p(s, a, theta))
+        // Loss = -sum mi * ln (p(s, a, theta))
         float lossItem = backwardLoss(sub, lossFunc, projectDist, array -> {
             var states = array[0];
             var actions = array[1]

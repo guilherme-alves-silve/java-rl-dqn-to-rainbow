@@ -11,7 +11,7 @@ import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.algorithms.rainbowdqn.AgentRainbowDQN;
-import br.com.guialves.rflr.algorithms.rainbowdqn.CategoricalCrossEntropyPERLoss;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyPERLoss;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;

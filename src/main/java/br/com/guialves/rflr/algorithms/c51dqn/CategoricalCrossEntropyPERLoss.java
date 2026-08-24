@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.algorithms.rainbowdqn;
+package br.com.guialves.rflr.algorithms.c51dqn;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
