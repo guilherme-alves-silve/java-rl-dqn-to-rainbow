@@ -23,10 +23,10 @@ public class NStepPrioritizedReplayBuffer extends PrioritizedReplayBuffer {
     private final float gamma;
     private final Deque<Experience> nStepDeque;
 
-    public NStepPrioritizedReplayBuffer(int nStep,
+    public NStepPrioritizedReplayBuffer(int capacity,
+                                        int nStep,
                                         float gamma,
                                         float alpha,
-                                        int capacity,
                                         NDManager parent) {
         super(capacity, alpha, parent);
         if (nStep < 1) throw new IllegalArgumentException("nStep must at least 1: " + nStep);

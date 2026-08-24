@@ -23,16 +23,16 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
     private final float gamma;
     private final Deque<Experience> nStepDeque;
 
-    public NStepExperienceReplayBuffer(int nStep,
+    public NStepExperienceReplayBuffer(int capacity,
+                                       int nStep,
                                        float gamma,
-                                       int capacity,
                                        NDManager parent) {
-        this(nStep, gamma, capacity, parent, new ExperienceSampler());
+        this(capacity, nStep, gamma, parent, new ExperienceSampler());
     }
 
-    public NStepExperienceReplayBuffer(int nStep,
+    public NStepExperienceReplayBuffer(int capacity,
+                                       int nStep,
                                        float gamma,
-                                       int capacity,
                                        NDManager parent,
                                        ExperienceSampler sampler) {
         super(capacity, parent, sampler);

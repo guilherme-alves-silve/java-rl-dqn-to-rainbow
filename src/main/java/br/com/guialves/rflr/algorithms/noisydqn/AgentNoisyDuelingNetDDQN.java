@@ -82,8 +82,6 @@ public class AgentNoisyDuelingNetDDQN extends AbstractAgent {
                 onlineNextQValues -> onlineNextQValues.stopGradient().argMax(AXIS_1)
                         .reshape(N_BATCH, 1));
 
-        // reset first time eps' for DDQN
-        targetNoisyDuelNet.resetNoise();
         @Cleanup var targetQValue = targetNoisyDuelNet.forward(nextStates, nextQValues -> {
             // q_target(s', a*)
             var nextQValue = nextQValues.gather(action, AXIS_1);

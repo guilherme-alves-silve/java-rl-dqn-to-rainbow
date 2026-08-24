@@ -50,6 +50,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
                                    float alpha,
                                    @NonNull NDManager parent) {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
+        if (alpha <= 0 || alpha > 1) throw new IllegalArgumentException("alpha must be between range (0, 1]: " + alpha);
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
         this.subManager = subMgr(parent, getClass());
