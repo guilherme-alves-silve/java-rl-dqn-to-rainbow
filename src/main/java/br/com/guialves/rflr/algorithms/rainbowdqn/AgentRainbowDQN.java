@@ -92,10 +92,10 @@ public class AgentRainbowDQN extends AbstractAgent {
     protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
         if (!(ireplayBuffer instanceof NStepPrioritizedReplayBuffer replayBuffer)) {
-            throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
+            throw new IllegalArgumentException("You must pass NStepPrioritizedReplayBuffer!");
         }
         if (!(lossFunc instanceof CategoricalNLLPERLoss catLossFunc)) {
-            throw new IllegalArgumentException("You must pass CategoricalCrossEntropyPERLoss!");
+            throw new IllegalArgumentException("You must pass CategoricalNLLPERLoss!");
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize, beta);

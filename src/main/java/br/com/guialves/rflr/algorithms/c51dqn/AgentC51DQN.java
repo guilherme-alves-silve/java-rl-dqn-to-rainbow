@@ -115,7 +115,7 @@ public class AgentC51DQN extends AbstractAgent {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
         if (!(lossFunc instanceof CategoricalNLLLoss)) {
-            throw new IllegalArgumentException("You must pass CategoricalCrossEntropyLoss!");
+            throw new IllegalArgumentException("You must pass CategoricalNLLLoss!");
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);

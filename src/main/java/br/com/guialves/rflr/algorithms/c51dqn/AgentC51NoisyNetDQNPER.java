@@ -125,7 +125,7 @@ public class AgentC51NoisyNetDQNPER extends AbstractAgent {
             throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
         }
         if (!(lossFunc instanceof CategoricalNLLPERLoss catLossFunc)) {
-            throw new IllegalArgumentException("You must pass CategoricalCrossEntropyPERLoss!");
+            throw new IllegalArgumentException("You must pass CategoricalNLLPERLoss!");
         }
 
         onlineCatNoisyNet.resetNoise();
