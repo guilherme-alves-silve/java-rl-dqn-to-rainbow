@@ -12,8 +12,7 @@ import java.util.Arrays;
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.DISCRETE;
 import static org.junit.jupiter.api.Assertions.*;
 
-class NStepExperienceReplayBufferTest {
-
+class NStepPrioritizedReplayBufferTest {
     private static final float DELTA = 1e-6f;
     private static NDManager manager;
 
@@ -31,10 +30,13 @@ class NStepExperienceReplayBufferTest {
     void shouldRejectInvalidNStep() {
         int invalidNStep = 0;
         float invalidGamma = 1.5f;
+        int nStep = 5;
+        float gamma = 0.99f;
+        float alpha = 0.4f;
         assertThrows(IllegalArgumentException.class,
-                () -> new NStepExperienceReplayBuffer(10, invalidNStep, 0.99f, manager));
+                () -> new NStepPrioritizedReplayBuffer(10, invalidNStep, gamma, alpha, manager));
         assertThrows(IllegalArgumentException.class,
-                () -> new NStepExperienceReplayBuffer(10, 3, invalidGamma, manager));
+                () -> new NStepPrioritizedReplayBuffer(10, nStep, invalidGamma, alpha, manager));
     }
 
     @Test
@@ -42,11 +44,13 @@ class NStepExperienceReplayBufferTest {
         int capacity = 10;
         int nStep = 2;
         float gamma = 0.99f;
-        @Cleanup var buffer = new NStepExperienceReplayBuffer(capacity, nStep, gamma, manager);
+        float alpha = 0.2f;
+        @Cleanup var buffer = new NStepPrioritizedReplayBuffer(capacity, nStep, gamma, alpha, manager);
         assertFalse(buffer.enough(1));
         buffer.store(exp(manager, 0, 1.0));
         buffer.store(exp(manager, 1, 1.0));
         assertTrue(buffer.enough(1));
+        assertEquals(nStep, buffer.nStep());
     }
 
     /**
@@ -57,10 +61,11 @@ class NStepExperienceReplayBufferTest {
     void shouldEmitFirstDoneIfItEndsEpisode() {
         int nStep = 3;
         float gamma = 0.99f;
+        float alpha = 0.4f;
         int expectedCapacity = 100;
         int expectedSize = 1;
 
-        @Cleanup var buffer = new NStepExperienceReplayBuffer(expectedCapacity, nStep, gamma, manager);
+        @Cleanup var buffer = new NStepPrioritizedReplayBuffer(expectedCapacity, nStep, gamma, alpha, manager);
 
         buffer.store(expDone(manager, 0, 1.0));
         buffer.store(exp(manager, 1, 1.0));
@@ -71,6 +76,7 @@ class NStepExperienceReplayBufferTest {
         assertEquals(expectedSize, samples.dones().size(0));
         assertEquals(expectedSize, buffer.size());
         assertEquals(expectedCapacity, buffer.capacity());
+        assertEquals(nStep, buffer.nStep());
     }
 
     /**
@@ -83,10 +89,11 @@ class NStepExperienceReplayBufferTest {
     void shouldEmitAllUntilDone() {
         int nStep = 3;
         float gamma = 0.99f;
+        float alpha = 0.4f;
         int expectedCapacity = 500;
         int expectedSize = 3;
 
-        @Cleanup var buffer = new NStepExperienceReplayBuffer(expectedCapacity, nStep, gamma, manager);
+        @Cleanup var buffer = new NStepPrioritizedReplayBuffer(expectedCapacity, nStep, gamma, alpha, manager);
 
         buffer.store(exp(manager, 0, 1.0));
         buffer.store(exp(manager, 1, 0.8));
@@ -97,6 +104,7 @@ class NStepExperienceReplayBufferTest {
         assertEquals(expectedSize, samples.dones().size(0));
         assertEquals(expectedSize, buffer.size());
         assertEquals(expectedCapacity, buffer.capacity());
+        assertEquals(nStep, buffer.nStep());
     }
 
     @Test
@@ -104,8 +112,9 @@ class NStepExperienceReplayBufferTest {
         int nStep = 3;
         int capacity = 100;
         float gamma = 1.0f;
+        float alpha = 0.4f;
 
-        @Cleanup var buffer = new NStepExperienceReplayBuffer(capacity, nStep, gamma, manager);
+        @Cleanup var buffer = new NStepPrioritizedReplayBuffer(capacity, nStep, gamma, alpha, manager);
 
         buffer.store(exp(manager, 0, 1.0));
         buffer.store(exp(manager, 1, 2.0));
@@ -133,9 +142,10 @@ class NStepExperienceReplayBufferTest {
         int nStep = 3;
         int capacity = 100;
         float gamma = 0.5f;
+        float alpha = 0.4f;
 
         @Cleanup
-        var buffer = new NStepExperienceReplayBuffer(capacity, nStep, gamma, manager);
+        var buffer = new NStepPrioritizedReplayBuffer(capacity, nStep, gamma, alpha, manager);
 
         buffer.store(exp(manager, 0, 1.0));
         buffer.store(exp(manager, 1, 2.0));

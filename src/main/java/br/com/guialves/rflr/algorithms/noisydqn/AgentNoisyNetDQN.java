@@ -74,7 +74,6 @@ public class AgentNoisyNetDQN extends AbstractAgent {
     protected float trainOnline(int batchSize, IReplayBuffer replayBuffer, Loss lossFunc, NDManager sub) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
         onlineNoisyNet.resetNoise();
-        targetNoisyNet.resetNoise();
 
         @Cleanup var samples = replayBuffer.sample(batchSize);
         @Cleanup var targetQValue = targetNoisyNet.forward(samples.nextStates(), nextQValue -> {

@@ -35,6 +35,14 @@ class FactorizedNoiseTest {
     }
 
     @Test
+    void shouldSampleNoiseOuterBeUntrainable() {
+        var expectedRequiresGrad = false;
+        @Cleanup var noise = FactorizedNoise.sampleNoiseOuter(manager, 7, 14);
+        assertEquals(expectedRequiresGrad, noise.epsWeight().hasGradient());
+        assertEquals(expectedRequiresGrad, noise.epsBias().hasGradient());
+    }
+
+    @Test
     void shouldMatchShapeInSampleNoiseOuter() {
         var expectedShapeWeight = new Shape(10, 5);
         var expectedShapeBias = new Shape(10);

@@ -111,8 +111,6 @@ public class AgentRainbowDQN extends AbstractAgent {
                         // (batch, 1, atoms)
                         .mul(atomsBroadcaster));
 
-        // reset first time eps' for DDQN
-        targetRainbowNet.resetNoise();
         @Cleanup var targetQValue = targetRainbowNet.forwardDist(nextStates, probNextDist -> {
             float gammaNBootstrap = (float) Math.pow(gamma, replayBuffer.nStep());
             // q_target(s', a*) - DDQN

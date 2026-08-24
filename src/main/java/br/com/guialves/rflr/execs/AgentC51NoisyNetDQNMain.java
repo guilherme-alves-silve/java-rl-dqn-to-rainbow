@@ -4,14 +4,12 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.c51dqn.AgentC51DQN;
+import br.com.guialves.rflr.algorithms.c51dqn.AgentC51NoisyNetDQN;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
+import br.com.guialves.rflr.algorithms.networks.CategoricalQNoisyNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
-import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
-import br.com.guialves.rflr.algorithms.rainbowdqn.AgentRainbowDQN;
-import br.com.guialves.rflr.algorithms.rainbowdqn.CategoricalCrossEntropyPERLoss;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -22,20 +20,19 @@ import java.util.function.Supplier;
 import static br.com.guialves.rflr.execs.MainUtils.parseArgs;
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
-import static java.lang.System.getProperty;
 
 /**
  * Reference:
  *  <a href="https://gymnasium.farama.org/environments/box2d/lunar_lander/">Lunar Lander</a>
  */
-public class AgentRainbowDQNMain {
+public class AgentC51NoisyNetDQNMain {
 
     static void main() {
         run();
     }
 
     static void main(String[] args) {
-        var opts = parseArgs(args, AgentRainbowDQNMain.class.getSimpleName());
+        var opts = parseArgs(args, AgentC51NoisyNetDQNMain.class.getSimpleName());
         run(opts);
     }
 
@@ -46,23 +43,19 @@ public class AgentRainbowDQNMain {
     public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
         var builder = RLConfig.builder()
                 .envName("LunarLander-v3")
-                .runnerClass(AgentRainbowDQNMain.class.getSimpleName())
-                .algorithmName("rainbow_dqn")
+                .runnerClass(AgentC51NoisyNetDQNMain.class.getSimpleName())
+                .algorithmName("c51_noisy_net_dqn")
                 .observations(8)
                 .actions(4)
-                .alpha(0.2f)
-                .beta(0.6f)
                 .learningRate(0.0005f)
                 .maxEpsilon(1.0f)
                 .minEpsilon(0.01f)
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .nStep(3)
                 .atoms(50)
                 .vMin(-10.0f)
                 .vMax(+10.0f)
-                .duelingType(DuelingType.valueOf(getProperty("agent.duelingType", "MEAN")))
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
@@ -80,59 +73,45 @@ public class AgentRainbowDQNMain {
 
             @Override
             public IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent) {
-                return buildRainbowDQN(config, env, optimizer, plotTrackers, parent);
+                return buildC51NoisyNetDQN(config, env, optimizer, plotTrackers, parent);
             }
 
             @Override
             public Loss lossFunc() {
-                return new CategoricalCrossEntropyPERLoss();
-            }
-
-            @Override
-            public IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
-                return new NStepPrioritizedReplayBuffer(
-                        config.bufferCapacity(),
-                        config.nStep(),
-                        config.discountFactor(),
-                        config.alpha(),
-                        manager
-                );
+                return new CategoricalCrossEntropyLoss();
             }
         });
     }
 
-    private static IAgent buildRainbowDQN(RLConfig config,
-                                          IEnv env,
-                                          Optimizer optimizer,
-                                          PlotTrackers plotTrackers,
-                                          NDManager parent) {
+    private static IAgent buildC51NoisyNetDQN(RLConfig config,
+                                              IEnv env,
+                                              Optimizer optimizer,
+                                              PlotTrackers plotTrackers,
+                                              NDManager parent) {
         boolean loadModel = config.loadModelPrefix() != null;
         Supplier<IDeepQNetwork> networkFactory = loadModel
-                ? () -> new RainbowQNetworkMLP(
+                ? () -> new CategoricalQNoisyNetworkMLP(
                         config.observations(),
                         config.actions(),
                         new CategoricalBellmanProjection(
                                 config.atoms(), config.vMin(), config.vMax()),
                         config.path(),
                         config.loadModelPrefix(),
-                        parent,
-                        config.duelingType())
-                : () -> new RainbowQNetworkMLP(
+                        parent)
+                : () -> new CategoricalQNoisyNetworkMLP(
                         config.observations(),
                         config.actions(),
                         config.atoms(),
                         config.vMin(),
                         config.vMax(),
-                        parent,
-                        config.duelingType());
+                        parent);
 
-        return new AgentRainbowDQN(
+        return new AgentC51NoisyNetDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),
                 config.epsilonDecay(),
                 config.discountFactor(), // gamma
-                config.beta(),
                 env,
                 optimizer,
                 parent,

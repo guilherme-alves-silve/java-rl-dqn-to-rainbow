@@ -77,8 +77,8 @@ public class AgentNStepDQNMain {
             public IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
                 return new NStepExperienceReplayBuffer(
                     config.bufferCapacity(),
-                    config.discountFactor(),
                     config.nStep(),
+                    config.discountFactor(),
                     manager
                 );
             }

@@ -42,9 +42,9 @@ public class FactorizedNoise {
                         .matMul(fepsIn.reshape(1, inSize));
         return new Noise(
                 // epsWeight = f(epsOut) * f(epsIn)^T
-                sub.ret(epsW),
+                sub.ret(epsW.stopGradient()),
                 // epsBias = f(epsOut)
-                sub.ret(fepsOut)
+                sub.ret(fepsOut.stopGradient())
         );
     }
 
