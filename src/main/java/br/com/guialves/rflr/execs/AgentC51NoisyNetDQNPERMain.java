@@ -7,8 +7,7 @@ import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.c51dqn.AgentC51NoisyNetDQNPER;
-import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
-import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyPERLoss;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLPERLoss;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNoisyNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
@@ -82,7 +81,7 @@ public class AgentC51NoisyNetDQNPERMain {
 
             @Override
             public Loss lossFunc() {
-                return new CategoricalCrossEntropyPERLoss();
+                return CategoricalNLLPERLoss.noneReduction();
             }
 
             @Override

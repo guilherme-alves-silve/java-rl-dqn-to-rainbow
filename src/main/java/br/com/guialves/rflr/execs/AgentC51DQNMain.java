@@ -5,7 +5,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.c51dqn.AgentC51DQN;
-import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLLoss;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
@@ -77,7 +77,7 @@ public class AgentC51DQNMain {
 
             @Override
             public Loss lossFunc() {
-                return new CategoricalCrossEntropyLoss();
+                return new CategoricalNLLLoss();
             }
         });
     }

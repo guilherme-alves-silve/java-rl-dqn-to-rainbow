@@ -8,7 +8,7 @@ import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
-import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyPERLoss;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLPERLoss;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -23,8 +23,7 @@ import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN
 import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
-import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
-import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 /**
  * Rainbow DQN — the union of all seven improvements from Hessel et al. (2017):
@@ -39,7 +38,7 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
  * </ol>
  *
  * <p>The buffer must be a {@link PrioritizedReplayBuffer} or {@link NStepPrioritizedReplayBuffer};
- * the loss must be {@link CategoricalCrossEntropyPERLoss}; the networks must be {@link RainbowQNetworkMLP}.
+ * the loss must be {@link CategoricalNLLPERLoss}; the networks must be {@link RainbowQNetworkMLP}.
  */
 @Slf4j
 public class AgentRainbowDQN extends AbstractAgent {
@@ -95,7 +94,7 @@ public class AgentRainbowDQN extends AbstractAgent {
         if (!(ireplayBuffer instanceof NStepPrioritizedReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
         }
-        if (!(lossFunc instanceof CategoricalCrossEntropyPERLoss catLossFunc)) {
+        if (!(lossFunc instanceof CategoricalNLLPERLoss catLossFunc)) {
             throw new IllegalArgumentException("You must pass CategoricalCrossEntropyPERLoss!");
         }
 
@@ -131,10 +130,10 @@ public class AgentRainbowDQN extends AbstractAgent {
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
             // ln(p(s, a, theta))
-            return onlineRainbowNet.forwardLogDist(states, logProbDist -> logProbDist.gather(actions, AXIS_1));
+            return onlineRainbowNet.forwardLogits(states, logits -> logits.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
-        var lossItem = scopedToFloat(NDArray::mean, losses);
+        var lossItem = scopedToFloat(NDArray::mean, losses);;
         @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
 
         replayBuffer.updatePriorities(samples.bufferIndexes(), priorities);

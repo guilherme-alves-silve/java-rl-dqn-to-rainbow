@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.function.UnaryOperator;
 
+import static br.com.guialves.rflr.djlutils.DJLUtils.LAST_AXIS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -133,7 +134,7 @@ class CategoricalQNetworkMLPTest {
     }
 
     @Test
-    void testDistributionLogSumsToOne() {
+    void testDistributionLogSumsToOneWhenLaterLogSoftmaxIsApplied() {
         int observations = 4;
         int actions = 3;
         int batchSize = 8;
@@ -142,10 +143,10 @@ class CategoricalQNetworkMLPTest {
 
         @Cleanup var net = new CategoricalQNetworkMLP(observations, actions, manager);
         var batch = manager.randomUniform(0f, 1f, new Shape(batchSize, observations));
-        var output = net.forwardLogDist(batch, UnaryOperator.identity());
+        var output = net.forwardLogits(batch, UnaryOperator.identity());
         assertEquals(expectedShape, output.getShape());
 
-        var logSums = output.sum(new int[] {2});
+        var logSums = output.logSoftmax(LAST_AXIS).sum(new int[] {2});
         float[] logSumArr = logSums.toFloatArray();
         for (float logSum : logSumArr) {
             // -exp(ln(softmax(input))) = softmax(input)

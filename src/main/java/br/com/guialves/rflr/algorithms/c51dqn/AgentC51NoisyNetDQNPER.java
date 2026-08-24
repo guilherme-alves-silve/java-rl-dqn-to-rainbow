@@ -15,14 +15,15 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN_PRIORITY;
 import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
-import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
-import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 /**
  * C51 distributional DQN agent using Noisy Networks.
@@ -123,7 +124,7 @@ public class AgentC51NoisyNetDQNPER extends AbstractAgent {
         if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
             throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
         }
-        if (!(lossFunc instanceof CategoricalCrossEntropyPERLoss catLossFunc)) {
+        if (!(lossFunc instanceof CategoricalNLLPERLoss catLossFunc)) {
             throw new IllegalArgumentException("You must pass CategoricalCrossEntropyPERLoss!");
         }
 
@@ -154,7 +155,7 @@ public class AgentC51NoisyNetDQNPER extends AbstractAgent {
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
             // ln(p(s, a, theta))
-            return onlineCatNoisyNet.forwardLogDist(states, logProbDist -> logProbDist.gather(actions, AXIS_1));
+            return onlineCatNoisyNet.forwardLogits(states, logits -> logits.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
         var lossItem = scopedToFloat(NDArray::mean, losses);

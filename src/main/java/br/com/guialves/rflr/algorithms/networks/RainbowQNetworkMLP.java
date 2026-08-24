@@ -46,7 +46,7 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.*;
  */
 @Slf4j
 @Accessors(fluent = true)
-public class RainbowQNetworkMLP implements INoisyNetwork {
+public class RainbowQNetworkMLP implements INoisyNetwork, ICategoricalNetwork {
 
     private boolean training;
     private final NDManager subManager;
@@ -154,14 +154,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
      * @param inputs the input logits for each action-atom pair
      * @return the softmax transformed probabilities in the specified shape
      */
-    public NDArray forwardDist(NDList inputs) {
-        return forwardDist(inputs, UnaryOperator.identity());
-    }
-
-    public NDArray forwardDist(NDArray input, final UnaryOperator<NDArray> block) {
-        return forwardDist(new NDList(input), block);
-    }
-
+    @Override
     public NDArray forwardDist(NDList inputs, final UnaryOperator<NDArray> block) {
         @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, inputs, training).singletonOrThrow();
         return scoped(it -> {
@@ -174,33 +167,18 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
     }
 
     /**
-     * Applies log-softmax transformation to action distributions over atom supports.
+     * Forward pass returning raw logits of shape {@code (batch, actions, atoms)}.
      *
-     * <p>For each action, the distribution over atoms is converted to probabilities
-     * using softmax. While the C51 paper describes using standard softmax for
-     * {@code p(s, a; θ)}, log-softmax is preferred for numerical stability as it
-     * prevents overflow during exponentiation.</p>
-     *
-     * <p>The output shape is {@code (batch, actions, atoms)}, with log-softmax applied along the atoms
-     * dimension (index 2).</p>
-     *
-     * <p>Reference:
-     * <a href="https://d2l.djl.ai/chapter_linear-networks/softmax-regression-djl.html">
-     * Softmax Regression — DJL</a></p>
-     *
-     * @param input the input logits for each action-atom pair
-     * @return the log-softmax transformed probabilities in the specified shape
+     * @param input the network input tensor
+     * @param block transformation applied after reshaping (e.g., {@code nd -> nd.logSoftmax(LAST_AXIS)})
+     * @return logits tensor of shape {@code (batch, actions, atoms)}
      */
-    public NDArray forwardLogDist(NDArray input, final UnaryOperator<NDArray> block) {
-        return forwardLogDist(new NDList(input), block);
-    }
-
-    public NDArray forwardLogDist(NDList inputs, final UnaryOperator<NDArray> block) {
-        @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, inputs, training).singletonOrThrow();
+    @Override
+    public NDArray forwardLogits(NDArray input, final UnaryOperator<NDArray> block) {
+        @Cleanup var logits = safeForwardSingle(subManager, net, parameterStore, new NDList(input), training).singletonOrThrow();
         return scoped(it -> {
-            var probDist = it.reshape(N_BATCH, actions, atoms)
-                    .logSoftmax(LAST_AXIS);
-            var out = block.apply(probDist);
+            var logitsDist = it.reshape(N_BATCH, actions, atoms);
+            var out = block.apply(logitsDist);
             out.tempAttach(it.getManager());
             return out;
         }, logits);
@@ -216,6 +194,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
      * @return Q-values, shape {@code (batch, actions)}
      * @throws IllegalStateException if {@code distribution} is not rank 3
      */
+    @Override
     public NDArray qValuesFromDist(NDArray distribution) {
         if (distribution.getShape().dimension() != 3) {
             throw new IllegalStateException("Invalid shape, must be (batch, actions, atoms)!");
@@ -228,6 +207,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
         }, distribution, support);
     }
 
+    @Override
     public NDArray projectBellman(final NDArray probNextDist,
                                   final NDArray rewards,
                                   final NDArray dones,
@@ -235,19 +215,8 @@ public class RainbowQNetworkMLP implements INoisyNetwork {
         return catProj.project(probNextDist, rewards, dones, gamma);
     }
 
-    @Override
-    public NDList forward(NDList input) {
-        @Cleanup var dist = forwardDist(input);
-        return new NDList(qValuesFromDist(dist));
-    }
-
     public int atoms() {
         return atoms;
-    }
-
-    @Override
-    public NDArray forward(NDArray input) {
-        return forward(new NDList(input)).singletonOrThrow();
     }
 
     @Override

@@ -114,7 +114,7 @@ public class AgentC51DQN extends AbstractAgent {
                                 NDManager sub) {
         if (!replayBuffer.enough(batchSize)) return Float.NaN;
 
-        if (!(lossFunc instanceof CategoricalCrossEntropyLoss)) {
+        if (!(lossFunc instanceof CategoricalNLLLoss)) {
             throw new IllegalArgumentException("You must pass CategoricalCrossEntropyLoss!");
         }
 
@@ -142,7 +142,7 @@ public class AgentC51DQN extends AbstractAgent {
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
             // ln(p(s, a, theta))
-            return onlineCatNet.forwardLogDist(states, logProbDist -> logProbDist.gather(actions, AXIS_1));
+            return onlineCatNet.forwardLogits(states, logits -> logits.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
         trainStepClipGradients(onlineNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
