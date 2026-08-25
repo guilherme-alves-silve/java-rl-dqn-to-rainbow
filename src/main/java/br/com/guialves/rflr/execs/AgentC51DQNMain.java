@@ -39,6 +39,10 @@ public class AgentC51DQNMain {
         return run(RLRunOptions.defaults());
     }
 
+    /**
+     * when (vMin, vMax) were (-50.0, +50.0) the network was not learning,
+     * now the parameters below made it work
+     */
     public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
         var builder = RLConfig.builder()
                 .envName("LunarLander-v3")
