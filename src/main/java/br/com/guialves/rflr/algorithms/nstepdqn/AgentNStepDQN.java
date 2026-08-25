@@ -77,7 +77,7 @@ public class AgentNStepDQN extends AbstractAgent {
             var discountNextQValue = maxNextQValue.mul(gammaNBootstrap);
             // (1 - done)
             var mask = dones.neg().add(1);
-            // r + gamma * max Q(s', a') * (1 - done)
+            // n-step reward + gamma^n * max Q(s', a') * (1 - done)
             return rewards
                     .add(discountNextQValue.mul(mask))
                     .stopGradient();
