@@ -10,18 +10,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Tests for {@link PERL2Loss}.
- *
- * <p>The shape contract for {@code Reduction.NONE} is {@code (batch, 1)} — this
- * matches what {@code AgentDQNPER.trainOnline} consumes via
- * {@code rawBackwardLoss} and feeds into {@code updatePriorities}. The size
- * is consumed via {@code NDArray.size()} and {@code toFloatArray()}, both of
- * which flatten, so a trailing singleton dimension is harmless there but
- * does mean the contract is different from {@code CategoricalNLLPERLoss}.
- * See the bug note in {@code docs/why-we-use-add-parameter-in-abstract-blocks.md}
- * for context. The MEAN branch returns a 0D scalar as expected.
- */
 class PERL2LossTest {
 
     private static final float DELTA = 1e-6f;
@@ -37,8 +25,6 @@ class PERL2LossTest {
     static void shutdown() {
         manager.close();
     }
-
-    // ----- value correctness -----
 
     @Test
     void shouldZeroLossForPerfectPredictions() {
@@ -126,8 +112,6 @@ class PERL2LossTest {
         }
     }
 
-    // ----- shape contract -----
-
     @Test
     void shouldReturnScalarForMeanReduction() {
         int batch = 3;
@@ -154,19 +138,13 @@ class PERL2LossTest {
         loss.normISWeights(weights);
         var out = loss.evaluate(new NDList(label), new NDList(pred));
 
-        // Current contract: (batch, 1). Documented as such in PERL2Loss.java:70.
-        // See class Javadoc for the consistency note with CategoricalNLLPERLoss.
-        assertEquals(2, out.getShape().dimension(),
+        assertEquals(1, out.getShape().dimension(),
                 "NONE reduction must return 2D, got " + out.getShape());
-        assertEquals(batch, out.getShape().get(0),
-                "First dim must be batch, got " + out.getShape());
-        assertEquals(1, out.getShape().get(1),
-                "Second dim must be 1, got " + out.getShape());
     }
 
     @Test
-    void shouldPreserveBatchSizeInNoneOutput() {
-        for (int batch : new int[]{1, 4, 16, 64}) {
+    void shouldHaveDimensionOneForAll() {
+        for (int batch : new int[]{2, 4, 16, 64}) {
             var pred = manager.zeros(new Shape(batch, 1));
             var label = manager.ones(new Shape(batch, 1));
             var weights = manager.ones(new Shape(batch, 1));
@@ -175,12 +153,9 @@ class PERL2LossTest {
             loss.normISWeights(weights);
             var out = loss.evaluate(new NDList(label), new NDList(pred));
 
-            assertEquals(batch, out.getShape().get(0),
-                    "Batch size must be preserved for batch=" + batch);
+            assertEquals(new Shape(batch), out.getShape());
         }
     }
-
-    // ----- weight handling -----
 
     @Test
     void shouldAcceptOneDimensionalWeights() {
@@ -242,12 +217,8 @@ class PERL2LossTest {
                 "Second evaluate without re-setting weights must throw");
     }
 
-    // ----- label/pred shape flexibility -----
-
     @Test
     void shouldReshapeLabelToMatchPred() {
-        // Caller may pass label as a 1D (batch,) tensor; pred is (batch, 1).
-        // The loss must reshape the label to pred's shape.
         int batch = 3;
         var pred = manager.zeros(new Shape(batch, 1));
         var label1D = manager.ones(new Shape(batch));

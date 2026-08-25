@@ -66,7 +66,7 @@ public class PERL2Loss extends Loss {
             return loss.mean();
         }
 
-        // (batch, 1) - We need to extract the loss per element to update sum/min segment-tree
-        return loss;
+        // (batch) - We need to extract the loss per element to update sum/min segment-tree
+        return loss.squeeze();
     }
 }
