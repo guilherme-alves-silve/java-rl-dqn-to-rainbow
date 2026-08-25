@@ -129,7 +129,7 @@ public class AgentRainbowDQN extends AbstractAgent {
                     .reshape(N_BATCH, 1, 1)
                     // (batch, 1, atoms)
                     .mul(atomsBroadcaster);
-            // ln(p(s, a, theta))
+            // logits z(s, a, theta)
             return onlineRainbowNet.forwardLogits(states, logits -> logits.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
