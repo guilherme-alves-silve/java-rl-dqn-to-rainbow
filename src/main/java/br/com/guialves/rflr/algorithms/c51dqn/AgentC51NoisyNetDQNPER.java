@@ -6,7 +6,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
+import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNoisyNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -15,13 +15,15 @@ import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
-import static br.com.guialves.rflr.djlutils.DJLLoss.backwardLoss;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
+import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN_PRIORITY;
+import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStepClipGradients;
-import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_1;
-import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 /**
  * C51 distributional DQN agent using Noisy Networks.
@@ -42,26 +44,29 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.N_BATCH;
  * the categorical projection, the support vector and the distribution head are all in sync.
  */
 @Slf4j
-public class AgentC51NoisyNetDQN extends AbstractAgent {
+public class AgentC51NoisyNetDQNPER extends AbstractAgent {
 
     private static final float CLIP_GRAD_THRESHOLD = 10.0f;
 
     private final CategoricalQNoisyNetworkMLP onlineCatNoisyNet;
     private final CategoricalQNoisyNetworkMLP targetCatNoisyNet;
-    private final NDArray atomsBroadcaster;
     private final NDManager subManager;
+    private final NDArray atomsBroadcaster;
+    private final float initialBeta;
+    private float beta;
 
-    public AgentC51NoisyNetDQN(float epsilon,
-                               int updateQTargetAtTimeN,
-                               float minEpsilon,
-                               float epsilonDecay,
-                               float gamma,
-                               IEnv env,
-                               Optimizer optimizer,
-                               NDManager parent,
-                               Supplier<IDeepQNetwork> networkFactory,
-                               PlotTrackers plotTrackers,
-                               boolean debugMemoryLeak) {
+    public AgentC51NoisyNetDQNPER(float epsilon,
+                                  int updateQTargetAtTimeN,
+                                  float minEpsilon,
+                                  float epsilonDecay,
+                                  float gamma,
+                                  float beta,
+                                  IEnv env,
+                                  Optimizer optimizer,
+                                  NDManager parent,
+                                  Supplier<IDeepQNetwork> networkFactory,
+                                  PlotTrackers plotTrackers,
+                                  boolean debugMemoryLeak) {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
               gamma, env, optimizer, parent,
               networkFactory, plotTrackers, debugMemoryLeak);
@@ -69,6 +74,7 @@ public class AgentC51NoisyNetDQN extends AbstractAgent {
             throw new IllegalArgumentException("Invalid network type! Must be of type CategoricalQNoisyNetworkMLP!");
         }
 
+        this.beta = this.initialBeta = beta;
         this.onlineCatNoisyNet = (CategoricalQNoisyNetworkMLP) onlineNet;
         this.targetCatNoisyNet = (CategoricalQNoisyNetworkMLP) targetNet;
         this.subManager = subMgr(parent, "sub-atoms-broadcast");
@@ -106,23 +112,25 @@ public class AgentC51NoisyNetDQN extends AbstractAgent {
      * DJL Linear Regression from Scratch</a>
      *
      * @param batchSize Number of experiences to sample from the replay buffer for each training step
-     * @param replayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
+     * @param ireplayBuffer Experience replay buffer containing stored transitions (state, action, reward, nextState, done)
      * @param lossFunc Loss function used to compute the difference between current Q-values and target Q-values (e.g., MSE, Huber)
      */
     @Override
     protected float trainOnline(int batchSize,
-                                IReplayBuffer replayBuffer,
+                                IReplayBuffer ireplayBuffer,
                                 Loss lossFunc,
                                 NDManager sub) {
-        if (!replayBuffer.enough(batchSize)) return Float.NaN;
-
-        if (!(lossFunc instanceof CategoricalNLLLoss)) {
-            throw new IllegalArgumentException("You must pass CategoricalNLLLoss!");
+        if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
+        if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
+        }
+        if (!(lossFunc instanceof CategoricalNLLPERLoss catLossFunc)) {
+            throw new IllegalArgumentException("You must pass CategoricalNLLPERLoss!");
         }
 
         onlineCatNoisyNet.resetNoise();
 
-        @Cleanup var samples = replayBuffer.sample(batchSize);
+        @Cleanup var samples = replayBuffer.sample(batchSize, beta);
         @Cleanup var projectDist = targetCatNoisyNet.forwardDist(samples.nextStates(), probNextDist -> {
             // (batch, actions, atoms) -> (batch, actions)
             var nextQValues = targetCatNoisyNet.qValuesFromDist(probNextDist);
@@ -137,8 +145,9 @@ public class AgentC51NoisyNetDQN extends AbstractAgent {
             return targetCatNoisyNet.projectBellman(maxNextProbDist, samples.rewards(), samples.dones(), gamma);
         });
 
-        // Loss = -1/n sum mi * ln (p(s, a, theta))
-        float lossItem = backwardLoss(sub, lossFunc, projectDist, array -> {
+        // Loss = -sum wis * sum mi * ln (p(s, a, theta))
+        catLossFunc.normISWeights(samples.weights());
+        var losses = rawBackwardLoss(sub, catLossFunc, projectDist, array -> {
             var states = array[0];
             var actions = array[1]
                     // (batch, 1, 1)
@@ -149,8 +158,11 @@ public class AgentC51NoisyNetDQN extends AbstractAgent {
             return onlineCatNoisyNet.forwardLogits(states, logits -> logits.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
-        trainStepClipGradients(onlineCatNoisyNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
+        var lossItem = scopedToFloat(NDArray::mean, losses);
+        @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
 
+        replayBuffer.updatePriorities(samples.bufferIndexes(), priorities);
+        trainStepClipGradients(onlineCatNoisyNet.getBlock(), optimizer, CLIP_GRAD_THRESHOLD);
         return lossItem;
     }
 
@@ -168,6 +180,25 @@ public class AgentC51NoisyNetDQN extends AbstractAgent {
         long action = onlineCatNoisyNet.forwardLong(oneBatchState,
                 qValue -> qValue.stopGradient().argMax(AXIS_1));
         return actionSpaceType.get(action);
+    }
+
+    /**
+     * Updates the importance sampling annealing parameter (beta) based on the current training progress.
+     *
+     * <p>Beta is annealed from {@code initialBeta} to 1.0 over the course of training to
+     * gradually correct the bias introduced by prioritized experience replay. This follows
+     * the approach described in the Prioritized Experience Replay paper (Schaul et al., 2015).
+     *
+     * <p>The annealing formula is:
+     * \[ \beta = \beta_{initial} + \text{fraction} \times (1.0 - \beta_{initial}) \]
+     *
+     * @throws IllegalArgumentException if {@code totalFramesLimit} <= 0 or {@code framesSkip} < 0
+     * @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
+     */
+    @Override
+    protected void templateExtraProcessing(int frames, long frameLimit) {
+        float fraction = Math.min((float) frames / frameLimit, 1.0f);
+        this.beta = this.initialBeta + fraction * (1.0f - this.initialBeta);
     }
 
     @Override

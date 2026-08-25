@@ -75,8 +75,8 @@ class AgentExecsMainTest {
     }
 
     @Test
-    void shouldRunAgentC51NoisyNetDQNMain() {
-        assertDoesNotThrow((Executable) AgentC51NoisyNetDQNMain::main);
+    void shouldRunAgentC51NoisyNetDQNPERMain() {
+        assertDoesNotThrow((Executable) AgentC51NoisyNetDQNPERMain::main);
     }
 
     @Test

@@ -4,9 +4,8 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
-import br.com.guialves.rflr.algorithms.c51dqn.AgentC51DQN;
 import br.com.guialves.rflr.algorithms.c51dqn.AgentC51NoisyNetDQN;
-import br.com.guialves.rflr.algorithms.c51dqn.CategoricalCrossEntropyLoss;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLLoss;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNoisyNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
@@ -53,9 +52,9 @@ public class AgentC51NoisyNetDQNMain {
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(1000)
                 .batchSize(128)
-                .atoms(50)
-                .vMin(-10.0f)
-                .vMax(+10.0f)
+                .atoms(51)
+                .vMin(-100.0f)
+                .vMax(+100.0f)
                 .framesLimit(getIntProp("agent.framesLimit", "300000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
@@ -78,7 +77,7 @@ public class AgentC51NoisyNetDQNMain {
 
             @Override
             public Loss lossFunc() {
-                return new CategoricalCrossEntropyLoss();
+                return new CategoricalNLLLoss();
             }
         });
     }

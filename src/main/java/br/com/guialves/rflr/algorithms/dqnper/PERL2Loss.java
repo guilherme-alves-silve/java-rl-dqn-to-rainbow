@@ -29,7 +29,7 @@ public class PERL2Loss extends Loss {
      * Importance Sampling Weights used in the PER algorithm
      */
     public PERL2Loss(Reduction reduction) {
-        super("PERL2Loss");
+        super(PERL2Loss.class.getSimpleName());
         this.reduction = reduction;
     }
 
@@ -66,6 +66,7 @@ public class PERL2Loss extends Loss {
             return loss.mean();
         }
 
-        return loss;
+        // (batch) - We need to extract the loss per element to update sum/min segment-tree
+        return loss.squeeze();
     }
 }
