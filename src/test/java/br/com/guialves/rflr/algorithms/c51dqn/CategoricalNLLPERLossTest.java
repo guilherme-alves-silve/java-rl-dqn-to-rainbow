@@ -199,22 +199,6 @@ class CategoricalNLLPERLossTest {
                 "Output should be scalar (0D tensor), got shape " + shape);
     }
 
-    /**
-     * Documents the current shape contract for {@code Reduction.NONE}.
-     *
-     * <p><b>Bug note:</b> the comment at {@code CategoricalNLLPERLoss.java:80} reads
-     * "We need to extract the loss per element to update sum/min segment-tree",
-     * which suggests a 1D {@code (batch,)} output. The current code calls
-     * {@code loss.squeeze(AXIS_1)} on a {@code (batch, 1, 1)} tensor; this
-     * removes axis 1 only, leaving {@code (batch, 1)} — the squeeze is a no-op
-     * for the second singleton axis.
-     *
-     * <p>The downstream consumer ({@code AgentRainbowDQN.trainOnline}) calls
-     * {@code .abs().add(MIN_PRIORITY)} and then {@code updatePriorities},
-     * which uses {@code NDArray.size()} and {@code toFloatArray()} — both
-     * flatten — so the bug is silent in practice. If you ever fix this to
-     * return {@code (batch,)}, update this test accordingly.
-     */
     @Test
     void shouldReturnBatchOneForNoneReduction() {
         int batch = 3;
@@ -226,22 +210,12 @@ class CategoricalNLLPERLossTest {
         loss.normISWeights(weights);
         var out = loss.evaluate(new NDList(mUniform), new NDList(logUniform));
 
-        // Current contract: (batch, 1). See bug note above.
-        assertEquals(2, out.getShape().dimension(),
+        assertEquals(1, out.getShape().dimension(),
                 "NONE reduction currently returns 2D (batch, 1); see bug note");
         assertEquals(batch, out.getShape().get(0),
                 "First dim must be batch, got " + out.getShape());
-        assertEquals(1, out.getShape().get(1),
-                "Second dim must be 1, got " + out.getShape());
     }
 
-    /**
-     * Also documents the inconsistency: {@code CategoricalNLLPERLoss.NONE}
-     * and {@code PERL2Loss.NONE} both return {@code (batch, 1)}, but the
-     * former has a useless {@code squeeze(AXIS_1)} that suggests a different
-     * intent. This test pins the contract so a future fix lands in both
-     * classes simultaneously.
-     */
     @Test
     void shouldReturnSameShapeAsPERL2LossForNoneReduction() {
         int batch = 3;
@@ -253,13 +227,12 @@ class CategoricalNLLPERLossTest {
         loss.normISWeights(weights);
         var out = loss.evaluate(new NDList(mUniform), new NDList(logUniform));
 
-        // Reference: PERL2Loss.NONE returns (batch, 1). See PERL2LossTest.
-        assertEquals(new Shape(batch, 1), out.getShape(),
+        assertEquals(new Shape(batch), out.getShape(),
                 "Categorical and PER L2 losses must have matching NONE shapes");
     }
 
     @Test
-    void shouldReturnSameShapeAsPERL2LossForMeanScalargitReduction() {
+    void shouldReturnSameShapeAsPERL2LossForMeanScalarReduction() {
         int batch = 3;
         var logUniform = manager.full(new Shape(batch, 1, ATOMS), (float) Math.log(1.0 / ATOMS));
         var mUniform = manager.full(new Shape(batch, 1, ATOMS), 1.0f / ATOMS);
@@ -269,7 +242,6 @@ class CategoricalNLLPERLossTest {
         loss.normISWeights(weights);
         var out = loss.evaluate(new NDList(mUniform), new NDList(logUniform));
 
-        // Reference: PERL2Loss.NONE returns (batch, 1). See PERL2LossTest.
         assertEquals(new Shape(), out.getShape(),
                 "Categorical and PER L2 losses must have matching MEAN shapes");
     }

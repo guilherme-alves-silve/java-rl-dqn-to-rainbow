@@ -7,14 +7,15 @@ import ai.djl.training.loss.Loss;
 import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 /**
- * Categorical Negative Log-Likelihood PER Loss with Importance Sampling weights for bias correction, for the Categorical DQN,
+ * Categorical NLL loss with PER importance sampling weights.
  *
  * <p>Weights must be set via {@link #normISWeights(NDArray)} before each forward pass.
  * After evaluation, weights are cleared to prevent stale usage.
  *
- * <p>
- * IMPORTANT: The input 'dist' MUST be log-softmax probabilities.
- * If you pass raw logits or softmax probabilities, the gradients will be wrong.
+ * <p>IMPORTANT: Input {@code distLogits} MUST be raw logits.
+ * The loss internally applies log-softmax transformation.
+ *
+ * <p>Loss formula: {@code L = -Σ wis_j Σ m_i * log(softmax(p_i(s,a,θ)))}
  */
 public class CategoricalNLLPERLoss extends Loss {
 
@@ -52,9 +53,10 @@ public class CategoricalNLLPERLoss extends Loss {
     }
 
     /**
-     * L = -\sum wis_j \sum m_i * p_i(s, a, \theta)
-     * @param massDist the Bellman projected values of target-network
-     * @param distLogits the predicted values of online-network
+     * L = -Σ wis_j Σ m_i * log(softmax(p_i(s, a, θ)))
+     *
+     * @param massDist   the Bellman projected values of target-network
+     * @param distLogits the raw logits of online-network (log-softmax applied internally)
      * @return Loss
      */
     @Override
@@ -77,7 +79,7 @@ public class CategoricalNLLPERLoss extends Loss {
             return loss.mean();
         }
 
-        // (batch, 1) - We need to extract the loss per element to update sum/min segment-tree
-        return loss.squeeze(AXIS_1);
+        // (batch) - We need to extract the loss per element to update sum/min segment-tree
+        return loss.squeeze();
     }
 }

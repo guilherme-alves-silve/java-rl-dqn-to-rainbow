@@ -27,7 +27,7 @@ class CategoricalNLLLossTest {
     }
 
     @Test
-    void testUniformDistributionsShouldGiveLogAtoms() {
+    void shouldUniformDistributionsShouldGiveLogAtoms() {
         // uniform log-softmax: log(1/51) = -3.9318...
         var logUniform = manager.full(new Shape(2, 1, ATOMS), (float) Math.log(1.0 / ATOMS));
         // uniform m summing to 1
@@ -41,7 +41,7 @@ class CategoricalNLLLossTest {
     }
 
     @Test
-    void testSumOverAtomsNotOverBatch() {
+    void shouldSumOverAtomsNotOverBatch() {
         int batch = 10;
         var logP = manager.full(new Shape(batch, 1, ATOMS), (float) Math.log(1.0 / ATOMS));
         var pseudoProjectedBellman = manager.full(new Shape(batch, 1, ATOMS), 1.0f / ATOMS);
@@ -53,7 +53,7 @@ class CategoricalNLLLossTest {
     }
 
     @Test
-    void testShapeOfOutputIsScalar() {
+    void shouldShapeOfOutputIsScalar() {
         int batch = 4;
         var logP = manager.full(new Shape(batch, 1, ATOMS), (float) Math.log(1.0 / ATOMS));
         var pseudoProjectedBellman = manager.full(new Shape(batch, 1, ATOMS), 1.0f / ATOMS);
