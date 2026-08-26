@@ -117,11 +117,11 @@ public class NoisyLayer extends AbstractBlock implements AutoCloseable {
         if (training) {
             int inFeatures = (int) input.getShape().getLastDimension();
             ensureNoiseIsSampled(input.getManager(), inFeatures, outFeatures);
-            // w = \mu^w + \sigma^w \odot \epsilon^w
+            // w = μʷ + σʷ ⊙ εʷ
             var w = wMu.add(wSigma.mul(noise.epsWeight()));
-            // b = \mu^b + \sigma^b \odot \epsilon^b
+            // b = μᵇ + σᵇ ⊙ εᵇ
             var b = bMu.add(bSigma.mul(noise.epsBias()));
-            // y = w \cdot x + b, in ML is, x \cdot w + b
+            // y = w · x + b, in ML is x · w + b
             return Linear.linear(input, w, b);
         }
 
