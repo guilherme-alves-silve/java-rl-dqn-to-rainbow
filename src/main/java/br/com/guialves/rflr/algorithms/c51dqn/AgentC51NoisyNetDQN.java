@@ -6,7 +6,6 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.networks.CategoricalQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNoisyNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;

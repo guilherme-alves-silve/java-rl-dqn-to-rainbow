@@ -1,6 +1,7 @@
 # Java integration with Stable-Retro
 
 - [stable-retro](https://stable-retro.farama.org/)
+   - [New integrations](https://stable-retro.farama.org/integration/)
 
 This project just work with Ubuntu/WSL2. The library stable-retro only works with Linux and MacOS.
 - To make this work in Windows, is necessary more dedication, but seens possible.
@@ -14,6 +15,12 @@ sudo apt update
 
 sudo apt install -y libgl1 libglu1-mesa libegl1 mesa-utils
 # You can see the output of stable-retro without errors when rendering
+
+wget https://developer.download.nvidia.com/compute/cuda/repos/wsl-ubuntu/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt-get update
+sudo apt-get -y install cuda-toolkit-12-4
+# CUDA 12.4 is compatible with DJL that we use in this project
 
 sudo apt install -y python3.12 python3.12-venv python3.12-dev
 
@@ -34,7 +41,13 @@ python -m stable_retro.import /home/<YOUR_USERNAME>/roms/
 
 python smoke_test.py
 
-export JAVA_RL_SITE_PACKAGES=/home/<YOUR_USERNAME>/java-rl-dqn-to-rainbow/gymnasium/.venv/Lib/site-packages
+export JAVA_HOME="/usr/lib/jvm/java-25-openjdk-amd64/"
+export JAVA_RL_SITE_PACKAGES=/home/<YOUR_USERNAME>/java-rl-dqn-to-rainbow/stable-retro/.venv/lib/python3.12/site-packages/
+export CUDA_HOME=/usr/local/cuda-12.4
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+# or you can put that in ~/.bashrc
+
 ```
 
 ## Windows + WSL2: open the project in VS Code

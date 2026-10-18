@@ -37,7 +37,7 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.*;
  * <p>Default support: {@code Vmin = -10}, {@code Vmax = 10}, {@code atoms = 51}.
  */
 @Slf4j
-public class CategoricalQNetworkMLP implements IDeepQNetwork, ICategoricalNetwork {
+public class CategoricalQNetworkMLP implements ICategoricalNetwork {
 
     private boolean training;
     private final NDManager subManager;

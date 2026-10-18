@@ -14,10 +14,7 @@ import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 
 import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN_PRIORITY;
 import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;

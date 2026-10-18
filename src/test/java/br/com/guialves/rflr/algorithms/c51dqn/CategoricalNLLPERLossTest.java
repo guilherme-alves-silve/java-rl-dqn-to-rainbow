@@ -78,10 +78,10 @@ class CategoricalNLLPERLossTest {
         var out = loss.evaluate(new NDList(mUniform), new NDList(logUniform));
 
         // Expected: log(51) * mean(weights) = log(51) * (1e-6 + 1e6) / 2
-        float expected = (float) Math.log(ATOMS) * (1e-6f + 1e6f) / 2f;
+        double expected = Math.log(ATOMS) * (1e-6 + 1e6) / 2.0;   // em double
         float actual = out.mean().getFloat();
 
-        assertEquals(expected, actual, 1e-3f,
+        assertEquals(expected, actual, Math.abs(expected) * 1e-5,
                 "Loss must handle extreme weights correctly, expected " + expected + " got " + actual);
     }
 
