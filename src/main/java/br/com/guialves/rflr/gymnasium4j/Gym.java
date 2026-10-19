@@ -14,8 +14,7 @@ import static java.util.stream.Collectors.joining;
 public class Gym {
 
     @SneakyThrows
-    public static IEnv make(@NonNull String name,
-                            @NonNull NDManager ndManager) {
+    public static IEnv make(@NonNull String name) {
         return builder()
                 .envName(name)
                 .build();
@@ -29,7 +28,7 @@ public class Gym {
         return new PyMap();
     }
 
-    public static final class EnvBuilder {
+    public static sealed class EnvBuilder permits StableRetroEnvBuilder {
 
         private static final PyMap DEFAULT_MAP = new PyMap();
         private final String varEnvCode;
@@ -38,10 +37,27 @@ public class Gym {
         private String envName;
         private PyMap params;
 
-        private EnvBuilder() {
+        protected EnvBuilder() {
             this.varEnvCode = UUID.randomUUID().toString().replace("-", "");
             this.importLibs = new ArrayList<>(1);
+            this.functionDefinitions = new ArrayList<>(1);
             this.importLibs.add("gymnasium as gym");
+            this.functionDefinitions.add("""
+            def make_env(idx: int, env_wrappers: tuple[str, dict]):
+                def _init():
+                    env_name, wrappers = env_wrappers
+                    env = gym.make(game=env_name, render_mode='rgb_array')
+                    video_folder_backup = ''
+                    for wrapper, wrapper_params in wrappers:
+                        if 'video_folder' in wrapper_params:
+                            video_folder_backup = wrapper_params['video_folder']
+                            wrapper_params['video_folder'] = f"{wrapper_params['video_folder']}/{env_name}{idx}"
+                        env = wrapper(env, **wrapper_params)
+                        if 'video_folder' in wrapper_params:
+                            wrapper_params['video_folder'] = video_folder_backup
+                    return env
+                return _init
+            """);
             this.wrappers = new ArrayList<>();
             this.params = DEFAULT_MAP;
         }
@@ -72,14 +88,15 @@ public class Gym {
             return this;
         }
 
-        String generatePyEnvScript() {
+        protected String generatePyEnvScript() {
             var makeCall = generateMakeCall();
             var importLibsPy = generateImportLibsPy();
             if (wrappers.isEmpty()) {
                 return """
                 %s
+                %s
                 env_%s = %s
-                """.formatted(importLibsPy, varEnvCode, makeCall);
+                """.formatted(importLibsPy, functionDefinitions, varEnvCode, makeCall);
             }
 
             var importPy = generateImportFromPy();
@@ -93,7 +110,7 @@ public class Gym {
             """.formatted(importLibsPy, importPy, varEnvCode, makeCall, wrappedEnvPy);
         }
 
-        private String generateMakeCall() {
+        protected String generateMakeCall() {
             if (params.isEmpty()) {
                 return "gym.make('%s', render_mode='rgb_array')".formatted(envName);
             }
@@ -102,18 +119,18 @@ public class Gym {
                     envName, params.toPyKwargs());
         }
 
-        private String generateImportLibsPy() {
+        protected String generateImportLibsPy() {
             return importLibs.stream()
                     .collect(joining(", ", "import ", ""));
         }
 
-        private String generateImportFromPy() {
+        protected String generateImportFromPy() {
             return wrappers.stream()
                     .map(wrapper -> wrapper.getClass().getSimpleName())
                     .collect(joining(", ", "from gymnasium.wrappers import ", ""));
         }
 
-        private String generateWrappedEnvPy() {
+        protected String generateWrappedEnvPy() {
             var varName = "env_" + varEnvCode;
             var builder = new StringBuilder();
             wrappers.forEach(wrapper -> builder.append(varName)

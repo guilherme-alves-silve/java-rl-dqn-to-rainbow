@@ -47,7 +47,6 @@ export CUDA_HOME=/usr/local/cuda-12.4
 export PATH="$CUDA_HOME/bin:$PATH"
 export LD_LIBRARY_PATH="$CUDA_HOME/lib64:/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
 # or you can put that in ~/.bashrc
-
 ```
 
 ## Windows + WSL2: open the project in VS Code
@@ -66,3 +65,5 @@ Tips:
 - Keep the project in `/home/...`, not `/mnt/c/...` (much faster).
 - Install Git inside WSL: `sudo apt install git`.
 - Install language extensions in the WSL window (**Install in WSL** button).
+
+4. I suggest that you use "Java Platform Extension for Visual Studio Code" extension.

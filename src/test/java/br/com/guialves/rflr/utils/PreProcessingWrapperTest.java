@@ -207,7 +207,7 @@ class PreProcessingWrapperTest {
 
         for (int skip : skipValues) {
             try (var testManager = NDManager.newBaseManager();
-                 var testEnv = Gym.make(ENV_NAME, testManager)) {
+                 var testEnv = Gym.make(ENV_NAME)) {
 
                 var testWrapper = new PreProcessingWrapper(testEnv, skip, RESIZE_SIZE, CONCATENATE_FRAMES);
                 testWrapper.reset(manager);
@@ -232,7 +232,7 @@ class PreProcessingWrapperTest {
         for (int concat : concatValues) {
             var expectedSize = new Shape(concat, RESIZE_SIZE, RESIZE_SIZE);
             try (var testManager = NDManager.newBaseManager();
-                 var testEnv = Gym.make(ENV_NAME, testManager)) {
+                 var testEnv = Gym.make(ENV_NAME)) {
 
                 var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, concat);
                 testWrapper.reset(manager);
@@ -339,7 +339,7 @@ class PreProcessingWrapperTest {
 
         for (String envName : testEnvs) {
             try (var testManager = NDManager.newBaseManager();
-                 var testEnv = Gym.make(envName, testManager)) {
+                 var testEnv = Gym.make(envName)) {
 
                 var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, CONCATENATE_FRAMES);
 

@@ -21,7 +21,7 @@ class GymTest {
         var envName = "CartPole-v1";
         try (var render = Mockito.spy(new EnvRenderWindow());
              var ndManager = Mockito.spy(NDManager.newBaseManager());
-             var env = Gym.make(envName, ndManager)) {
+             var env = Gym.make(envName)) {
 
             log.info("action space: {}, state space: {}", env.actionSpaceStr(), env.observationSpaceStr());
 
@@ -58,22 +58,22 @@ class GymTest {
                 .envName(envId)
                 .generatePyEnvScript();
 
-        assertThat(script).contains("import gymnasium as gym");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array'\\)");
-        assertThat(script).doesNotContain("ale_py");
-        assertThat(script).doesNotContain("from gymnasium.wrappers import DelayObservation, GrayscaleObservation");
-        assertThat(script).doesNotContain("NormalizeObservation, MaxAndSkipObservation, FrameStackObservation");
-        assertThat(script).doesNotContain("ReshapeObservation, ResizeObservation, RecordVideo, RecordEpisodeStatistics");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array', domain_randomize=True, continuous=True\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = DelayObservation\\(env_[0-9a-f]{32}, delay=1\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = GrayscaleObservation\\(env_[0-9a-f]{32}, keep_dim=False\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = NormalizeObservation\\(env_[0-9a-f]{32}, epsilon=1\\.0E-8\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = MaxAndSkipObservation\\(env_[0-9a-f]{32}, skip=4\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = FrameStackObservation\\(env_[0-9a-f]{32}, stack_size=4\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = ReshapeObservation\\(env_[0-9a-f]{32}, shape=\\[1, 84, 84]\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\[50, 50, 1]\\)");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = RecordVideo\\(");
-        assertThat(script).doesNotContainPattern("env_[0-9a-f]{32} = RecordEpisodeStatistics\\(");
+        assertThat(script).contains("import gymnasium as gym")
+                .containsPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array'\\)")
+                .doesNotContain("ale_py")
+                .doesNotContain("from gymnasium.wrappers import DelayObservation, GrayscaleObservation")
+                .doesNotContain("NormalizeObservation, MaxAndSkipObservation, FrameStackObservation")
+                .doesNotContain("ReshapeObservation, ResizeObservation, RecordVideo, RecordEpisodeStatistics")
+                .doesNotContainPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array', domain_randomize=True, continuous=True\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = DelayObservation\\(env_[0-9a-f]{32}, delay=1\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = GrayscaleObservation\\(env_[0-9a-f]{32}, keep_dim=False\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = NormalizeObservation\\(env_[0-9a-f]{32}, epsilon=1\\.0E-8\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = MaxAndSkipObservation\\(env_[0-9a-f]{32}, skip=4\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = FrameStackObservation\\(env_[0-9a-f]{32}, stack_size=4\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = ReshapeObservation\\(env_[0-9a-f]{32}, shape=\\[1, 84, 84]\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\[50, 50, 1]\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = RecordVideo\\(")
+                .doesNotContainPattern("env_[0-9a-f]{32} = RecordEpisodeStatistics\\(");
     }
 
     @Test
@@ -98,24 +98,24 @@ class GymTest {
                         new RecordEpisodeStatistics(50, "custom_stats"))
                 .generatePyEnvScript();
 
-        assertThat(script).contains("import gymnasium as gym, ale_py");
-        assertThat(script).contains("from gymnasium.wrappers import DelayObservation, GrayscaleObservation");
-        assertThat(script).contains("NormalizeObservation, MaxAndSkipObservation, FrameStackObservation");
-        assertThat(script).contains("ReshapeObservation, ResizeObservation, RecordVideo, RecordEpisodeStatistics");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array', " +
-                "domain_randomize=True, continuous=True\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = DelayObservation\\(env_[0-9a-f]{32}, delay=1\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = GrayscaleObservation\\(env_[0-9a-f]{32}, keep_dim=False\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = NormalizeObservation\\(env_[0-9a-f]{32}, epsilon=1\\.0E-8\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = MaxAndSkipObservation\\(env_[0-9a-f]{32}, skip=4\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = FrameStackObservation\\(env_[0-9a-f]{32}, stack_size=4\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = ReshapeObservation\\(env_[0-9a-f]{32}, shape=\\[1, 84, 84]\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\[50, 50, 1]\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = RecordVideo\\(env_[0-9a-f]{32}, video_folder='/tmp/video', " +
-                "episode_trigger=lambda t: t % 10 == 0, step_trigger=lambda t: t % 1000 == 0, " +
-                "video_length=500, name_prefix='test-prefix', fps=30, disable_logger=True, gc_trigger=50\\)");
-        assertThat(script).containsPattern("env_[0-9a-f]{32} = RecordEpisodeStatistics\\(env_[0-9a-f]{32}, " +
-                "buffer_length=50, stats_key='custom_stats'\\)");
+        assertThat(script).contains("import gymnasium as gym, ale_py")
+                .contains("from gymnasium.wrappers import DelayObservation, GrayscaleObservation")
+                .contains("NormalizeObservation, MaxAndSkipObservation, FrameStackObservation")
+                .contains("ReshapeObservation, ResizeObservation, RecordVideo, RecordEpisodeStatistics")
+                .containsPattern("env_[0-9a-f]{32} = gym\\.make\\('CarRacing-v3', render_mode='rgb_array', " +
+                        "domain_randomize=True, continuous=True\\)")
+                .containsPattern("env_[0-9a-f]{32} = DelayObservation\\(env_[0-9a-f]{32}, delay=1\\)")
+                .containsPattern("env_[0-9a-f]{32} = GrayscaleObservation\\(env_[0-9a-f]{32}, keep_dim=False\\)")
+                .containsPattern("env_[0-9a-f]{32} = NormalizeObservation\\(env_[0-9a-f]{32}, epsilon=1\\.0E-8\\)")
+                .containsPattern("env_[0-9a-f]{32} = MaxAndSkipObservation\\(env_[0-9a-f]{32}, skip=4\\)")
+                .containsPattern("env_[0-9a-f]{32} = FrameStackObservation\\(env_[0-9a-f]{32}, stack_size=4\\)")
+                .containsPattern("env_[0-9a-f]{32} = ReshapeObservation\\(env_[0-9a-f]{32}, shape=\\[1, 84, 84]\\)")
+                .containsPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\[50, 50, 1]\\)")
+                .containsPattern("env_[0-9a-f]{32} = RecordVideo\\(env_[0-9a-f]{32}, video_folder='/tmp/video', " +
+                        "episode_trigger=lambda t: t % 10 == 0, step_trigger=lambda t: t % 1000 == 0, " +
+                        "video_length=500, name_prefix='test-prefix', fps=30, disable_logger=True, gc_trigger=50\\)")
+                .containsPattern("env_[0-9a-f]{32} = RecordEpisodeStatistics\\(env_[0-9a-f]{32}, " +
+                        "buffer_length=50, stats_key='custom_stats'\\)");
     }
 
     @Nested
