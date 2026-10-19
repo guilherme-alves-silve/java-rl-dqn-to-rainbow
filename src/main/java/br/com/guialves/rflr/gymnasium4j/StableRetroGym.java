@@ -10,9 +10,6 @@ public class StableRetroGym extends VectorGym {
 
         protected StableRetroEnvBuilder() {
             super.importLib("stable_retro as retro");
-            // Replace the inherited gym.make-based factory instead of appending a second one,
-            // otherwise the generated script carries a make_env that nothing calls.
-            super.functionDefinitions.clear();
             super.functionDefinitions.add("""
             def make_retro_env(idx: int, env_wrappers: tuple[str, dict]):
                 def _init():
