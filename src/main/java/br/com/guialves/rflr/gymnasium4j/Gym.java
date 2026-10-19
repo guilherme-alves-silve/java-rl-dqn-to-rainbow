@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -28,14 +27,15 @@ public class Gym {
         return new PyMap();
     }
 
-    public static sealed class EnvBuilder permits StableRetroEnvBuilder {
+    public static sealed class EnvBuilder permits VectorGym.VectorEnvBuilder {
 
         private static final PyMap DEFAULT_MAP = new PyMap();
-        private final String varEnvCode;
-        private final List<String> importLibs;
-        private final List<IWrapper> wrappers;
-        private String envName;
-        private PyMap params;
+        protected final String varEnvCode;
+        protected final List<String> importLibs;
+        protected final List<String> functionDefinitions;
+        protected final List<IWrapper> wrappers;
+        protected String envName;
+        protected PyMap params;
 
         protected EnvBuilder() {
             this.varEnvCode = UUID.randomUUID().toString().replace("-", "");
@@ -46,15 +46,12 @@ public class Gym {
             def make_env(idx: int, env_wrappers: tuple[str, dict]):
                 def _init():
                     env_name, wrappers = env_wrappers
-                    env = gym.make(game=env_name, render_mode='rgb_array')
-                    video_folder_backup = ''
+                    env = gym.make(id=env_name, render_mode='rgb_array')
                     for wrapper, wrapper_params in wrappers:
+                        params = dict(wrapper_params)
                         if 'video_folder' in wrapper_params:
-                            video_folder_backup = wrapper_params['video_folder']
-                            wrapper_params['video_folder'] = f"{wrapper_params['video_folder']}/{env_name}{idx}"
-                        env = wrapper(env, **wrapper_params)
-                        if 'video_folder' in wrapper_params:
-                            wrapper_params['video_folder'] = video_folder_backup
+                            params['video_folder'] = f"{params['video_folder']}/{env_name}{idx}"
+                        env = wrapper(env, **params)
                     return env
                 return _init
             """);
@@ -91,12 +88,13 @@ public class Gym {
         protected String generatePyEnvScript() {
             var makeCall = generateMakeCall();
             var importLibsPy = generateImportLibsPy();
+            var functionDefinitionsCode = generateFunctionDefinitions();
             if (wrappers.isEmpty()) {
                 return """
                 %s
                 %s
                 env_%s = %s
-                """.formatted(importLibsPy, functionDefinitions, varEnvCode, makeCall);
+                """.formatted(importLibsPy, functionDefinitionsCode, varEnvCode, makeCall);
             }
 
             var importPy = generateImportFromPy();
@@ -105,9 +103,14 @@ public class Gym {
             return """
             %s
             %s
+            %s
             env_%s = %s
             %s
-            """.formatted(importLibsPy, importPy, varEnvCode, makeCall, wrappedEnvPy);
+            """.formatted(importLibsPy, importPy, functionDefinitionsCode, varEnvCode, makeCall, wrappedEnvPy);
+        }
+
+        protected String generateFunctionDefinitions() {
+            return String.join("\n", functionDefinitions);
         }
 
         protected String generateMakeCall() {

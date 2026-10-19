@@ -12,4 +12,9 @@ public record DelayObservation(int delay) implements IWrapper {
     public String pyToStr(String varName) {
         return "%s(%s, delay=%d)".formatted(this.getClass().getSimpleName(), varName, delay);
     }
+
+    @Override
+    public String pyKwargs() {
+        return "{'delay': %d}".formatted(delay);
+    }
 }

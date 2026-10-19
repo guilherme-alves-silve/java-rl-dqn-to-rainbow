@@ -21,4 +21,12 @@ public record RecordEpisodeStatistics(int bufferLength, String statsKey) impleme
         if (statsKey != null && !statsKey.isBlank()) args.add("stats_key='%s'".formatted(statsKey));
         return "%s(%s)".formatted(this.getClass().getSimpleName(), String.join(", ", args));
     }
+
+    @Override
+    public String pyKwargs() {
+        var args = new ArrayList<String>();
+        if (bufferLength != -1) args.add("'buffer_length': %d".formatted(bufferLength));
+        if (statsKey != null && !statsKey.isBlank()) args.add("'stats_key': '%s'".formatted(statsKey));
+        return "{ %s }".formatted(String.join(", ", args));
+    }
 }

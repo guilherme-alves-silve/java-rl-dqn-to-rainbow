@@ -16,4 +16,9 @@ public record GrayscaleObservation(boolean keepDim) implements IWrapper {
     public String pyToStr(String varName) {
         return "%s(%s, keep_dim=%s)".formatted(this.getClass().getSimpleName(), varName, keepDim ? "True" : "False");
     }
+
+    @Override
+    public String pyKwargs() {
+        return "{'keep_dim': %s}".formatted(keepDim ? "True" : "False");
+    }
 }

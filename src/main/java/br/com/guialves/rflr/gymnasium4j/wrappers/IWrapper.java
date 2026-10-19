@@ -5,4 +5,6 @@ public interface IWrapper {
     default String pyToStr(String varName) {
         return "%s(%s)".formatted(this.getClass().getSimpleName(), varName);
     }
+
+    public String pyKwargs();
 }

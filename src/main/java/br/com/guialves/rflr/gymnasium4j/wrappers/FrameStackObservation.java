@@ -12,4 +12,9 @@ public record FrameStackObservation(int stackSize) implements IWrapper {
     public String pyToStr(String varName) {
         return "%s(%s, stack_size=%s)".formatted(this.getClass().getSimpleName(), varName, stackSize);
     }
+
+    @Override
+    public String pyKwargs() {
+        return "{'stack_size': %d}".formatted(stackSize);
+    }
 }

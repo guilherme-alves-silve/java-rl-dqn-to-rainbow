@@ -15,4 +15,9 @@ public record ResizeObservation(int[] shape) implements IWrapper {
         return "%s(%s, shape=%s)".formatted(this.getClass().getSimpleName(),
                 varName, Arrays.toString(shape));
     }
+
+    @Override
+    public String pyKwargs() {
+        return "{'shape': %s}".formatted(Arrays.toString(shape));
+    }
 }

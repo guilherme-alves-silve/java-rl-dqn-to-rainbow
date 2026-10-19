@@ -1,8 +1,10 @@
 package br.com.guialves.rflr.gymnasium4j.wrappers;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
+
+import static java.util.stream.Collectors.joining;
 
 /**
  * Bridge to the wrappers.RecordVideo from Python gymnasium.
@@ -28,6 +30,11 @@ public record RecordVideo(String videoFolder,
 
     @Override
     public String pyToStr(String varName) {
+        var args = genArgs(varName);
+        return "%s(%s)".formatted(this.getClass().getSimpleName(), String.join(", ", args));
+    }
+
+    private List<String> genArgs(String varName) {
         var args = new ArrayList<String>();
         args.add(varName);
         args.add("video_folder='%s'".formatted(videoFolder.replace("\\", "/")));
@@ -39,7 +46,7 @@ public record RecordVideo(String videoFolder,
         if (fps != -1) args.add("fps=%d".formatted(fps));
         if (disableLogger) args.add("disable_logger=True");
         if (gcTrigger != -1) args.add("gc_trigger=%d".formatted(gcTrigger));
-        return "%s(%s)".formatted(this.getClass().getSimpleName(), String.join(", ", args));
+        return args;
     }
 
     private void addParam(String paramName,
@@ -47,5 +54,17 @@ public record RecordVideo(String videoFolder,
                           int value) {
         if (value != -1) args.add("%s=lambda t: t %% %d == 0".formatted(paramName, value));
         else args.add("%s=None".formatted(paramName));
+    }
+
+    @Override
+    public String pyKwargs() {
+        var args = genArgs("");
+        args.removeFirst();
+        var joinedArgs = args.stream()
+                .map(arg -> "'" + arg.replace("==", "<eq><eq>")
+                        .replace("=", "': ")
+                        .replace("<eq><eq>", "=="))
+                .collect(joining(", "));
+        return "{ %s }".formatted(joinedArgs);
     }
 }

@@ -16,4 +16,9 @@ public record NormalizeObservation(float epsilon) implements IWrapper {
     public String pyToStr(String varName) {
         return "%s(%s, epsilon=%s)".formatted(this.getClass().getSimpleName(), varName, epsilon);
     }
+
+    @Override
+    public String pyKwargs() {
+        return "{'epsilon': %s}".formatted(epsilon);
+    }
 }

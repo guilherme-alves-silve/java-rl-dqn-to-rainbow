@@ -16,4 +16,9 @@ public record MaxAndSkipObservation(int skip) implements IWrapper {
     public String pyToStr(String varName) {
         return "%s(%s, skip=%s)".formatted(this.getClass().getSimpleName(), varName, skip);
     }
+
+    @Override
+    public String pyKwargs() {
+        return "{'skip': %d}".formatted(skip);
+    }
 }
