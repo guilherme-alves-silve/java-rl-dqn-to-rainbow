@@ -10,7 +10,7 @@ public class MainUtils {
         throw new IllegalStateException("No MainUtils!");
     }
 
-    static RLRunOptions parseArgs(String[] args, String className) {
+    public static RLRunOptions parseArgs(String[] args, String className) {
         String loadPrefix = null;
         for (int i = 0; i < args.length; i++) {
             var arg = args[i];

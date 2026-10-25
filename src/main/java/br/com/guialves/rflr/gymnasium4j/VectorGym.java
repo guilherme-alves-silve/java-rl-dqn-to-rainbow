@@ -2,12 +2,35 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
 import lombok.NonNull;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
 import static java.util.stream.Collectors.joining;
 
+@Slf4j
 public class VectorGym extends Gym {
+
+    @SneakyThrows
+    public static IEnv make(@NonNull String name) {
+        log.warn("It's recommended to use makeSync or makeAsync instead!");
+        return make(name, false, 1);
+    }
+
+    @SneakyThrows
+    public static IEnv makeVec(@NonNull String name, boolean async, int numberOfEnvs) {
+        return make(name, async, numberOfEnvs);
+    }
+
+    @SneakyThrows
+    private static IEnv make(@NonNull String name, boolean async, int numberOfEnvs) {
+        return builder()
+                .envName(name)
+                .numberOfEnvs(numberOfEnvs)
+                .async(async)
+                .build();
+    }
 
     public static VectorEnvBuilder builder() {
         return new VectorEnvBuilder();
@@ -89,28 +112,56 @@ public class VectorGym extends Gym {
         }
 
         protected String generatePyEnvScript() {
+            var correctionMultiprocessingWhenAsync = generateCorrectionMultiprocessingWhenAsync();
             var wrappedEnvParams = generateWrappedEnvPy();
             var makeCall = generateMakeCall();
             var importLibsPy = generateImportLibsPy();
             var functionDefinitionsCode = generateFunctionDefinitions();
             if (wrappers.isEmpty()) {
                 return """
-                %s
+                %s%s
                 %s
                 %s
                 env_%s = %s
-                """.formatted(importLibsPy, functionDefinitionsCode, wrappedEnvParams, varEnvCode, makeCall);
+                """.formatted(correctionMultiprocessingWhenAsync, importLibsPy, functionDefinitionsCode,
+                        wrappedEnvParams, varEnvCode, makeCall);
             }
 
             var importPy = generateImportFromPy();
 
             return """
-            %s
+            %s%s
             %s
             %s
             %s
             env_%s = %s
-            """.formatted(importLibsPy, importPy, functionDefinitionsCode, wrappedEnvParams, varEnvCode, makeCall);
+            """.formatted(correctionMultiprocessingWhenAsync, importLibsPy, importPy, functionDefinitionsCode,
+                    wrappedEnvParams, varEnvCode, makeCall);
+        }
+
+        private String generateCorrectionMultiprocessingWhenAsync() {
+            if (!async) {
+                return "";
+            }
+
+            return """
+            import multiprocessing, os, sys
+            if os.name == "nt":
+                py = os.path.join(sys.exec_prefix, "python.exe")
+            else:
+                py = os.path.join(sys.exec_prefix, "bin", "python")
+            multiprocessing.set_executable(py)
+            
+            """;
+        }
+
+        @Override
+        public Env build() {
+            if (async) {
+                params.put("context", "'spawn'");
+            }
+
+            return new Env(varEnvCode, envName, generatePyEnvScript());
         }
     }
 }

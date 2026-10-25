@@ -80,7 +80,7 @@ public final class PythonDataStructures {
         for (int i = 0; i < size; i++) {
             var item = getSequenceItem(obj, i);
             try {
-                if (!isDouble(item)) throw new IllegalArgumentException("Shape element is not int");
+                if (!isDouble(item)) throw new IllegalArgumentException("element is not double");
                 result[i] = PyFloat_AsDouble(item);
             } finally {
                 Py_DECREF(item);
@@ -98,7 +98,7 @@ public final class PythonDataStructures {
         for (int i = 0; i < size; i++) {
             var item = getSequenceItem(obj, i);
             try {
-                if (!isLong(item)) throw new IllegalArgumentException("Shape element is not int");
+                if (!isLong(item)) throw new IllegalArgumentException("element is not int");
                 result[i] = (int) PyLong_AsLong(item);
             } finally {
                 Py_DECREF(item);
@@ -113,10 +113,10 @@ public final class PythonDataStructures {
         validateSequence(obj);
         int size = (int) getSequenceSize(obj);
         long[] result = new long[size];
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < size; ++i) {
             var item = getSequenceItem(obj, i);
             try {
-                if (!isLong(item)) throw new IllegalArgumentException("Shape element is not int");
+                if (!isLong(item)) throw new IllegalArgumentException("element is not long");
                 result[i] = PyLong_AsLong(item);
             } finally {
                 Py_DECREF(item);
@@ -127,14 +127,17 @@ public final class PythonDataStructures {
 
     public static boolean[] toBoolArray(PyObject obj) {
         validateSequence(obj);
-        long size = PyList_Size(obj);
+        int size = (int) getSequenceSize(obj);
 
         boolean[] result = new boolean[(int) size];
-
-        for (int i = 0; i < size; i++) {
-            PyObject item = PyList_GetItem(obj, i);
-            long value = PyLong_AsLong(item);
-            result[i] = value != 0;
+        for (int i = 0; i < size; ++i) {
+            var item = getSequenceItem(obj, i);
+            try {
+                // numpy.bool returns false when isBool(item) is invoked, so I simplified.
+                result[i] = toStr(item).equals("True");
+            } finally {
+                Py_DECREF(item);
+            }
         }
         return result;
     }
@@ -151,7 +154,7 @@ public final class PythonDataStructures {
         @SuppressWarnings("unchecked")
         T[] result = (T[]) Array.newInstance(componentType, size);
 
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < size; ++i) {
             var item = getSequenceItem(obj, i); // borrowed reference
             result[i] = mapper.apply(item);
         }
@@ -169,7 +172,7 @@ public final class PythonDataStructures {
 
         PyObject pyList = PyList_New(values.length);
 
-        for (int i = 0; i < values.length; i++) {
+        for (int i = 0; i < values.length; ++i) {
             PyObject item = mapper.apply(values[i]);
             if (item == null) throw new IllegalStateException("Mapper returned null");
 
@@ -203,7 +206,7 @@ public final class PythonDataStructures {
     private static PyObject buildNumericList(int length, Function<Integer, PyObject> supplier) {
         PyObject pyList = PyList_New(length);
 
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; ++i) {
             PyObject item = supplier.apply(i);
 
             if (PyList_SetItem(pyList, i, item) != 0) {
@@ -254,7 +257,7 @@ public final class PythonDataStructures {
         PyObject tuple = PyTuple_New(length);
         if (tuple == null) checkError();
 
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; ++i) {
             PyObject item = supplier.apply(i);
             if (item == null) checkError();
 
@@ -303,7 +306,7 @@ public final class PythonDataStructures {
 
     private static PyObject buildSet(int length, Function<Integer, PyObject> supplier) {
         var set = pySet();
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; ++i) {
             try (PyObject item = supplier.apply(i)) {
                 if (item == null) checkError();
                 if (PySet_Add(set, item) != 0) {
@@ -364,7 +367,7 @@ public final class PythonDataStructures {
         PyObject dict = PyDict_New();
         if (dict == null) checkError();
 
-        for (int i = 0; i < keys.length; i++) {
+        for (int i = 0; i < keys.length; ++i) {
             try (PyObject key = pyStr(keys[i]);
                  PyObject value = valueMapper.apply(values[i])) {
 
@@ -410,7 +413,7 @@ public final class PythonDataStructures {
         );
     }
 
-    private static long getSequenceSize(PyObject obj) {
+    public static long getSequenceSize(PyObject obj) {
 
         if (isList(obj)) {
             return PyList_Size(obj);
@@ -423,7 +426,7 @@ public final class PythonDataStructures {
         return PySequence_Size(obj);
     }
 
-    private static PyObject getSequenceItem(PyObject obj, int i) {
+    public static PyObject getSequenceItem(PyObject obj, int i) {
 
         PyObject item;
 

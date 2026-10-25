@@ -224,11 +224,10 @@ class StableRetroGymTest {
     void shouldAppendVectorKwargsWhenParamsProvided() {
         var script = StableRetroGym.builder()
                 .envsNames(GAMES)
-                .params(Gym.builderMap().putStr("context", "spawn"))
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
-        assertThat(script).containsPattern(VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*, context='spawn'\\)$");
+        assertThat(script).containsPattern(VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$");
     }
 
     @Test

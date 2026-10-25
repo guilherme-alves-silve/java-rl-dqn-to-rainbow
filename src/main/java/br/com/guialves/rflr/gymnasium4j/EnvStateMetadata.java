@@ -2,7 +2,6 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import br.com.guialves.rflr.gymnasium4j.utils.NumPy2DJLTypeMapper;
 import lombok.Cleanup;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -10,9 +9,11 @@ import org.bytedeco.cpython.PyObject;
 
 import java.util.Arrays;
 
-import static br.com.guialves.rflr.gymnasium4j.utils.NumPy2DJLTypeMapper.*;
-import static br.com.guialves.rflr.python.PythonDataStructures.*;
-import static br.com.guialves.rflr.python.PythonRuntime.*;
+import static br.com.guialves.rflr.gymnasium4j.utils.NumPy2DJLTypeMapper.bytesPerElement;
+import static br.com.guialves.rflr.gymnasium4j.utils.NumPy2DJLTypeMapper.numpyToDjl;
+import static br.com.guialves.rflr.python.PythonDataStructures.toIntArray;
+import static br.com.guialves.rflr.python.PythonRuntime.attr;
+import static br.com.guialves.rflr.python.PythonRuntime.attrStr;
 
 @Accessors(fluent = true)
 public class EnvStateMetadata {

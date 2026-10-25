@@ -13,11 +13,14 @@ import org.bytedeco.cpython.PyObject;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.detectActionSpaceType;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
+import static br.com.guialves.rflr.python.PythonTypeChecks.isSequence;
 import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.fillFromNumpy;
 import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.onHeapBufferNumpy;
 
@@ -154,8 +157,52 @@ public final class Env implements IEnv {
     }
 
     @Override
+    public VecEnvStepResults stepVec(ActionResult action, NDManager sub) {
+        @Cleanup var result = callFunction(pyStep, action.pyObj);
+        if (stateBuffer == null) {
+            throw new IllegalStateException("You should call reset() first!");
+        }
+
+        fillFromNumpy(getItem(result, 0), stateBuffer);
+        var states = sub.create(
+                stateBuffer,
+                stateMetadata.djlShape,
+                stateMetadata.djlType
+        );
+
+        double[] rewards = toDoubleArray(getSequenceItem(result, 1));
+        boolean[] terminates = toBoolArray(getSequenceItem(result, 2));
+        boolean[] truncates = toBoolArray(getSequenceItem(result, 3));
+        var infoMap = getItemMap(result, 4);
+
+        return new VecEnvStepResults(rewards, terminates, truncates, infoMap, states);
+    }
+
+    @Override
+    public List<BufferedImage> renderVec() {
+        @Cleanup var tupleNDArray = callFunction(pyRender);
+        if (!isSequence(tupleNDArray)) {
+            throw new IllegalArgumentException("The invoked environment is not vectorized!");
+        }
+
+        int size = (int) getSequenceSize(tupleNDArray);
+        var bufferedImages = new ArrayList<BufferedImage>(size);
+        for (int i = 0; i < size; ++i) {
+            @Cleanup var ndarray = getItem(tupleNDArray, i);
+            var bufferedImage = ndarrayToBufferedImage(ndarray);
+            bufferedImages.add(bufferedImage);
+        }
+
+        return bufferedImages;
+    }
+
+    @Override
     public BufferedImage render() {
         @Cleanup var ndarray = callFunction(pyRender);
+        return ndarrayToBufferedImage(ndarray);
+    }
+
+    private BufferedImage ndarrayToBufferedImage(PyObject ndarray) {
         if (renderMetadata == null) {
             renderMetadata = EnvRenderMetadata.fromNumpy(ndarray);
             imageBuffer = ByteBuffer

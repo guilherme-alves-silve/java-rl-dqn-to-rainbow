@@ -48,15 +48,35 @@ public record RLConfig(
     boolean debugMemoryLeak,
     int runMaxTries,
     boolean renderRun,
-    String loadModelPrefix
+    String loadModelPrefix,
+    Vectorized vectorized,
+    int channels,
+    boolean stableRetro,
+    boolean vectorizedEnv
 ) {
 
     private static final int DEFAULT_N_STEP = 1;
     private static final float DELTA = 1e-6f;
 
+    public enum Vectorized {
+        SYNC(false), ASYNC(true), NONE(false);
+
+        private final boolean async;
+
+        Vectorized(boolean async) {
+            this.async = async;
+        }
+
+        public boolean isAsync() {
+            return async;
+        }
+    }
+
     public RLConfig {
         epsilonDecay = (maxEpsilon - minEpsilon) / framesLimit;
         path = Paths.get("./output_models/", algorithmName);
+        vectorized = Vectorized.NONE;
+        channels = 1;
     }
 
     @Override

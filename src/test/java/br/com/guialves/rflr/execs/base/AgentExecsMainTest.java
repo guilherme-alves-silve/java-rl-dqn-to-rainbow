@@ -1,4 +1,4 @@
-package br.com.guialves.rflr.execs;
+package br.com.guialves.rflr.execs.base;
 
 import br.com.guialves.rflr.fixture.AgentDQNResourceFixture;
 import org.junit.jupiter.api.BeforeEach;

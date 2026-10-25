@@ -2,6 +2,7 @@ package br.com.guialves.rflr.execs;
 
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
+import br.com.guialves.rflr.execs.base.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

@@ -2,6 +2,7 @@ package br.com.guialves.rflr.python;
 
 import io.vavr.CheckedFunction0;
 import io.vavr.CheckedRunnable;
+import lombok.Cleanup;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
@@ -158,6 +159,11 @@ public final class PythonRuntime {
             checkError();
             return result;
         }
+    }
+
+    public static String toType(PyObject obj) {
+        @Cleanup var type = PyObject_Type(obj);
+        return toStr(type);
     }
 
     public static String toStr(PyObject obj) {

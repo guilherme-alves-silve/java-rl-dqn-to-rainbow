@@ -1,20 +1,22 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import br.com.guialves.rflr.gymnasium4j.wrappers.DelayObservation;
-import br.com.guialves.rflr.gymnasium4j.wrappers.FrameStackObservation;
-import br.com.guialves.rflr.gymnasium4j.wrappers.GrayscaleObservation;
-import br.com.guialves.rflr.gymnasium4j.wrappers.MaxAndSkipObservation;
-import br.com.guialves.rflr.gymnasium4j.wrappers.NormalizeObservation;
-import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
-import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
+import ai.djl.ndarray.NDManager;
+import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
+import br.com.guialves.rflr.gymnasium4j.wrappers.*;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Coverage for {@link VectorGym} and its {@link VectorGym.VectorEnvBuilder}.
@@ -22,10 +24,49 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <p>Every test here asserts on the <em>generated Python source</em>, so the suite never needs a
  * Python interpreter. The generated vector script is a pure function of the builder state.
  */
+@Slf4j
 class VectorGymTest {
 
     private static final String VAR_ENV_PATTERN = "env_[0-9a-f]{32}";
     private static final String VIDEO = "/tmp/video";
+
+    @ParameterizedTest(name = "[{index}] async? {arguments}")
+    @ValueSource(booleans = {false, true})
+    void shouldRunVecEnv(boolean async) {
+        var envName = "CartPole-v1";
+        int numberOfEnvs = 4;
+        try (var render = Mockito.spy(new EnvRenderWindow(numberOfEnvs));
+             var ndManager = Mockito.spy(NDManager.newBaseManager());
+             var env = VectorGym.makeVec(envName, async, numberOfEnvs)) {
+
+            log.info("action space: {}, state space: {}", env.actionSpaceStr(), env.observationSpaceStr());
+
+            assertTrue(env.actionSpaceStr().contains("MultiDiscrete([2 2 2 2])"));
+            assertTrue(env.observationSpaceStr().contains("Box([[-4.8"));
+
+            env.reset(ndManager);
+            VecEnvStepResults stepResults = null;
+            for (int frame = 1; frame <= 1000; ++frame) {
+                var imgs = env.renderVec();
+                assertEquals(numberOfEnvs, imgs.size());
+                render.displayAndWait(imgs);
+                for (var img : imgs) {
+                    assertEquals(400, img.getHeight());
+                    assertEquals(600, img.getWidth());
+                }
+
+                var action = env.actionSpaceSample();
+                stepResults = env.stepVec(action, ndManager);
+                if (stepResults.anyTerm()) break;
+                else stepResults.close();
+            }
+
+            assertNotNull(stepResults);
+            assertNotNull(stepResults.info());
+            assertTrue(stepResults.anyDone());
+            assertTrue(stepResults.anyTerm());
+        }
+    }
 
     @Test
     void shouldExposeVectorEnvBuilder() {
@@ -78,8 +119,7 @@ class VectorGymTest {
     }
 
     private static String extractVarEnvCode(String script) {
-        return java.util.regex.Pattern
-                .compile("env_([0-9a-f]{32}) = gym\\.vector\\.")
+        return Pattern.compile("env_([0-9a-f]{32}) = gym\\.vector\\.")
                 .matcher(script)
                 .results()
                 .findFirst()
@@ -186,7 +226,6 @@ class VectorGymTest {
 
     @Test
     void shouldKeepAsyncVectorEnvBodyIdenticalToSync() {
-        // The vector setters return VectorEnvBuilder, so the fluent chain is preserved end to end.
         var sync = VectorGym.builder()
                 .envsNames(List.of("CartPole-v1"))
                 .numberOfEnvs(3)
@@ -208,8 +247,6 @@ class VectorGymTest {
 
     @Test
     void shouldSupportFullFluentChainInAnyOrder() {
-        // Guards the builder signatures: every vector setter must return VectorEnvBuilder,
-        // otherwise the chain degrades to EnvBuilder and loses async/numberOfEnvs/envsNames.
         var script = VectorGym.builder()
                 .async(true)
                 .numberOfEnvs(2)
@@ -242,13 +279,12 @@ class VectorGymTest {
         var script = VectorGym.builder()
                 .envsNames(List.of("CartPole-v1"))
                 .params(Gym.builderMap()
-                        .putStr("context", "spawn")
                         .put("autoreset", false))
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
         assertThat(script).containsPattern(
-                VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*, context='spawn', autoreset=False\\)$");
+                VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*, autoreset=False\\)$");
     }
 
     @Test
@@ -403,6 +439,8 @@ class VectorGymTest {
 
         assertThat(script).contains("if 'video_folder' in wrapper_params:")
                 .contains("params['video_folder'] = f\"{params['video_folder']}/{env_name}{idx}\"");
+        assertThat(script).contains("gym.vector.SyncVectorEnv([make_env(idx, env_wrappers)")
+                .doesNotContain("context='spawn'");
     }
 
     @Test

@@ -1,0 +1,136 @@
+package br.com.guialves.rflr.execs;
+
+import ai.djl.Device;
+import ai.djl.engine.Engine;
+import ai.djl.ndarray.NDManager;
+import ai.djl.training.loss.Loss;
+import ai.djl.training.optimizer.AdamW;
+import ai.djl.training.optimizer.Optimizer;
+import ai.djl.training.tracker.Tracker;
+import br.com.guialves.rflr.algorithms.IAgent;
+import br.com.guialves.rflr.algorithms.buffer.ExperienceReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
+import br.com.guialves.rflr.gymnasium4j.Gym;
+import br.com.guialves.rflr.gymnasium4j.IEnv;
+import br.com.guialves.rflr.gymnasium4j.StableRetroGym;
+import br.com.guialves.rflr.gymnasium4j.VectorGym;
+import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
+import lombok.Cleanup;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Map;
+import java.util.Optional;
+
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.cappedParentMgr;
+import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
+import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
+
+public class RLRunnerCNN {
+
+    @FunctionalInterface
+    public interface AgentFactory {
+        IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent);
+
+        default Loss lossFunc() {
+            return Loss.l2Loss();
+        }
+
+        default IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
+            return new ExperienceReplayBuffer(config.bufferCapacity(), manager);
+        }
+    }
+
+    public static Optional<ManagerNode> run(RLConfig config,
+                                            AgentFactory agentFactory) {
+        var path = config.path();
+        var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
+        var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
+        @Cleanup var parent = cappedParentMgr(device);
+        Gym.EnvBuilder envBuilder;
+
+        boolean async = config.vectorized().isAsync();
+        if (config.stableRetro()) {
+            envBuilder = StableRetroGym.builder()
+                    .envName(config.envName())
+                    .numberOfEnvs(64)
+                    .async(async);
+        } else if (config.vectorizedEnv()) {
+            envBuilder = VectorGym.builder()
+                    .envName(config.envName())
+                    .numberOfEnvs(64)
+                    .async(async);
+        } else {
+            envBuilder = Gym.builder()
+                    .envName(config.envName());
+        }
+
+        if (getBoolProp("agent.records", "true")) {
+            envBuilder.add(config.recordVideo())
+                      .add(config.recordEpisodeStatistics());
+        }
+
+        @Cleanup var env = envBuilder.build();
+
+        var optimizer = AdamW.builder()
+                .optLearningRateTracker(Tracker.fixed(config.learningRate()))
+                .build();
+
+        IO.println("Engine: " + Engine.getInstance().getEngineName());
+        IO.println("GPU count: " + gpuCount());
+        IO.println("Device: " + device);
+        IO.println("Observation space: " + env.observationSpaceStr());
+        IO.println("Action space: " + env.actionSpaceStr());
+
+        var plotTrackers = new PlotTrackers(config.algorithmName());
+
+        @Cleanup var agent = agentFactory.create(env, optimizer, plotTrackers, parent);
+
+        @Cleanup var replayBuffer = agentFactory.replayBuffer(config, parent);
+        var lossFunc = agentFactory.lossFunc();
+
+        boolean loadOnly = config.loadModelPrefix() != null;
+
+        if (!loadOnly) {
+            agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
+
+            if (config.saveModel()) {
+                agent.save(path, modelFileName);
+            }
+        } else {
+            IO.println("Load-only mode: skipping training. Loaded model prefix: "
+                    + config.loadModelPrefix());
+        }
+
+        double totalReward = agent.run(config.runMaxTries(), config.renderRun()).getLast();
+        var runOutput = Map.of(
+                "Info", agent.lastInfo(),
+                "Replay Buffer size", replayBuffer.size(),
+                "Total episodes", agent.episodes(),
+                "Total reward", totalReward
+        );
+        runOutput.forEach((desc, result) -> IO.println(desc + ": " + result));
+
+        if (!loadOnly && config.saveModel()) {
+            validateModelFile(path, modelFileName);
+        }
+
+        var managerNode = agent.getManagerNode();
+
+        if (getBoolProp("agent.saveConfig", "true")) {
+            config.saveConfig(managerNode, runOutput);
+        }
+
+        return managerNode;
+    }
+
+    private static void validateModelFile(Path path, String modelFileName) {
+        var fullPath = Paths.get(path.toString(), modelFileName + "-0000.params")
+                .normalize().toAbsolutePath();
+        if (!Files.exists(fullPath)) {
+            throw new IllegalStateException("The model was not generated: " + fullPath);
+        }
+    }
+}
