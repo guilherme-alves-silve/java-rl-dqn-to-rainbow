@@ -55,7 +55,6 @@ public class EnvRenderWindow implements AutoCloseable {
                 var label = labels.get(i);
                 var imgIcon = new ImageIcon(image);
                 label.setIcon(imgIcon);
-                panel.add(label);
             }
 
             if (!initialized) {

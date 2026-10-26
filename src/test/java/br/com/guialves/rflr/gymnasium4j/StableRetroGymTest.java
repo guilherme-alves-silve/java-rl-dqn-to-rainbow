@@ -305,11 +305,11 @@ class StableRetroGymTest {
                     .generatePyEnvScript();
 
             var occurrences = script.lines()
-                    .filter(line -> line.startsWith("    def _init():"))
+                    .filter(line -> line.startsWith("    def _init_retro():"))
                     .count();
 
             assertThat(occurrences).isEqualTo(1);
-            assertThat(script.lines().filter(line -> line.equals("    return _init")).count()).isEqualTo(1);
+            assertThat(script.lines().filter(line -> line.equals("    return _init_retro")).count()).isEqualTo(1);
         }
     }
 

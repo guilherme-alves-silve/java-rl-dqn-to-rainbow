@@ -29,7 +29,6 @@ public class Gym {
 
     public static sealed class EnvBuilder permits VectorGym.VectorEnvBuilder {
 
-        private static final PyMap DEFAULT_MAP = new PyMap();
         protected final String varEnvCode;
         protected final List<String> importLibs;
         protected final List<String> functionDefinitions;
@@ -56,7 +55,7 @@ public class Gym {
                 return _init
             """);
             this.wrappers = new ArrayList<>();
-            this.params = DEFAULT_MAP;
+            this.params = new PyMap();
         }
 
         public EnvBuilder envName(@NonNull String envName) {

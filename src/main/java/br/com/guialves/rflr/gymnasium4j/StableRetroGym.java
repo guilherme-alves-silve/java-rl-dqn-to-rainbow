@@ -10,9 +10,11 @@ public class StableRetroGym extends VectorGym {
 
         protected StableRetroEnvBuilder() {
             super.importLib("stable_retro as retro");
+            // remove the definition of make_env. Not necessary.
+            super.functionDefinitions.removeLast();
             super.functionDefinitions.add("""
             def make_retro_env(idx: int, env_wrappers: tuple[str, dict]):
-                def _init():
+                def _init_retro():
                     env_name, wrappers = env_wrappers
                     env = retro.make(game=env_name, render_mode='rgb_array', inttype=retro.data.Integrations.ALL)
                     for wrapper, wrapper_params in wrappers:
@@ -21,7 +23,7 @@ public class StableRetroGym extends VectorGym {
                             params['video_folder'] = f"{params['video_folder']}/{env_name}{idx}"
                         env = wrapper(env, **params)
                     return env
-                return _init
+                return _init_retro
             """);
             super.setFunctionToCall("make_retro_env");
         }
