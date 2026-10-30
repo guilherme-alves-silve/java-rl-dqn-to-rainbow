@@ -90,7 +90,7 @@ public class DeepQNetworkCNN implements IDeepQNetwork {
 
     @Override
     public NDList forward(NDList input) {
-        return safeForwardSingle(subManager, net, parameterStore, input, training);
+        return safeForwardSingleFloat(subManager, net, parameterStore, input, training);
     }
 
     @Override

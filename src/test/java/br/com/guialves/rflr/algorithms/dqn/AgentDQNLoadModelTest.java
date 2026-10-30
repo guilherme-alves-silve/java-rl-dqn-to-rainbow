@@ -163,6 +163,11 @@ class AgentDQNLoadModelTest {
         }
 
         @Override
+        public String envName() {
+            return MockDiscreteEnv.class.getName();
+        }
+
+        @Override
         public boolean closed() {
             return false;
         }

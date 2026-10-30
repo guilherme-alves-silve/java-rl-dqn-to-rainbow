@@ -11,6 +11,11 @@ import java.awt.image.BufferedImage;
 public class CarlaEnv implements IEnv {
 
     @Override
+    public String envName() {
+        return "CarlaEnv";
+    }
+
+    @Override
     public boolean closed() {
         return false;
     }

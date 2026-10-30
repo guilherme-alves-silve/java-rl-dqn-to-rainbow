@@ -1,6 +1,7 @@
 package br.com.guialves.rflr.execs;
 
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
+import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
 import lombok.Builder;
@@ -12,6 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -52,10 +55,13 @@ public record RLConfig(
     Vectorized vectorized,
     int channels,
     boolean stableRetro,
-    boolean vectorizedEnv
+    boolean vectorizedEnv,
+    Gym.PyMap envParams,
+    List<String> importLibs
 ) {
 
     private static final int DEFAULT_N_STEP = 1;
+    private static final int DEFAULT_CHANNELS = 1;
     private static final float DELTA = 1e-6f;
 
     public enum Vectorized {
@@ -74,9 +80,20 @@ public record RLConfig(
 
     public RLConfig {
         epsilonDecay = (maxEpsilon - minEpsilon) / framesLimit;
-        path = Paths.get("./output_models/", algorithmName);
-        vectorized = Vectorized.NONE;
-        channels = 1;
+        path = path != null ? path : Paths.get("./output_models/", algorithmName);
+        vectorized = vectorized == null ? Vectorized.NONE : vectorized;
+        channels = channels <= 0 ? DEFAULT_CHANNELS : channels;
+        envParams = envParams == null ? Gym.builderMap() : envParams;
+    }
+
+    public void importLibsIn(Gym.EnvBuilder envBuilder) {
+        importLibs().forEach(envBuilder::importLib);
+    }
+
+    @Override
+    public List<String> importLibs() {
+        if (null == importLibs) return Collections.emptyList();
+        return importLibs;
     }
 
     @Override

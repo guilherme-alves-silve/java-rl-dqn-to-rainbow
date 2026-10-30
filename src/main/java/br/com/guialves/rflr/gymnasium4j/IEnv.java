@@ -3,10 +3,11 @@ package br.com.guialves.rflr.gymnasium4j;
 import ai.djl.ndarray.NDManager;
 
 import java.awt.image.BufferedImage;
-import java.util.Collections;
 import java.util.List;
 
 public interface IEnv extends AutoCloseable {
+
+    String envName();
 
     boolean closed();
 
@@ -36,4 +37,20 @@ public interface IEnv extends AutoCloseable {
 
     @Override
     void close();
+
+    default void throwIfNotSupported(int actions) {
+        var msg = "Incorrect number of actions for the environment %s: " +
+                "Config=%s, Environment=%s";
+        switch (actionSpaceType()) {
+            case DISCRETE -> {
+                var actionConfigSpaceStr = "Discrete(%s)".formatted(String.valueOf(actions));
+                var actionSpaceStr = actionSpaceStr();
+                if (!actionConfigSpaceStr.equals(actionSpaceStr)) {
+                    throw new IllegalArgumentException(msg.formatted(envName(),
+                            actionConfigSpaceStr, actionSpaceStr));
+                }
+            }
+            case BOX, MULTI_DISCRETE, MULTI_BINARY, TEXT, UNKNOWN -> throw new UnsupportedOperationException("Not supported yet!");
+        }
+    }
 }

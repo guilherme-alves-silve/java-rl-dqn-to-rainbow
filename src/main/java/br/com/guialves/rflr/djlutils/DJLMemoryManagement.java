@@ -6,6 +6,7 @@ import ai.djl.ndarray.BaseNDManager;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.types.DataType;
 import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
 import lombok.Cleanup;
@@ -174,6 +175,25 @@ public class DJLMemoryManagement {
         @Cleanup var sub = subMgr(manager, "safe-forward-single");
         inputs.getFirst().tempAttach(sub);
         var output = block.forward(parameterStore, inputs, training);
+        output.attach(manager);
+        return output;
+    }
+
+    public static NDList safeForwardSingleFloat(NDManager manager,
+                                                Block block,
+                                                ParameterStore parameterStore,
+                                                NDList inputs,
+                                                boolean training) {
+        if (inputs.size() != 1) throw new IllegalArgumentException("The network just accepts one head input!");
+        @Cleanup var sub = subMgr(manager, "safe-forward-single");
+        var x = inputs.singletonOrThrow();
+        x.tempAttach(sub);
+        if (!x.getDataType().equals(DataType.FLOAT32)) {
+            x = x.toType(DataType.FLOAT32, false)
+                    .divi(255.0f);
+        }
+
+        var output = block.forward(parameterStore, new NDList(x), training);
         output.attach(manager);
         return output;
     }

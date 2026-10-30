@@ -156,6 +156,9 @@ public class Gym {
 
         private final Map<String, String> params;
 
+        /**
+         * Use the builderMap() method instead.
+         */
         private PyMap() {
             this.params = new LinkedHashMap<>();
         }

@@ -1,18 +1,20 @@
-package br.com.guialves.rflr.execs.games.megamanx;
+package br.com.guialves.rflr.execs.games.atari;
 
 import ai.djl.ndarray.NDManager;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
+import br.com.guialves.rflr.algorithms.dqn.AgentDQN;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkCNN;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.algorithms.noisydqn.AgentNoisyNetDQN;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.execs.RLConfig;
 import br.com.guialves.rflr.execs.RLRunOptions;
 import br.com.guialves.rflr.execs.RLRunner;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
+import br.com.guialves.rflr.utils.PreProcessingWrapper;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -26,14 +28,14 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  * Reference:
  *  <a href="https://stable-retro.farama.org/supported_games/">MegaManX-Snes</a>
  */
-public class AgentNoisyNetDQNMain {
+public class AgentCNNDQNMain {
 
     static void main() {
         run();
     }
 
     static void main(String[] args) {
-        var opts = parseArgs(args, AgentNoisyNetDQNMain.class.getSimpleName());
+        var opts = parseArgs(args, AgentCNNDQNMain.class.getSimpleName());
         run(opts);
     }
 
@@ -43,17 +45,19 @@ public class AgentNoisyNetDQNMain {
 
     public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
         var builder = RLConfig.builder()
-                //.envName("MegaManX-Snes")
-                .runnerClass(AgentNoisyNetDQNMain.class.getSimpleName())
-                .algorithmName("megamanx_noisy_nets_dqn")
+                .envName("ALE/Enduro-v5")
+                .runnerClass(AgentCNNDQNMain.class.getSimpleName())
+                .algorithmName("enduro_noisy_nets_dqn")
                 .observations(84) // 84x84
-                .actions(4)
+                .channels(4)
+                .actions(9)
                 .learningRate(0.0005f)
                 .maxEpsilon(1.0f)
                 .minEpsilon(0.01f)
                 .discountFactor(0.99f)
                 .updateQTargetAtTimeN(5000)
-                .batchSize(256)
+                .batchSize(32)
+                .importLibs(List.of("ale_py; gym.register_envs(ale_py)"))
                 .framesLimit(getIntProp("agent.framesLimit", "1000000"))
                 .bufferCapacity(getIntProp("agent.bufferCapacity", "30000"))
                 .saveModel(getBoolProp("agent.saveModel", "true"))
@@ -67,15 +71,20 @@ public class AgentNoisyNetDQNMain {
 
         var config = builder.build();
 
-        return RLRunner.run(config, (env, optimizer, plotTrackers, parent) ->
-                buildNoisyNetDQN(config, env, optimizer, plotTrackers, parent));
+        return RLRunner.run(config, (env, optimizer, plotTrackers, parent) -> {
+            int skip = 4;
+            int resize = 84;
+            int concatenate = 4;
+            var preProcessing = new PreProcessingWrapper(env, skip, resize, concatenate);
+            return buildDQN(config, preProcessing, optimizer, plotTrackers, parent);
+        });
     }
 
-    private static IAgent buildNoisyNetDQN(RLConfig config,
-                                           IEnv env,
-                                           Optimizer optimizer,
-                                           PlotTrackers plotTrackers,
-                                           NDManager parent) {
+    private static IAgent buildDQN(RLConfig config,
+                                   IEnv env,
+                                   Optimizer optimizer,
+                                   PlotTrackers plotTrackers,
+                                   NDManager parent) {
         boolean loadModel = config.loadModelPrefix() != null;
         Supplier<IDeepQNetwork> networkFactory = loadModel
                 ? () -> new DeepQNetworkCNN(
@@ -91,7 +100,7 @@ public class AgentNoisyNetDQNMain {
                         config.actions(),
                         parent);
 
-        return new AgentNoisyNetDQN(
+        return new AgentDQN(
                 config.maxEpsilon(),
                 config.updateQTargetAtTimeN(),
                 config.minEpsilon(),

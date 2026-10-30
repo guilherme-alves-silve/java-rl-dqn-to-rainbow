@@ -48,7 +48,10 @@ public class RLRunner {
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
         @Cleanup var parent = cappedParentMgr(device);
         var envBuilder = Gym.builder()
-                .envName(config.envName());
+                .envName(config.envName())
+                .params(config.envParams());
+
+        config.importLibsIn(envBuilder);
 
         if (getBoolProp("agent.records", "true")) {
             envBuilder.add(config.recordVideo())
@@ -56,6 +59,7 @@ public class RLRunner {
         }
 
         @Cleanup var env = envBuilder.build();
+        env.throwIfNotSupported(config.actions());
 
         var optimizer = AdamW.builder()
                 .optLearningRateTracker(Tracker.fixed(config.learningRate()))
