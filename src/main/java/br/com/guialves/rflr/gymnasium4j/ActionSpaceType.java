@@ -30,11 +30,6 @@ public enum ActionSpaceType {
         public ActionResult get(int value) {
             return new ActionResult(pyLong(value), this);
         }
-
-        @Override
-        public boolean supportsScalarAction() {
-            return true;
-        }
     },
     BOX {
         @Override
@@ -107,77 +102,6 @@ public enum ActionSpaceType {
             case "Text" -> ActionSpaceType.TEXT;
             default -> ActionSpaceType.UNKNOWN;
         };
-    }
-
-    /**
-     * Builds a structured {@link ActionSpaceSpec} by introspecting the live Python
-     * space object.
-     *
-     * <p>This is the accurate counterpart of {@link IEnv#actionSpaceStr()}: instead of
-     * parsing the human-readable representation, it reads the real attributes exposed
-     * by Gymnasium ({@code n}, {@code nvec} and {@code shape}), so it is not affected
-     * by formatting details such as {@code Discrete(2, start=1)} or by the dtype
-     * appended to a {@code Box}.
-     *
-     * @param type    the detected space type
-     * @param pySpace the {@code gymnasium.spaces.Space} instance
-     * @return the structured description of the space
-     */
-    static ActionSpaceSpec describe(ActionSpaceType type, PyObject pySpace) {
-        try {
-            return switch (type) {
-                case DISCRETE -> ActionSpaceSpec.discrete((int) readLongAttr(pySpace, "n"));
-                case MULTI_BINARY -> ActionSpaceSpec.multiBinary((int) readLongAttr(pySpace, "n"));
-                case BOX -> ActionSpaceSpec.box(readIntSequenceAttr(pySpace, "shape"));
-                case MULTI_DISCRETE -> ActionSpaceSpec.multiDiscrete(readNvec(pySpace));
-                case TEXT -> ActionSpaceSpec.text();
-                case UNKNOWN -> ActionSpaceSpec.unknown();
-            };
-        } catch (Exception e) {
-            log.warn("Could not read the attributes of the {} action space: {}", type, e.getMessage());
-            return ActionSpaceSpec.unresolved(type);
-        }
-    }
-
-    /**
-     * Whether this space type can be driven by a single scalar action index.
-     *
-     * <p>The DQN-family agents ({@code AbstractAgent#selectAction} and its overrides)
-     * compute one index with {@code argMax} over the Q-values and then build the Python
-     * action through {@link #get(long)}. Only spaces exposing one index per discrete
-     * action fit that contract: {@code Box}, {@code MultiDiscrete}, {@code MultiBinary}
-     * and {@code Text} need a different action selection strategy.
-     *
-     * @return true only for {@link #DISCRETE}
-     */
-    public boolean supportsScalarAction() {
-        return false;
-    }
-
-    private static long readLongAttr(PyObject obj, String attr) {
-        try (var value = attr(obj, attr)) {
-            return toLong(value);
-        }
-    }
-
-    /**
-     * Reads an attribute holding a Python sequence of ints, such as {@code Box.shape}.
-     */
-    private static List<Integer> readIntSequenceAttr(PyObject obj, String attr) {
-        try (var value = attr(obj, attr)) {
-            var ints = toIntArray(value);
-            return ints == null ? List.of() : Arrays.stream(ints).boxed().toList();
-        }
-    }
-
-    /**
-     * Reads {@code MultiDiscrete.nvec}, which is a numpy {@code int64} array.
-     */
-    private static List<Integer> readNvec(PyObject obj) {
-        try (var nvec = attr(obj, "nvec")) {
-            var longs = NumPyByteBuffer.toLongArray(nvec);
-            return Arrays.stream(longs).boxed().map(Long::intValue).toList();
-        }
     }
 
     public ActionResult convert(PyObject obj) {

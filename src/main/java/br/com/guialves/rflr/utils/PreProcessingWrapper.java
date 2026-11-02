@@ -107,8 +107,7 @@ public class PreProcessingWrapper implements IEnv {
             term,
             trunc,
             info,
-            // Promote the surviving array out of sub before sub closes
-            sub.ret(state)
+            state
         );
     }
 

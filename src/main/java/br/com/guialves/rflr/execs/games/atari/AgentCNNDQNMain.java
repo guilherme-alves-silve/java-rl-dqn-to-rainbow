@@ -30,7 +30,7 @@ import static br.com.guialves.rflr.utils.PropUtils.getIntProp;
  */
 public class AgentCNNDQNMain {
 
-    static void main() {
+    public static void main() {
         run();
     }
 

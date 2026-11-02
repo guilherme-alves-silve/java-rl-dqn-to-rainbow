@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.execs.base;
 
+import br.com.guialves.rflr.execs.games.atari.AgentCNNDQNMain;
 import br.com.guialves.rflr.fixture.AgentDQNResourceFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -87,6 +88,11 @@ class AgentExecsMainTest {
     @Test
     void shouldRunAgentRainbowDQNMain() {
         assertDoesNotThrow((Executable) AgentRainbowDQNMain::main);
+    }
+
+    @Test
+    void shouldRunAgentCNNDQNMain() {
+        assertDoesNotThrow(AgentCNNDQNMain::main);
     }
 
     /**

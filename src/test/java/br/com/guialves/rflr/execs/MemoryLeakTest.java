@@ -3,6 +3,7 @@ package br.com.guialves.rflr.execs;
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
 import br.com.guialves.rflr.execs.base.*;
+import br.com.guialves.rflr.execs.games.atari.AgentCNNDQNMain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -63,6 +64,9 @@ class MemoryLeakTest {
     /** DeepQNetworkMLP has 3 Linear layers (weight + bias each). */
     private static final int DEEP_NET_PARAMS = 6;
 
+    /** TODO: DeepQNetworkCNN has 3 Linear layers (weight + bias each). */
+    private static final int DEEP_CNN_NET_PARAMS = 10;
+
     /** DuelingQNetworkMLP has 4 Linear layers (2 backbone + 1 value + 1 advantage). */
     private static final int DUELING_NET_PARAMS = 8;
 
@@ -73,10 +77,10 @@ class MemoryLeakTest {
     private static final int NOISY_DUELING_NET_PARAMS = 18;
 
     /** CategoricalQNetworkMLP has 3 Linear layers (weight + bias each). */
-    private static final int AGENT_C51_DQN_NET_PARAMS = 7;
+    private static final int C51_DQN_NET_PARAMS = 7;
 
     /** RainbowQNetworkMLP has 3 Linear layers (weight + bias each). */
-    private static final int AGENT_RAINBOW_DQN_NET_PARAMS = 19;
+    private static final int RAINBOW_DQN_NET_PARAMS = 19;
 
     /**
      * Each {@code Experience} contributes exactly 2 NDArrays to its buffer:
@@ -122,6 +126,18 @@ class MemoryLeakTest {
                 "AgentDQN",
                 "DeepQNetworkMLP-",
                 DEEP_NET_PARAMS,
+                "ExperienceReplayBuffer-");
+    }
+
+    @Test
+    @DisplayName("AgentCNNDQNMain should leave exactly the expected NDArrays after training")
+    void shouldNotLeakMemoryAfterAgentCNNDQN() {
+        var managerNode = AgentCNNDQNMain.run().orElseThrow();
+        assertAgentStructure(
+                managerNode,
+                "AgentDQN",
+                "DeepQNetworkCNN-",
+                DEEP_CNN_NET_PARAMS,
                 "ExperienceReplayBuffer-");
     }
 
@@ -206,7 +222,7 @@ class MemoryLeakTest {
                 managerNode,
                 "AgentC51DQN",
                 "CategoricalQNetworkMLP-",
-                AGENT_C51_DQN_NET_PARAMS,
+                C51_DQN_NET_PARAMS,
                 "ExperienceReplayBuffer-",
                 additionalAtomBroadcastSubManager);
     }
@@ -220,7 +236,7 @@ class MemoryLeakTest {
                 managerNode,
                 "AgentRainbowDQN",
                 "RainbowQNetworkMLP-",
-                AGENT_RAINBOW_DQN_NET_PARAMS,
+                RAINBOW_DQN_NET_PARAMS,
                 "NStepPrioritizedReplayBuffer-",
                 additionalAtomBroadcastSubManager);
     }
