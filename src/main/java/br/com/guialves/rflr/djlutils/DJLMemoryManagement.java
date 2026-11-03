@@ -9,13 +9,13 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
+import br.com.guialves.rflr.utils.json.ManagerNodeSerializer;
+import com.google.gson.*;
 import lombok.Cleanup;
 import lombok.SneakyThrows;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.lang.management.ManagementFactory;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.*;
 
@@ -26,6 +26,8 @@ import static java.util.stream.Collectors.*;
 public class DJLMemoryManagement {
 
     public static final int NOT_FOUND_COUNT = -1;
+    private static final com.sun.management.OperatingSystemMXBean OS =
+            (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 
     private DJLMemoryManagement() {
         throw new IllegalStateException("No DJLMemoryManagement!");
@@ -233,9 +235,13 @@ public class DJLMemoryManagement {
      *         {@code BaseNDManager} (which means the reflection probe
      *         cannot run, and we refuse to fabricate a partial tree)
      */
+    public static Optional<ManagerNode> getDebugDump(NDManager manager) {
+        return getDebugDump(manager, true);
+    }
+
     @SneakyThrows
     @SuppressWarnings("unchecked")
-    public static Optional<ManagerNode> getDebugDump(NDManager manager) {
+    private static Optional<ManagerNode> getDebugDump(NDManager manager, boolean parent) {
         if (!(manager instanceof BaseNDManager base)) {
             return Optional.empty();
         }
@@ -258,16 +264,22 @@ public class DJLMemoryManagement {
         var children = new ArrayList<ManagerNode>();
         for (var element : resources.values()) {
             if (element instanceof BaseNDManager innerBase) {
-                var child = getDebugDump(innerBase);
+                var child = getDebugDump(innerBase, false);
                 child.ifPresent(children::add);
             }
         }
 
+        var runtime = Runtime.getRuntime();
         return Optional.of(new ManagerNode(
                 manager.getName(),
                 uid,
                 manager.isOpen(),
+                parent,
                 resources.size(),
+                OS.getCommittedVirtualMemorySize(),
+                OS.getTotalMemorySize(),
+                OS.getFreeMemorySize(),
+                runtime.totalMemory() - runtime.freeMemory(),
                 byType,
                 List.copyOf(children)
         ));
@@ -345,9 +357,18 @@ public class DJLMemoryManagement {
     public record ManagerNode(String name,
                               String uid,
                               boolean open,
+                              boolean parent,
                               int totalResources,
+                              long committedMemBytes, // includes malloc from torch
+                              long totalMemBytes,
+                              long freeMemBytes,
+                              long javaHeapUsedBytes,
                               Map<String, Long> byType,
                               List<ManagerNode> children) {
+        private static final Gson GSON = new GsonBuilder()
+                .registerTypeAdapter(ManagerNode.class, new ManagerNodeSerializer())
+                .create();
+
         /**
          * Total resources across the whole subtree rooted at this node,
          * including direct resources and every nested child recursively.
@@ -407,6 +428,11 @@ public class DJLMemoryManagement {
                 hits.addAll(child.findMatching(predicate));
             }
             return hits;
+        }
+
+        @Override
+        public String toString() {
+            return GSON.toJson(this);
         }
     }
 

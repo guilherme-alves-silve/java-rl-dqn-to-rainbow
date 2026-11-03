@@ -16,7 +16,7 @@ import br.com.guialves.rflr.execs.RLRunner;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.execs.MainUtils.parseArgs;
@@ -38,7 +38,7 @@ public class AgentC51DQNMain {
         run(opts);
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run() {
+    public static List<DJLMemoryManagement.ManagerNode> run() {
         return run(RLRunOptions.defaults());
     }
 
@@ -46,7 +46,7 @@ public class AgentC51DQNMain {
      * when (vMin, vMax) were (-50.0, +50.0) the network was not learning,
      * now the parameters below made it work
      */
-    public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
+    public static List<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
         var builder = RLConfig.builder()
                 .envName("LunarLander-v3")
                 .runnerClass(AgentC51DQNMain.class.getSimpleName())

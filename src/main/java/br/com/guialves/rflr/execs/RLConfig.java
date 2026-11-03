@@ -2,10 +2,10 @@ package br.com.guialves.rflr.execs;
 
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.gymnasium4j.Gym;
+import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
 import lombok.Builder;
-import lombok.NonNull;
 import lombok.SneakyThrows;
 
 import java.nio.charset.StandardCharsets;
@@ -16,12 +16,12 @@ import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.DEFAULT_ALPHA;
 import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.DEFAULT_BETA;
 import static br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection.*;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
+import static java.util.stream.Collectors.joining;
 
 @Builder(toBuilder = true)
 public record RLConfig(
@@ -57,12 +57,17 @@ public record RLConfig(
     boolean stableRetro,
     boolean vectorizedEnv,
     Gym.PyMap envParams,
-    List<String> importLibs
+    List<String> importLibs,
+    List<IWrapper> wrappers,
+    int framesSkip,
+    int resize,
+    int concatenate
 ) {
 
     private static final int DEFAULT_N_STEP = 1;
     private static final int DEFAULT_CHANNELS = 1;
     private static final float DELTA = 1e-6f;
+    private static final int DEFAULT_FRAMES_SKIP = 1;
 
     public enum Vectorized {
         SYNC(false), ASYNC(true), NONE(false);
@@ -84,6 +89,7 @@ public record RLConfig(
         vectorized = vectorized == null ? Vectorized.NONE : vectorized;
         channels = channels <= 0 ? DEFAULT_CHANNELS : channels;
         envParams = envParams == null ? Gym.builderMap() : envParams;
+        framesSkip = framesSkip <= 0 ? DEFAULT_FRAMES_SKIP : framesSkip;
     }
 
     public void importLibsIn(Gym.EnvBuilder envBuilder) {
@@ -132,6 +138,12 @@ public record RLConfig(
         return alpha;
     }
 
+    @Override
+    public List<IWrapper> wrappers() {
+        if (null == wrappers) return List.of();
+        return wrappers;
+    }
+
     public RecordVideo recordVideo() {
         return new RecordVideo(path);
     }
@@ -141,11 +153,13 @@ public record RLConfig(
     }
 
     @SneakyThrows
-    public void saveConfig(@NonNull Optional<ManagerNode> managerNode, Map<String, Object> runOutput) {
-        var strManagerNode = managerNode.map(ManagerNode::toString).orElse("null");
+    public void saveConfig(List<ManagerNode> managerNodes, Map<String, Object> runOutput) {
+        var jsonManagerNodes = managerNodes.stream()
+                .map(ManagerNode::toString)
+                .collect(joining(",", "[", "]"));
         var outputPath = Paths.get("./docs/training_results/%s/%s.txt".formatted(algorithmName, runnerClass));
         Files.createDirectories(outputPath.getParent());
-        Files.writeString(outputPath, this + System.lineSeparator() + strManagerNode +
+        Files.writeString(outputPath, this + System.lineSeparator() + jsonManagerNodes +
                         System.lineSeparator() + runOutput.toString(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE);
     }

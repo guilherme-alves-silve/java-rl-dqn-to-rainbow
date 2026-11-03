@@ -9,7 +9,6 @@ import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public interface IAgent extends AutoCloseable {
 
@@ -60,7 +59,7 @@ public interface IAgent extends AutoCloseable {
      */
     List<Double> run(int maxTries, boolean render);
 
-    Optional<DJLMemoryManagement.ManagerNode> getManagerNode();
+    List<DJLMemoryManagement.ManagerNode> getManagerNodes();
 
     @Override
     void close();

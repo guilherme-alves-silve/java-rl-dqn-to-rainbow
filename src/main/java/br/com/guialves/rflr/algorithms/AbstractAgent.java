@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 @Accessors(fluent = true)
 public abstract class AbstractAgent implements IAgent {
 
+    private static final int DEFAULT_MANAGER_NODES = 500;
     protected final ActionSpaceType actionSpaceType;
     protected final NDManager parent;
     protected final boolean debugMemoryLeak;
@@ -50,7 +51,7 @@ public abstract class AbstractAgent implements IAgent {
     protected final IDeepQNetwork onlineNet;
     protected final IDeepQNetwork targetNet;
     protected final PlotTrackers plotTrackers;
-    private ManagerNode managerNode;
+    protected final Queue<ManagerNode> managerNodes;
 
     public AbstractAgent(float epsilon,
                          int updateQTargetAtTimeN,
@@ -81,6 +82,7 @@ public abstract class AbstractAgent implements IAgent {
         parent.cap();
         this.actionSpaceType = env.actionSpaceType();
         this.debugMemoryLeak = debugMemoryLeak;
+        this.managerNodes = new ArrayDeque<>(DEFAULT_MANAGER_NODES);
     }
 
     @Override
@@ -139,6 +141,7 @@ public abstract class AbstractAgent implements IAgent {
                     ++episodes;
                     float avgLoss = episodeSteps > 0 ? episodeLossSum / episodeSteps : 0;
                     plotTrackers.add(epsilon, episodeRewards, avgLoss);
+                    if (debugMemoryLeak) getDebugDump(parent).ifPresent(managerNodes::add);
                     release(state, nextState);
                     break;
                 }
@@ -152,10 +155,6 @@ public abstract class AbstractAgent implements IAgent {
             } while (frames < framesLimit);
         } while ((frames < framesLimit));
         plotTrackers.updateTrackersMessage(pbar, frames, replayBuffer.size(), parent);
-
-        if (debugMemoryLeak) {
-            this.managerNode = getDebugDump(parent).orElse(null);
-        }
 
         if (getBoolProp("agent.showAllMetrics")) {
             plotTrackers.showAllMetrics();
@@ -264,8 +263,8 @@ public abstract class AbstractAgent implements IAgent {
     }
 
     @Override
-    public Optional<ManagerNode> getManagerNode() {
-        return Optional.ofNullable(managerNode);
+    public List<ManagerNode> getManagerNodes() {
+        return List.copyOf(new ArrayList<>(managerNodes));
     }
 
     @Override

@@ -6,12 +6,12 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLPERLoss;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
 import br.com.guialves.rflr.algorithms.networks.layers.DuelingType;
 import br.com.guialves.rflr.algorithms.rainbowdqn.AgentRainbowDQN;
-import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLPERLoss;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.execs.RLConfig;
 import br.com.guialves.rflr.execs.RLRunOptions;
@@ -19,7 +19,7 @@ import br.com.guialves.rflr.execs.RLRunner;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.execs.MainUtils.parseArgs;
@@ -42,11 +42,11 @@ public class AgentRainbowDQNMain {
         run(opts);
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run() {
+    public static List<DJLMemoryManagement.ManagerNode> run() {
         return run(RLRunOptions.defaults());
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
+    public static List<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
         var builder = RLConfig.builder()
                 .envName("LunarLander-v3")
                 .runnerClass(AgentRainbowDQNMain.class.getSimpleName())

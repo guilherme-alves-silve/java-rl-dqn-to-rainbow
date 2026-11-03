@@ -120,7 +120,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDQN() {
-        var managerNode = AgentDQNMain.run().orElseThrow();
+        var managerNode = AgentDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentDQN",
@@ -132,7 +132,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentCNNDQNMain should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentCNNDQN() {
-        var managerNode = AgentCNNDQNMain.run().orElseThrow();
+        var managerNode = AgentCNNDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentDQN",
@@ -144,7 +144,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentDDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDDQN() {
-        var managerNode = AgentDDQNMain.run().orElseThrow();
+        var managerNode = AgentDDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentDDQN",
@@ -156,7 +156,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentNStepDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentNStepDQN() {
-        var managerNode = AgentNStepDQNMain.run().orElseThrow();
+        var managerNode = AgentNStepDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentNStepDQN",
@@ -168,7 +168,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentDuelingDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDuelingDQN() {
-        var managerNode = AgentDuelingDQNMain.run().orElseThrow();
+        var managerNode = AgentDuelingDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentDuelingDQN",
@@ -180,7 +180,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentDQNPER should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentDQNPER() {
-        var managerNode = AgentDQNPERMain.run().orElseThrow();
+        var managerNode = AgentDQNPERMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentDQNPER",
@@ -192,7 +192,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentNoisyNetDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentNoisyNetDQN() {
-        var managerNode = AgentNoisyNetDQNMain.run().orElseThrow();
+        var managerNode = AgentNoisyNetDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentNoisyNetDQN",
@@ -204,7 +204,7 @@ class MemoryLeakTest {
     @Test
     @DisplayName("AgentNoisyDuelingNetDDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentNoisyDuelingNetDDQN() {
-        var managerNode = AgentNoisyDuelingNetDDQNMain.run().orElseThrow();
+        var managerNode = AgentNoisyDuelingNetDDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentNoisyDuelingNetDDQN",
@@ -217,7 +217,7 @@ class MemoryLeakTest {
     @DisplayName("AgentC51DQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentC51DQN() {
         int additionalAtomBroadcastSubManager = 1;
-        var managerNode = AgentC51DQNMain.run().orElseThrow();
+        var managerNode = AgentC51DQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentC51DQN",
@@ -231,7 +231,7 @@ class MemoryLeakTest {
     @DisplayName("AgentRainbowDQN should leave exactly the expected NDArrays after training")
     void shouldNotLeakMemoryAfterAgentRainbowDQN() {
         int additionalAtomBroadcastSubManager = 1;
-        var managerNode = AgentRainbowDQNMain.run().orElseThrow();
+        var managerNode = AgentRainbowDQNMain.run().getLast();
         assertAgentStructure(
                 managerNode,
                 "AgentRainbowDQN",
@@ -294,7 +294,7 @@ class MemoryLeakTest {
                                       int expectedParamsPerNetwork,
                                       String bufferPrefix,
                                       int customAdditionalSubManagers) {
-        // 1) Root has exactly the two network sub-managers.
+
         int expectedSubManagers = EXPECTED_ROOT_SUBMANAGERS + customAdditionalSubManagers;
         assertEquals(expectedSubManagers, root.totalResources(),
                 agentName + ": root should have exactly "
@@ -302,7 +302,6 @@ class MemoryLeakTest {
                         + " direct sub-managers (online + target networks), got "
                         + root.totalResources() + " with byType=" + root.byType());
 
-        // 2) Both networks have the expected number of parameter arrays.
         var networks = root.findMatching(n -> n.name().startsWith(networkPrefix) ||
                 n.name().startsWith("clone-" + networkPrefix));
         assertEquals(2, networks.size(),
@@ -317,11 +316,6 @@ class MemoryLeakTest {
                             + " NDArrays (byType=" + net.byType() + ")");
         }
 
-        // 3) The replay buffer exists once and holds a multiple of 2 NDArrays
-        // (each experience has exactly one state + one nextState NDArray).
-        // The exact count depends on how many experiences were collected
-        // during the short test run, so we assert the structural invariant
-        // rather than an absolute number.
         var buffers = root.findMatching(n -> n.name().startsWith(bufferPrefix));
         assertEquals(1, buffers.size(),
                 agentName + ": expected exactly 1 sub-manager starting with '"
@@ -333,9 +327,7 @@ class MemoryLeakTest {
                         + "' should hold a multiple of " + NDARRAYS_PER_EXPERIENCE
                         + " NDArrays (one state + one nextState per experience), got "
                         + bufferNDArrayCount + " (byType=" + buffer.byType() + ")");
-        // Sanity: with BUFFER_CAPACITY=128 and 500 training frames, the
-        // buffer should hold at least 1 experience. A count of 0 would
-        // indicate the buffer was never written to.
+
         assertTrue(bufferNDArrayCount >= NDARRAYS_PER_EXPERIENCE,
                 agentName + ": buffer '" + buffer.name()
                         + "' should hold at least one experience, got "

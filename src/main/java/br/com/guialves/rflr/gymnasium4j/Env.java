@@ -94,7 +94,7 @@ public final class Env implements IEnv {
     }
 
     @Override
-    public EnvResetResult reset(NDManager manager) {
+    public EnvResetResult reset(NDManager sub) {
         this.stateMetadata = null;
         this.stateBuffer = null;
 
@@ -105,7 +105,7 @@ public final class Env implements IEnv {
         if (!hasAttr(pyState, "shape")) {
             this.scalarObservation = true;
             long observationValue = toLong(pyState);
-            var state = manager.create(observationValue);
+            var state = sub.create(observationValue);
             log.debug("Discrete observation: {}", observationValue);
             return new EnvResetResult(state, infoMap);
         }
@@ -116,7 +116,7 @@ public final class Env implements IEnv {
 
         fillFromNumpy(pyState, stateBuffer);
 
-        var state = manager.create(
+        var state = sub.create(
                 stateBuffer,
                 stateMetadata.djlShape,
                 stateMetadata.djlType

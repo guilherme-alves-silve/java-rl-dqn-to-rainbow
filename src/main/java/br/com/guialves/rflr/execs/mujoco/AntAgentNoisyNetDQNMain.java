@@ -9,12 +9,11 @@ import br.com.guialves.rflr.algorithms.noisydqn.AgentNoisyNetDQN;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.execs.RLConfig;
 import br.com.guialves.rflr.execs.RLRunOptions;
-import br.com.guialves.rflr.execs.RLRunner;
 import br.com.guialves.rflr.execs.RLRunnerCNN;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.execs.MainUtils.parseArgs;
@@ -38,11 +37,11 @@ public class AntAgentNoisyNetDQNMain {
         run(opts);
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run() {
+    public static List<DJLMemoryManagement.ManagerNode> run() {
         return run(RLRunOptions.defaults());
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
+    public static List<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
         var builder = RLConfig.builder()
                 //.envName("MegaManX-Snes")
                 .runnerClass(AntAgentNoisyNetDQNMain.class.getSimpleName())

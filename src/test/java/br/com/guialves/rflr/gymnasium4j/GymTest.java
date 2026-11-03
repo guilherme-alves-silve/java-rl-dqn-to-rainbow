@@ -71,7 +71,7 @@ class GymTest {
                 .doesNotContainPattern("env_[0-9a-f]{32} = MaxAndSkipObservation\\(env_[0-9a-f]{32}, skip=4\\)")
                 .doesNotContainPattern("env_[0-9a-f]{32} = FrameStackObservation\\(env_[0-9a-f]{32}, stack_size=4\\)")
                 .doesNotContainPattern("env_[0-9a-f]{32} = ReshapeObservation\\(env_[0-9a-f]{32}, shape=\\[1, 84, 84]\\)")
-                .doesNotContainPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\[50, 50, 1]\\)")
+                .doesNotContainPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\(50, 50, 1\\)\\)")
                 .doesNotContainPattern("env_[0-9a-f]{32} = RecordVideo\\(")
                 .doesNotContainPattern("env_[0-9a-f]{32} = RecordEpisodeStatistics\\(");
     }

@@ -11,13 +11,14 @@ import ai.djl.util.Pair;
 import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.EnvStepResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
+import lombok.Cleanup;
 import lombok.experimental.Delegate;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
 
 /**
@@ -73,6 +74,9 @@ public class PreProcessingWrapper implements IEnv {
 
     @Override
     public EnvStepResult step(ActionResult action, NDManager sub) {
+
+        @Cleanup var imgSub = subMgr(sub, "pre-proces-s");
+
         var frames = new ArrayList<NDArray>();
         var rewards = new ArrayList<Double>();
 
@@ -81,12 +85,11 @@ public class PreProcessingWrapper implements IEnv {
         Map<Object, Object> info = null;
 
         for (int i = 0; i < concatenate; i++) {
-            var skipResult = skipFrames(action, sub);
+            var skipResult = skipFrames(action, imgSub);
 
-            try (var grayState = grayscaleFrame(skipResult.state())) {
-                var resizedState = resizeFrame(grayState);
-                frames.add(resizedState);
-            }
+            var grayState = grayscaleFrame(skipResult.state());
+            var resizedState = resizeFrame(grayState);
+            frames.add(resizedState);
 
             rewards.add(skipResult.reward());
             term  = skipResult.term();
@@ -107,7 +110,7 @@ public class PreProcessingWrapper implements IEnv {
             term,
             trunc,
             info,
-            state
+            imgSub.ret(state)
         );
     }
 
@@ -123,15 +126,14 @@ public class PreProcessingWrapper implements IEnv {
     }
 
     private NDArray grayscaleFrame(NDArray state) {
-        return scoped(it -> it.toType(DataType.FLOAT32, false)
+        return state.toType(DataType.FLOAT32, false)
                 .mean(new int[]{2}, true)
-                .toType(DataType.UINT8, false), state);
+                .toType(DataType.UINT8, false);
     }
 
     private NDArray resizeFrame(NDArray state) {
-        try (var resized = NDImageUtils.resize(state, resize, resize, interpolation)) {
-            return resized.transpose(2, 0, 1);
-        }
+        return NDImageUtils.resize(state, resize, resize, interpolation)
+                .transpose(2, 0, 1);
     }
 
     private Pair<NDArray, Double> finishConcatenateFrames(List<NDArray> frames, List<Double> rewards) {
@@ -155,25 +157,27 @@ public class PreProcessingWrapper implements IEnv {
     }
 
     @Override
-    public EnvResetResult reset(NDManager parent) {
-        var resetResult = env.reset(parent);
+    public EnvResetResult reset(NDManager sub) {
+
+        @Cleanup var imgSub = subMgr(sub, "pre-proces-r");
+
+        var resetResult = env.reset(imgSub);
         var rawState = resetResult.state();
         var info = resetResult.info();
 
-        try (var gray = grayscaleFrame(rawState);
-             var resized = resizeFrame(gray)) {
+        var gray = grayscaleFrame(rawState);
+        var resized = resizeFrame(gray);
 
-            var frames  = new ArrayList<NDArray>();
-            var rewards = new ArrayList<Double>();
+        var frames  = new ArrayList<NDArray>();
+        var rewards = new ArrayList<Double>();
 
-            frames.add(resized.duplicate());
-            rewards.add(0.0);
+        frames.add(resized.duplicate());
+        rewards.add(0.0);
 
-            var result = finishConcatenateFrames(frames, rewards);
-            var state = result.getKey();
+        var result = finishConcatenateFrames(frames, rewards);
+        var state = result.getKey();
 
-            state.attach(parent);
-            return new EnvResetResult(state, info);
-        }
+        state.attach(sub);
+        return new EnvResetResult(state, info);
     }
 }

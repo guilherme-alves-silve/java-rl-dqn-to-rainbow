@@ -1,7 +1,5 @@
 package br.com.guialves.rflr.gymnasium4j.wrappers;
 
-import java.util.Arrays;
-
 /**
  * Equivalent to the Gymnasium (from Python):
  *  <a href="https://gymnasium.farama.org/api/wrappers/observation_wrappers/#gymnasium.wrappers.ResizeObservation">...</a>
@@ -13,11 +11,11 @@ public record ResizeObservation(int[] shape) implements IWrapper {
     @Override
     public String pyToStr(String varName) {
         return "%s(%s, shape=%s)".formatted(this.getClass().getSimpleName(),
-                varName, Arrays.toString(shape));
+                varName, toPyTupleStr(shape));
     }
 
     @Override
     public String pyKwargs() {
-        return "{'shape': %s}".formatted(Arrays.toString(shape));
+        return "{'shape': %s}".formatted(toPyTupleStr(shape));
     }
 }

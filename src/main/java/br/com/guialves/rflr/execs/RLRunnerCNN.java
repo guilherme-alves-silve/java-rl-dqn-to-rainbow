@@ -21,8 +21,8 @@ import lombok.Cleanup;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.cappedParentMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
@@ -43,8 +43,8 @@ public class RLRunnerCNN {
         }
     }
 
-    public static Optional<ManagerNode> run(RLConfig config,
-                                            AgentFactory agentFactory) {
+    public static List<ManagerNode> run(RLConfig config,
+                                        AgentFactory agentFactory) {
         var path = config.path();
         var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
@@ -117,13 +117,13 @@ public class RLRunnerCNN {
             validateModelFile(path, modelFileName);
         }
 
-        var managerNode = agent.getManagerNode();
+        var managerNodes = agent.getManagerNodes();
 
         if (getBoolProp("agent.saveConfig", "true")) {
-            config.saveConfig(managerNode, runOutput);
+            config.saveConfig(managerNodes, runOutput);
         }
 
-        return managerNode;
+        return managerNodes;
     }
 
     private static void validateModelFile(Path path, String modelFileName) {

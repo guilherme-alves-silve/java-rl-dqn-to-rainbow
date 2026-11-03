@@ -13,14 +13,15 @@ import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
+import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.cappedParentMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
@@ -41,15 +42,16 @@ public class RLRunner {
         }
     }
 
-    public static Optional<ManagerNode> run(RLConfig config,
-                                            AgentFactory agentFactory) {
+    public static List<ManagerNode> run(RLConfig config,
+                                        AgentFactory agentFactory) {
         var path = config.path();
         var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
         @Cleanup var parent = cappedParentMgr(device);
         var envBuilder = Gym.builder()
                 .envName(config.envName())
-                .params(config.envParams());
+                .params(config.envParams())
+                .add(config.wrappers().toArray(new IWrapper[0]));
 
         config.importLibsIn(envBuilder);
 
@@ -81,7 +83,7 @@ public class RLRunner {
         boolean loadOnly = config.loadModelPrefix() != null;
 
         if (!loadOnly) {
-            agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
+            agent.train(config.batchSize(), config.framesLimit(), config.framesSkip(), replayBuffer, lossFunc);
 
             if (config.saveModel()) {
                 agent.save(path, modelFileName);
@@ -104,13 +106,13 @@ public class RLRunner {
             validateModelFile(path, modelFileName);
         }
 
-        var managerNode = agent.getManagerNode();
+        var managerNodes = agent.getManagerNodes();
 
         if (getBoolProp("agent.saveConfig", "true")) {
-            config.saveConfig(managerNode, runOutput);
+            config.saveConfig(managerNodes, runOutput);
         }
 
-        return managerNode;
+        return managerNodes;
     }
 
     private static void validateModelFile(Path path, String modelFileName) {

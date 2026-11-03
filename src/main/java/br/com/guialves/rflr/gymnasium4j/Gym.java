@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 @Slf4j
@@ -78,8 +79,7 @@ public class Gym {
             return this;
         }
 
-        public EnvBuilder add(@NonNull IWrapper wrapper, @NonNull IWrapper... wrappersArray) {
-            add(wrapper);
+        public EnvBuilder add(@NonNull IWrapper... wrappersArray) {
             Arrays.stream(wrappersArray).forEach(this::add);
             return this;
         }

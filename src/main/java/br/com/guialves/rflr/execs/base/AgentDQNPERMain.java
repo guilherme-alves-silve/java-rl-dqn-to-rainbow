@@ -17,7 +17,7 @@ import br.com.guialves.rflr.execs.RLRunner;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static br.com.guialves.rflr.execs.MainUtils.parseArgs;
@@ -39,11 +39,11 @@ public class AgentDQNPERMain {
         run(opts);
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run() {
+    public static List<DJLMemoryManagement.ManagerNode> run() {
         return run(RLRunOptions.defaults());
     }
 
-    public static Optional<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
+    public static List<DJLMemoryManagement.ManagerNode> run(RLRunOptions opts) {
 
         var builder = RLConfig.builder()
                 .envName("LunarLander-v3")

@@ -7,6 +7,7 @@ import ai.djl.ndarray.types.Shape;
 import br.com.guialves.rflr.gymnasium4j.EnvStepResult;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
+import lombok.Cleanup;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,6 +34,10 @@ class PreProcessingWrapperTest {
 
     @BeforeEach
     void setUp() {
+
+        if (manager != null) manager.close();
+        if (wrapper != null) wrapper.close();
+
         manager = NDManager.newBaseManager();
         env = Gym.builder()
                 .importLib("ale_py")
@@ -80,9 +86,11 @@ class PreProcessingWrapperTest {
         var initialState = resetResult.state();
         var action = env.actionSpaceSample();
 
+        int expectedCount = managedArrayCount(manager) + 1;
         var stepResult = wrapper.step(action, manager);
         var nextState = stepResult.state();
 
+        assertEquals(expectedCount, managedArrayCount(manager));
         assertNotNull(stepResult);
         assertNotNull(nextState);
 
@@ -108,11 +116,13 @@ class PreProcessingWrapperTest {
         wrapper.reset(manager);
         var action = env.actionSpaceSample();
 
-        try(var stepResult = wrapper.step(action, manager)) {
-            double reward = stepResult.reward();
-            assertTrue(reward >= 0 && reward <= SKIP_FRAMES);
-            log.info("Accumulated reward after {} skip frames: {}", SKIP_FRAMES, reward);
-        }
+        int expectedCount = managedArrayCount(manager) + 1;
+        @Cleanup var stepResult = wrapper.step(action, manager);
+        assertEquals(expectedCount, managedArrayCount(manager));
+
+        double reward = stepResult.reward();
+        assertTrue(reward >= 0 && reward <= SKIP_FRAMES);
+        log.info("Accumulated reward after {} skip frames: {}", SKIP_FRAMES, reward);
     }
 
     @Test
@@ -124,7 +134,10 @@ class PreProcessingWrapperTest {
         int maxSteps = 10_000;
         EnvStepResult stepResult = null;
         while (steps < maxSteps) {
+            int expectedCount = managedArrayCount(manager) + 1;
             stepResult = wrapper.step(action, manager);
+            assertEquals(expectedCount, managedArrayCount(manager));
+
             steps++;
 
             if (stepResult.done()) break;
@@ -188,7 +201,10 @@ class PreProcessingWrapperTest {
         assertNotNull(stepResult);
         assertTrue(stepResult.done());
 
+        int expectedCount = managedArrayCount(manager) + 1;
         var resetResult = wrapper.reset(manager);
+        assertEquals(expectedCount, managedArrayCount(manager));
+
         var newState = resetResult.state();
 
         assertNotNull(newState);
@@ -206,23 +222,20 @@ class PreProcessingWrapperTest {
         var expectedShape = new Shape(CONCATENATE_FRAMES, RESIZE_SIZE, RESIZE_SIZE);
 
         for (int skip : skipValues) {
-            try (var testManager = NDManager.newBaseManager();
-                 var testEnv = Gym.make(ENV_NAME)) {
+            @Cleanup var testEnv = Gym.make(ENV_NAME);
 
-                var testWrapper = new PreProcessingWrapper(testEnv, skip, RESIZE_SIZE, CONCATENATE_FRAMES);
-                testWrapper.reset(manager);
-                var action = testEnv.actionSpaceSample();
+            var testWrapper = new PreProcessingWrapper(testEnv, skip, RESIZE_SIZE, CONCATENATE_FRAMES);
+            testWrapper.reset(manager);
+            var action = testEnv.actionSpaceSample();
 
-                try (var stepResult = testWrapper.step(action, manager)) {
-                    var state = stepResult.state();
-                    assertEquals(expectedShape, state.getShape());
+            @Cleanup var stepResult = testWrapper.step(action, manager);
+            var state = stepResult.state();
+            assertEquals(expectedShape, state.getShape());
 
-                    double reward = stepResult.reward();
-                    assertTrue(reward <= skip + 0.1);
+            double reward = stepResult.reward();
+            assertTrue(reward <= skip + 0.1);
 
-                    log.info("Skip={}, reward={}", skip, reward);
-                }
-            }
+            log.info("Skip={}, reward={}", skip, reward);
         }
     }
 
@@ -231,19 +244,16 @@ class PreProcessingWrapperTest {
         int[] concatValues = {1, 2, 4};
         for (int concat : concatValues) {
             var expectedSize = new Shape(concat, RESIZE_SIZE, RESIZE_SIZE);
-            try (var testManager = NDManager.newBaseManager();
-                 var testEnv = Gym.make(ENV_NAME)) {
+            @Cleanup var testEnv = Gym.make(ENV_NAME);
 
-                var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, concat);
-                testWrapper.reset(manager);
-                var action = testEnv.actionSpaceSample();
+            var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, concat);
+            testWrapper.reset(manager);
+            var action = testEnv.actionSpaceSample();
 
-                try (var stepResult = testWrapper.step(action, manager)) {
-                    var state = stepResult.state();
-                    assertEquals(expectedSize, state.getShape());
-                    log.info("Concatenate={}, state shape={}", concat, state.getShape());
-                }
-            }
+            @Cleanup var stepResult = testWrapper.step(action, manager);
+            var state = stepResult.state();
+            assertEquals(expectedSize, state.getShape());
+            log.info("Concatenate={}, state shape={}", concat, state.getShape());
         }
     }
 
@@ -338,8 +348,7 @@ class PreProcessingWrapperTest {
         String[] testEnvs = {"CartPole-v1", "MountainCar-v0"};
 
         for (String envName : testEnvs) {
-            try (var testManager = NDManager.newBaseManager();
-                 var testEnv = Gym.make(envName)) {
+            try (var testEnv = Gym.make(envName)) {
 
                 var testWrapper = new PreProcessingWrapper(testEnv, SKIP_FRAMES, RESIZE_SIZE, CONCATENATE_FRAMES);
 
