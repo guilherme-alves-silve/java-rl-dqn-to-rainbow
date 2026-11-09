@@ -22,7 +22,7 @@ public class NumPyByteBuffer {
             exec("_test_arr = np.array([1], dtype=np.float32)");
 
             try (var testArr = eval("_test_arr")) {
-                String byteOrder = attrStr(attr(testArr, "dtype"), "byteorder");
+                String byteOrder = nestedAttrStr(testArr, "dtype", "byteorder");
                 return switch (byteOrder) {
                     case ">" -> ByteOrder.BIG_ENDIAN;
                     case "<" -> ByteOrder.LITTLE_ENDIAN;
@@ -73,7 +73,7 @@ public class NumPyByteBuffer {
      * @return ByteBuffer configured with the array's byte order
      */
     public static ByteBuffer onHeapBufferNumpy(PyObject ndarray, int size) {
-        String byteOrder = attrStr(attr(ndarray, "dtype"), "byteorder");
+        String byteOrder = nestedAttrStr(ndarray, "dtype", "byteorder");
         var order = switch (byteOrder) {
             case ">" -> ByteOrder.BIG_ENDIAN;
             case "<" -> ByteOrder.LITTLE_ENDIAN;
@@ -144,7 +144,7 @@ public class NumPyByteBuffer {
             return PythonDataStructures.toIntArray(obj);
         }
 
-        String dtype = attrStr(attr(obj, "dtype"), "name");
+        String dtype = nestedAttrStr(obj, "dtype", "name");
 
         if (!"int32".equals(dtype)) {
             throw new IllegalArgumentException("Expected numpy int32 array, got " + dtype);
@@ -169,7 +169,7 @@ public class NumPyByteBuffer {
             return PythonDataStructures.toLongArray(obj);
         }
 
-        String dtype = attrStr(attr(obj, "dtype"), "name");
+        String dtype = nestedAttrStr(obj, "dtype", "name");
 
         if (!"int64".equals(dtype)) {
             throw new IllegalArgumentException("Expected numpy int64 array, got " + dtype);
@@ -194,7 +194,7 @@ public class NumPyByteBuffer {
             return PythonDataStructures.toDoubleArray(obj);
         }
 
-        String dtype = attrStr(attr(obj, "dtype"), "name");
+        String dtype = nestedAttrStr(obj, "dtype", "name");
 
         if (!("float64".equals(dtype) || "float32".equals(dtype))) {
             throw new IllegalArgumentException("Expected numpy float64 or float32 array, got " + dtype);
@@ -223,8 +223,27 @@ public class NumPyByteBuffer {
     }
 
     private static int nbytes(PyObject ndarray) {
-        try (var nb = attr(ndarray, "nbytes")) {
+        var nb = attr(ndarray, "nbytes");
+        try {
             return (int) PyLong_AsLong(nb);
+        } finally {
+            decRef(nb);
+        }
+    }
+
+    /**
+     * Reads a nested attribute (e.g. {@code obj.dtype.name}) as a String, releasing
+     * every Python reference acquired along the way.
+     * <p>{@code attr()} returns a new reference which cannot be released by
+     * {@code close()}/{@code @Cleanup}: the JavaCPP {@code PyObject} binding is
+     * {@code @Opaque} and has no deallocator, so {@code close()} is a no-op.</p>
+     */
+    private static String nestedAttrStr(PyObject obj, String outerAttr, String innerAttr) {
+        var outer = attr(obj, outerAttr);
+        try {
+            return attrStr(outer, innerAttr);
+        } finally {
+            decRef(outer);
         }
     }
 }

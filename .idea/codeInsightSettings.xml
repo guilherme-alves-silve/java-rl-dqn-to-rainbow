@@ -7,6 +7,7 @@
       <name>br.com.guialves.rflr.djlutils.DJLMemoryManagement</name>
       <name>br.com.guialves.rflr.djlutils.DJLUtils</name>
       <name>br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer</name>
+      <name>org.junit.jupiter.api.Assertions</name>
     </included-static-names>
   </component>
 </project>

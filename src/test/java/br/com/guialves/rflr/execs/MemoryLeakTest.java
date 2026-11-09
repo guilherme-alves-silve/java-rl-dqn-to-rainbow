@@ -105,6 +105,9 @@ class MemoryLeakTest {
         System.setProperty("agent.showAllMetrics", DONT_SHOW_METRICS);
         System.setProperty("agent.renderRun", DONT_RENDER);
         System.setProperty("agent.saveConfig", DONT_SAVE_CONFIG);
+        // The assertions below read the NDManager tree snapshot, so the dump must be
+        // enabled explicitly instead of relying on the default of each runner.
+        System.setProperty("agent.debugMemoryLeak", "true");
     }
 
     @AfterEach

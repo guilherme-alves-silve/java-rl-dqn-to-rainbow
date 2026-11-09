@@ -16,7 +16,7 @@
     <maven.compiler.source>25</maven.compiler.source>
     <maven.compiler.target>25</maven.compiler.target>
     <maven.compiler.release>25</maven.compiler.release>
-    <djl.version>0.36.0</djl.version>
+    <djl.version>0.40.0</djl.version>
     <djl.native.version>2.5.1</djl.native.version>
     <mockito.version>5.21.0</mockito.version>
     <bytebuddy.version>1.17.7</bytebuddy.version>
@@ -30,6 +30,8 @@
     <carla.version>0.2.0</carla.version>
     <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
     <junit.version>6.0.3</junit.version>
+    <mlflow.version>3.11.1</mlflow.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
   </properties>
 
   <dependencyManagement>
@@ -54,10 +56,23 @@
     </dependency>
 
     <dependency>
+      <groupId>org.mlflow</groupId>
+      <artifactId>mlflow-client</artifactId>
+      <version>${mlflow.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.testng</groupId>
+          <artifactId>testng</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
       <groupId>tech.tablesaw</groupId>
       <artifactId>tablesaw-core</artifactId>
       <version>${tablesaw.version}</version>
     </dependency>
+
     <dependency>
       <groupId>tech.tablesaw</groupId>
       <artifactId>tablesaw-jsplot</artifactId>
@@ -147,6 +162,14 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>1.5.27</version>
+    </dependency>
+
+    <!-- Source: https://mvnrepository.com/artifact/org.testcontainers/testcontainers -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>

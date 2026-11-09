@@ -89,6 +89,11 @@ class AgentDQNTest {
         );
     }
 
+    @AfterEach
+    void tearDown() {
+        if (agent != null) agent.close();
+    }
+
     @Test
     @DisplayName("Should decay epsilon correctly while respecting the minimum threshold")
     void shouldDecayEpsilonCorrectlyAndRespectMinimum() {
@@ -114,25 +119,26 @@ class AgentDQNTest {
     @Test
     @DisplayName("Should select greedy action from online network when epsilon is zero (Exploitation)")
     void shouldSelectGreedyActionFromNetworkWhenExploiting() {
-        AgentDQN exploitativeAgent = new AgentDQN(
+        try (var exploitativeAgent = new AgentDQN(
                 0.0f,
                 updateQTargetAtTimeN, minEpsilon, epsilonDecay, gamma,
                 env, optimizer, manager,
-                () -> onlineNet, plotTrackers,false
-        );
+                () -> onlineNet, plotTrackers, false
+        )) {
 
-        var oneBatchState = mock(NDArray.class);
+            var oneBatchState = mock(NDArray.class);
 
-        when(mockState.expandDims(0)).thenReturn(oneBatchState);
-        when(onlineNet.forwardLong(eq(oneBatchState), any(UnaryOperator.class)))
-                .thenReturn(2L);
+            when(mockState.expandDims(0)).thenReturn(oneBatchState);
+            when(onlineNet.forwardLong(eq(oneBatchState), any(UnaryOperator.class)))
+                    .thenReturn(2L);
 
-        var result = exploitativeAgent.selectAction(mockState);
+            var result = exploitativeAgent.selectAction(mockState);
 
-        assertNotNull(result);
-        verify(mockState, times(1)).expandDims(0);
-        verify(onlineNet, times(1)).forwardLong(eq(oneBatchState), any(UnaryOperator.class));
-        verify(oneBatchState, times(1)).close();
+            assertNotNull(result);
+            verify(mockState, times(1)).expandDims(0);
+            verify(onlineNet, times(1)).forwardLong(eq(oneBatchState), any(UnaryOperator.class));
+            verify(oneBatchState, times(1)).close();
+        }
     }
 
     @Test

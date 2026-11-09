@@ -2,7 +2,6 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import lombok.Cleanup;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import org.bytedeco.cpython.PyObject;
@@ -14,6 +13,7 @@ import static br.com.guialves.rflr.gymnasium4j.utils.NumPy2DJLTypeMapper.numpyTo
 import static br.com.guialves.rflr.python.PythonDataStructures.toIntArray;
 import static br.com.guialves.rflr.python.PythonRuntime.attr;
 import static br.com.guialves.rflr.python.PythonRuntime.attrStr;
+import static br.com.guialves.rflr.python.PythonRuntime.decRef;
 
 @Accessors(fluent = true)
 public class EnvStateMetadata {
@@ -29,8 +29,14 @@ public class EnvStateMetadata {
     protected final int size;
 
     static EnvStateMetadata fromNumpy(PyObject arr) {
-        @Cleanup var shapeAttr = attr(arr, "shape");
-        int[] shape = toIntArray(shapeAttr);
+        var shapeAttr = attr(arr, "shape");
+        int[] shape;
+        try {
+            shape = toIntArray(shapeAttr);
+        } finally {
+            decRef(shapeAttr);
+        }
+
         String dtype = attrStr(arr, "dtype");
 
         long[] longShape = Arrays.stream(shape).mapToLong(i -> i).toArray();

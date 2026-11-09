@@ -35,9 +35,6 @@ class PreProcessingWrapperTest {
     @BeforeEach
     void setUp() {
 
-        if (manager != null) manager.close();
-        if (wrapper != null) wrapper.close();
-
         manager = NDManager.newBaseManager();
         env = Gym.builder()
                 .importLib("ale_py")
@@ -50,8 +47,8 @@ class PreProcessingWrapperTest {
     @AfterEach
     @SneakyThrows
     void tearDown() {
-        env.close();
-        manager.close();
+        if (wrapper != null) wrapper.close();
+        if (manager != null) manager.close();
     }
 
     @Test

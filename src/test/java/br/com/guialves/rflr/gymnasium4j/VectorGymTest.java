@@ -36,7 +36,7 @@ class VectorGymTest {
         var envName = "CartPole-v1";
         int numberOfEnvs = 4;
         try (var render = Mockito.spy(new EnvRenderWindow(numberOfEnvs));
-             var ndManager = Mockito.spy(NDManager.newBaseManager());
+             var ndManager = NDManager.newBaseManager();
              var env = VectorGym.makeVec(envName, async, numberOfEnvs)) {
 
             log.info("action space: {}, state space: {}", env.actionSpaceStr(), env.observationSpaceStr());
@@ -44,27 +44,34 @@ class VectorGymTest {
             assertTrue(env.actionSpaceStr().contains("MultiDiscrete([2 2 2 2])"));
             assertTrue(env.observationSpaceStr().contains("Box([[-4.8"));
 
-            env.reset(ndManager);
-            VecEnvStepResults stepResults = null;
-            for (int frame = 1; frame <= 1000; ++frame) {
-                var imgs = env.renderVec();
-                assertEquals(numberOfEnvs, imgs.size());
-                render.displayAndWait(imgs);
-                for (var img : imgs) {
-                    assertEquals(400, img.getHeight());
-                    assertEquals(600, img.getWidth());
-                }
-
-                var action = env.actionSpaceSample();
-                stepResults = env.stepVec(action, ndManager);
-                if (stepResults.anyTerm()) break;
-                else stepResults.close();
+            try (var resetResult = env.reset(ndManager)) {
+                assertNotNull(resetResult.state());
             }
 
-            assertNotNull(stepResults);
-            assertNotNull(stepResults.info());
-            assertTrue(stepResults.anyDone());
-            assertTrue(stepResults.anyTerm());
+            VecEnvStepResults stepResults = null;
+            try {
+                for (int frame = 1; frame <= 1000; ++frame) {
+                    var imgs = env.renderVec();
+                    assertEquals(numberOfEnvs, imgs.size());
+                    render.displayAndWait(imgs);
+                    for (var img : imgs) {
+                        assertEquals(400, img.getHeight());
+                        assertEquals(600, img.getWidth());
+                    }
+
+                    var action = env.actionSpaceSample();
+                    stepResults = env.stepVec(action, ndManager);
+                    if (stepResults.anyTerm()) break;
+                    else stepResults.close();
+                }
+
+                assertNotNull(stepResults);
+                assertNotNull(stepResults.info());
+                assertTrue(stepResults.anyDone());
+                assertTrue(stepResults.anyTerm());
+            } finally {
+                if (stepResults != null) stepResults.close();
+            }
         }
     }
 

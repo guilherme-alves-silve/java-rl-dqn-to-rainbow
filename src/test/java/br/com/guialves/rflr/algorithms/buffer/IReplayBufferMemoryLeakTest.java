@@ -31,6 +31,7 @@ public class IReplayBufferMemoryLeakTest {
     @AfterAll
     static void shutdown() {
         testManager.close();
+        systemManager.close();
     }
 
     /**

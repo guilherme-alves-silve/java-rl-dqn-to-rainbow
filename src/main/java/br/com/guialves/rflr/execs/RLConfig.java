@@ -5,6 +5,7 @@ import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
+import br.com.guialves.rflr.utils.ModelFileNames;
 import lombok.Builder;
 import lombok.SneakyThrows;
 
@@ -84,16 +85,29 @@ public record RLConfig(
     }
 
     public RLConfig {
-        epsilonDecay = (maxEpsilon - minEpsilon) / framesLimit;
+        framesSkip = framesSkip <= 0 ? DEFAULT_FRAMES_SKIP : framesSkip;
+        epsilonDecay = epsilonDecay > 0 ? epsilonDecay : (maxEpsilon - minEpsilon) / framesLimit;
         path = path != null ? path : Paths.get("./output_models/", algorithmName);
         vectorized = vectorized == null ? Vectorized.NONE : vectorized;
         channels = channels <= 0 ? DEFAULT_CHANNELS : channels;
         envParams = envParams == null ? Gym.builderMap() : envParams;
-        framesSkip = framesSkip <= 0 ? DEFAULT_FRAMES_SKIP : framesSkip;
     }
 
     public void importLibsIn(Gym.EnvBuilder envBuilder) {
         importLibs().forEach(envBuilder::importLib);
+    }
+
+    /**
+     * Name of the file that holds the model trained by this configuration, without
+     * the {@code -NNNN.params} suffix added by DJL.
+     * <p>
+     * The environment name may contain a path separator (e.g. {@code ALE/Galaxian-v5}),
+     * so it is sanitized to keep every model in a single folder.
+     *
+     * @return the model file name used when saving and when reloading the model
+     */
+    public String modelFileName() {
+        return ModelFileNames.build(envName(), algorithmName());
     }
 
     @Override

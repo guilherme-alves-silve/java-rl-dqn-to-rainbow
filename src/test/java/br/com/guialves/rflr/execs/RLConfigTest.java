@@ -9,6 +9,7 @@ import java.nio.file.Path;
 
 import static br.com.guialves.rflr.execs.RLConfig.Vectorized;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RLConfigTest {
@@ -77,6 +78,25 @@ class RLConfigTest {
         void shouldDefaultPath() {
             var config = base().build();
             assertEquals(Path.of("./output_models/", ALGORITHM_NAME), config.path());
+        }
+    }
+
+    @Nested
+    @DisplayName("The model file name must be a plain file name")
+    class ModelFileName {
+
+        @Test
+        @DisplayName("the path separator of the environment name is removed")
+        void shouldRemovePathSeparator() {
+            var config = base().build();
+            var modelFileName = config.modelFileName();
+
+            assertFalse(modelFileName.contains("/"),
+                    "The model name must not create a folder: " + modelFileName);
+            assertFalse(modelFileName.contains("\\"),
+                    "The model name must not create a folder: " + modelFileName);
+            assertTrue(modelFileName.startsWith("ALE-Enduro-v5_"), modelFileName);
+            assertTrue(modelFileName.endsWith("_" + ALGORITHM_NAME), modelFileName);
         }
     }
 }

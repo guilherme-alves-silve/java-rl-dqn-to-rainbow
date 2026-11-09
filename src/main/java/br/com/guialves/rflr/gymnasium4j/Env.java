@@ -3,6 +3,7 @@ package br.com.guialves.rflr.gymnasium4j;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
+import br.com.guialves.rflr.python.PyRef;
 import lombok.Cleanup;
 import lombok.Getter;
 import lombok.NonNull;
@@ -23,6 +24,7 @@ import static br.com.guialves.rflr.python.PythonRuntime.*;
 import static br.com.guialves.rflr.python.PythonTypeChecks.isSequence;
 import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.fillFromNumpy;
 import static br.com.guialves.rflr.python.numpy.NumPyByteBuffer.onHeapBufferNumpy;
+import static org.bytedeco.cpython.global.python.*;
 
 @Slf4j
 @Accessors(fluent = true)
@@ -89,7 +91,7 @@ public final class Env implements IEnv {
 
     @Override
     public ActionResult actionSpaceSample() {
-        @Cleanup var pySample = callMethod(pyActionSpace, "sample");
+        var pySample = callMethod(pyActionSpace, "sample");
         return actionSpaceType.convert(pySample);
     }
 
@@ -188,7 +190,8 @@ public final class Env implements IEnv {
         int size = (int) getSequenceSize(tupleNDArray);
         var bufferedImages = new ArrayList<BufferedImage>(size);
         for (int i = 0; i < size; ++i) {
-            @Cleanup var ndarray = getItem(tupleNDArray, i);
+            // borrowed reference, you don't close
+            var ndarray = getItem(tupleNDArray, i);
             var bufferedImage = ndarrayToBufferedImage(ndarray);
             bufferedImages.add(bufferedImage);
         }
@@ -228,29 +231,34 @@ public final class Env implements IEnv {
         }
         this.closed = true;
 
-        if (DEBUG) {
-            log.info("Before close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
-                    refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
-                    refCount(pyRender), refCount(pyStep), refCount(pyReset));
+        int state = PyGILState_Ensure();
+        try {
+            if (DEBUG) {
+                log.info("Before close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
+                        refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
+                        refCount(pyRender), refCount(pyStep), refCount(pyReset));
+            }
+
+            decRef(pyActionSpace);
+            decRef(pyObservationSpace);
+            decRef(pyRender);
+            decRef(pyStep);
+            decRef(pyReset);
+            decRef(pyEnv);
+
+            exec("if 'env_%s' in globals(): del env_%s".formatted(varEnvCode, varEnvCode));
+
+            if (DEBUG) {
+                log.info("After close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
+                        refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
+                        refCount(pyRender), refCount(pyStep), refCount(pyReset));
+            }
+
+            this.stateBuffer = null;
+            this.imageBuffer = null;
+        } finally {
+            PyGILState_Release(state);
         }
-
-        decRef(pyActionSpace);
-        decRef(pyObservationSpace);
-        decRef(pyRender);
-        decRef(pyStep);
-        decRef(pyReset);
-        decRef(pyEnv);
-
-        exec("if 'env_%s' in globals(): del env_%s".formatted(varEnvCode, varEnvCode));
-
-        if (DEBUG) {
-            log.info("After close - pyEnv: {}, pyActionSpace: {}, pyObservationSpace: {}, pyRender: {}, pyStep: {}, pyReset: {}",
-                    refCount(pyEnv), refCount(pyActionSpace), refCount(pyObservationSpace),
-                    refCount(pyRender), refCount(pyStep), refCount(pyReset));
-        }
-
-        this.stateBuffer = null;
-        this.imageBuffer = null;
 
         log.info("Closed Env");
     }

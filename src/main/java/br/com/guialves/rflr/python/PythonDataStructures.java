@@ -177,10 +177,10 @@ public final class PythonDataStructures {
             if (item == null) throw new IllegalStateException("Mapper returned null");
 
             if (PyList_SetItem(pyList, i, item) != 0) {
-                item.close();
+                decRef(item);
             }
         }
-        return pyList;
+        return PyRef.of(pyList);
     }
 
     public static PyObject pyList(double... values) {
@@ -210,23 +210,23 @@ public final class PythonDataStructures {
             PyObject item = supplier.apply(i);
 
             if (PyList_SetItem(pyList, i, item) != 0) {
-                item.close();
+                decRef(item);
             }
         }
-        return pyList;
+        return PyRef.of(pyList);
     }
 
     public static PyObject pyTuple() {
         PyObject tuple = PyTuple_New(0);
         if (tuple == null) checkError();
-        return tuple;
+        return PyRef.of(tuple);
     }
 
     public static PyObject pyTuple(int size) {
         if (size < 0) throw new IllegalArgumentException("Negative tuple size");
         PyObject tuple = PyTuple_New(size);
         if (tuple == null) checkError();
-        return tuple;
+        return PyRef.of(tuple);
     }
 
     public static PyObject pyTuple(Function<Number, PyObject> mapper, Number... values) {
@@ -262,22 +262,22 @@ public final class PythonDataStructures {
             if (item == null) checkError();
 
             if (PyTuple_SetItem(tuple, i, item) != 0) {
-                item.close();
+                decRef(item);
             }
         }
-        return tuple;
+        return PyRef.of(tuple);
     }
 
     public static PyObject pySet() {
         PyObject set = PySet_New(null);
         if (set == null) checkError();
-        return set;
+        return PyRef.of(set);
     }
 
     public static PyObject pySet(PyObject iterable) {
         PyObject set = PySet_New(iterable);
         if (set == null) checkError();
-        return set;
+        return PyRef.of(set);
     }
 
     public static PyObject pySet(int... values) {
@@ -315,13 +315,14 @@ public final class PythonDataStructures {
             }
         }
 
+        // Already owned by PyRef
         return set;
     }
 
     public static PyObject pyDict() {
         PyObject dict = PyDict_New();
         if (dict == null) checkError();
-        return dict;
+        return PyRef.of(dict);
     }
 
     public static PyObject pyDict(Object[] keys, Object[] values,
@@ -352,7 +353,7 @@ public final class PythonDataStructures {
                 }
             }
         }
-        return dict;
+        return PyRef.of(dict);
     }
 
     public static PyObject pyDictStr(String[] keys, Object[] values,
@@ -379,7 +380,7 @@ public final class PythonDataStructures {
                 }
             }
         }
-        return dict;
+        return PyRef.of(dict);
     }
 
     private static Object primitiveOrObjFromPy(PyObject obj) {

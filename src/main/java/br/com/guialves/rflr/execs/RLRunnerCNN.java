@@ -46,7 +46,7 @@ public class RLRunnerCNN {
     public static List<ManagerNode> run(RLConfig config,
                                         AgentFactory agentFactory) {
         var path = config.path();
-        var modelFileName = config.envName() + "_" + System.currentTimeMillis() + "_" + config.algorithmName();
+        var modelFileName = config.modelFileName();
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
         @Cleanup var parent = cappedParentMgr(device);
         Gym.EnvBuilder envBuilder;

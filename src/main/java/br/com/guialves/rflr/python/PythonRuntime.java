@@ -147,6 +147,17 @@ public final class PythonRuntime {
         }
     }
 
+    /**
+     * Evaluates a Python expression in the runtime globals.
+     * <p>{@code PyRun_StringFlags} returns a <b>new</b> reference. The
+     * {@code try-with-resources} block below does <b>not</b> release it (see
+     * {@link #decRef(PyObject)}), so the returned object stays valid and the
+     * caller owns the reference: it must be released with
+     * {@link #decRef(PyObject)} or {@link #decRef(PyObject)}.</p>
+     *
+     * @param expression the expression to evaluate
+     * @return the resulting object, as a new reference owned by the caller
+     */
     public static PyObject eval(String expression) {
         PyErr_Clear();
         try (var result = PyRun_StringFlags(
@@ -157,31 +168,58 @@ public final class PythonRuntime {
                 null
         )) {
             checkError();
-            return result;
+            return PyRef.of(result);
         }
     }
 
+    /**
+     * @return the number of live Python objects, as reported by
+     *         {@code sys.getallocatedblocks()}
+     */
+    public static long allocatedPythonBlocks() {
+        // eval() transfers the ownership of a new Python reference: it must be released.
+        @Cleanup var value = eval("__import__('sys').getallocatedblocks()");
+        return toLong(value);
+    }
+
     public static String toType(PyObject obj) {
-        @Cleanup var type = PyObject_Type(obj);
-        return toStr(type);
+        var type = PyObject_Type(obj);
+        try {
+            return toStr(type);
+        } finally {
+            decRef(type);
+        }
     }
 
     public static String toStr(PyObject obj) {
         return toStr(obj, "");
     }
 
+    /**
+     * Converts a Python object to its {@code str} representation.
+     * <p><b>Reference ownership:</b> {@code PyObject_Str} and
+     * {@code PyUnicode_AsUTF8String} both return a <i>new</i> reference, so they
+     * are released here. {@code PyBytes_AsString} returns a <i>borrowed</i>
+     * reference and must not be released.</p>
+     * <p>Note that {@code try-with-resources} cannot be used to release a
+     * {@link PyObject}: the JavaCPP binding declares {@code PyObject} as
+     * {@code @Opaque} without a deallocator, therefore {@code close()} is a no-op
+     * and never calls {@code Py_DECREF}. See {@link #decRef(PyObject)}.</p>
+     */
     public static String toStr(PyObject obj, String msg) {
         if (null == obj || Py_IsNone(obj) == 1) {
             return null;
         }
 
-        try (var pyStr = PyObject_Str(obj)) {
+        var pyStr = PyObject_Str(obj);
+        try {
             if (pyStr == null) {
                 PyErr_Print();
                 throw new RuntimeException("PyObject_Str failed: " + msg);
             }
 
-            try (var bytes = PyUnicode_AsUTF8String(pyStr)) {
+            var bytes = PyUnicode_AsUTF8String(pyStr);
+            try {
                 if (bytes == null) {
                     PyErr_Print();
                     throw new RuntimeException("PyUnicode_AsUTF8String failed: " + msg);
@@ -190,10 +228,23 @@ public final class PythonRuntime {
                 try (var temp = PyBytes_AsString(bytes)) {
                     return temp.getString();
                 }
+            } finally {
+                decRef(bytes);
             }
+        } finally {
+            decRef(pyStr);
         }
     }
 
+    /**
+     * Reads an attribute from a Python object.
+     *
+     * @param obj  the object to read from
+     * @param attr the attribute name
+     * @return the attribute value, as a <b>new</b> Python reference owned by the
+     *         caller. The caller <b>must</b> release it with {@link #decRef(PyObject)}
+     *         (or {@link #decRef(PyObject)}) when done.
+     */
     public static PyObject attr(PyObject obj, String attr) {
         var result = PyObject_GetAttrString(obj, attr);
         if (isPyNull(result)) {
@@ -207,9 +258,18 @@ public final class PythonRuntime {
         return PyObject_HasAttrString(obj, name) == 1;
     }
 
+    /**
+     * Reads an attribute and converts it to its {@code str} representation.
+     * <p>{@code PyObject_GetAttrString} returns a <b>new</b> reference, released
+     * here. See {@link #toStr(PyObject, String)} for why {@code try-with-resources}
+     * cannot be used for this purpose.</p>
+     */
     public static String attrStr(PyObject obj, String attr) {
-        try (var attrObj = PyObject_GetAttrString(obj, attr)) {
+        var attrObj = PyObject_GetAttrString(obj, attr);
+        try {
             return toStr(attrObj);
+        } finally {
+            decRef(attrObj);
         }
     }
 
@@ -235,7 +295,7 @@ public final class PythonRuntime {
             PyErr_Print();
             throw new RuntimeException("Failed to call PyObject");
         }
-        return result.retainReference();
+        return PyRef.of(result);
     }
 
     public static PyObject callMethod(PyObject obj, String method, PyObject... args) {
@@ -280,7 +340,7 @@ public final class PythonRuntime {
                     PyErr_Print();
                     throw new RuntimeException("Failed to call method: " + method);
                 }
-                return result.retainReference();
+                return PyRef.of(result);
             } finally {
                 Py_DECREF(tuple);
             }
@@ -291,6 +351,17 @@ public final class PythonRuntime {
         }
     }
 
+    /**
+     * Calls a Python callable.
+     * <p>{@code PyObject_CallObject} returns a <b>new</b> reference. The
+     * {@code retainReference()} call is a no-op for {@link PyObject} (it has no
+     * deallocator), so the caller owns the reference and must release it with
+     * {@link #decRef(PyObject)} or {@link #decRef(PyObject)}.</p>
+     *
+     * @param fn   the callable
+     * @param args the call arguments
+     * @return the call result, as a new reference owned by the caller
+     */
     public static PyObject callFunction(PyObject fn, PyObject... args) {
         if (isPyNull(fn)) {
             throw new IllegalArgumentException("Cannot call null function");
@@ -303,7 +374,7 @@ public final class PythonRuntime {
                 PyErr_Print();
                 throw new RuntimeException("Failed to call function");
             }
-            return result.retainReference();
+            return PyRef.of(result);
         } finally {
             Py_DECREF(tuple);
         }
@@ -382,11 +453,32 @@ public final class PythonRuntime {
     }
 
     public static void incRef(PyObject obj) {
-        Py_INCREF(obj);
+        if (obj != null && !obj.isNull()) {
+            Py_INCREF(obj);
+        }
     }
 
+    /**
+     * Releases a Python reference previously obtained from an API that returns a
+     * <b>new</b> reference ({@code PyObject_GetAttrString}, {@code PyObject_CallObject},
+     * {@code PyObject_Str}, {@code PyObject_Type}, {@code PyRun_StringFlags}, ...).
+     *
+     * <p><b>Why not {@code close()}/{@code @Cleanup}?</b> The JavaCPP binding declares
+     * {@link PyObject} as {@code @Opaque} <b>without a deallocator</b>. Therefore
+     * {@code Pointer.close()} (which delegates to {@code releaseReference()}) and
+     * {@code retainReference()} are both no-ops for {@code PyObject}: they neither
+     * call {@code Py_DECREF} nor invalidate the pointer. Every {@code try-with-resources}
+     * over a {@code PyObject} silently leaks one Python reference.</p>
+     *
+     * <p>This method is null-safe and never touches a borrowed reference: it must only
+     * be used for references whose ownership was transferred to Java.</p>
+     *
+     * @param obj the reference to release, may be {@code null}
+     */
     public static void decRef(PyObject obj) {
-        Py_DECREF(obj);
+        if (obj != null && !obj.isNull()) {
+            Py_DECREF(obj);
+        }
     }
 
     public static void refDecSafe(PyObject obj) {
@@ -417,7 +509,10 @@ public final class PythonRuntime {
 
     static void printDict(PyObject dict, String msg) {
         log.info(msg);
-        try (var items = PyDict_Items(dict)) {
+        // PyDict_Items() returns a new reference; PyList_GetItem()/PyTuple_GetItem()
+        // return borrowed ones.
+        var items = PyDict_Items(dict);
+        try {
             long size = PyList_Size(items);
 
             for (int i = 0; i < size; i++) {
@@ -430,6 +525,8 @@ public final class PythonRuntime {
                     IO.println("  " + keyStr + " = " + valueStr);
                 }
             }
+        } finally {
+            decRef(items);
         }
     }
 }

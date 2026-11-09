@@ -20,7 +20,7 @@ class GymTest {
         // https://gymnasium.farama.org/environments/classic_control/cart_pole/
         var envName = "CartPole-v1";
         try (var render = Mockito.spy(new EnvRenderWindow());
-             var ndManager = Mockito.spy(NDManager.newBaseManager());
+             var ndManager = NDManager.newBaseManager();
              var env = Gym.make(envName)) {
 
             log.info("action space: {}, state space: {}", env.actionSpaceStr(), env.observationSpaceStr());
@@ -28,7 +28,10 @@ class GymTest {
             assertTrue(env.actionSpaceStr().contains("Discrete(2)"));
             assertTrue(env.observationSpaceStr().contains("Box([-4.8"));
 
-            env.reset(ndManager);
+            try (var resetResult = env.reset(ndManager)) {
+                assertNotNull(resetResult.state());
+            }
+
             int frame;
             EnvStepResult stepResult = null;
             for (frame = 1; frame <= 100; ++frame) {
@@ -48,6 +51,7 @@ class GymTest {
             assertTrue(stepResult.done());
             assertTrue(stepResult.term());
             assertTrue(frame > 0);
+            stepResult.close();
         }
     }
 
@@ -110,7 +114,7 @@ class GymTest {
                 .containsPattern("env_[0-9a-f]{32} = MaxAndSkipObservation\\(env_[0-9a-f]{32}, skip=4\\)")
                 .containsPattern("env_[0-9a-f]{32} = FrameStackObservation\\(env_[0-9a-f]{32}, stack_size=4\\)")
                 .containsPattern("env_[0-9a-f]{32} = ReshapeObservation\\(env_[0-9a-f]{32}, shape=\\[1, 84, 84]\\)")
-                .containsPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\[50, 50, 1]\\)")
+                .containsPattern("env_[0-9a-f]{32} = ResizeObservation\\(env_[0-9a-f]{32}, shape=\\(50,50,1\\)\\)")
                 .containsPattern("env_[0-9a-f]{32} = RecordVideo\\(env_[0-9a-f]{32}, video_folder='/tmp/video', " +
                         "episode_trigger=lambda t: t % 10 == 0, step_trigger=lambda t: t % 1000 == 0, " +
                         "video_length=500, name_prefix='test-prefix', fps=30, disable_logger=True, gc_trigger=50\\)")
