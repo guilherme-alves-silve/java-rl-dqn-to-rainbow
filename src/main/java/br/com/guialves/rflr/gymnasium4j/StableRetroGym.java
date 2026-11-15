@@ -15,6 +15,8 @@ public class StableRetroGym extends VectorGym {
             super.functionDefinitions.add("""
             def make_retro_env(idx: int, env_wrappers: tuple[str, dict]):
                 def _init_retro():
+                    ${importLibsPy}
+                    ${importPy}
                     env_name, wrappers = env_wrappers
                     env = retro.make(game=env_name, render_mode='rgb_array', inttype=retro.data.Integrations.ALL)
                     for wrapper, wrapper_params in wrappers:

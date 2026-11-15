@@ -4,6 +4,8 @@ import org.bytedeco.cpython.PyObject;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedList;
+
 import static org.bytedeco.cpython.global.python.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,9 +20,7 @@ public class PyRefTest {
 
     @BeforeAll
     public static void setUp() throws Exception {
-        boolean initialized = org.bytedeco.cpython.helper.python.Py_Initialize(
-                org.bytedeco.cpython.presets.python.cachePackages());
-        assertTrue(initialized, "CPython failed to initialize");
+        PythonRuntime.initPython();
 
         globals = PyModule_GetDict(PyImport_AddModule("__main__"));
         assertFalse(globals == null || globals.isNull(), "globals is null");
@@ -43,18 +43,30 @@ public class PyRefTest {
         return count - 1;
     }
 
+    /**
+     * A raw {@link PyObject} cannot release its own reference: {@code close()} is
+     * a no-op. The owned references are therefore accumulated in a linked list
+     * and deallocated once the test is over, instead of being leaked for the
+     * rest of the JVM lifetime.
+     */
     @Test
     public void testCloseOnPlainPyObjectDoesNotRelease() {
+        var releasedLater = new LinkedList<PyObject>();
         long before = objRefCount();
-        for (int i = 0; i < ITERATIONS; i++) {
-            try (PyObject ignored = PyObject_GetAttrString(holder, "obj")) {
-                // close() does nothing: the reference is not released
+        try {
+            for (int i = 0; i < ITERATIONS; i++) {
+                try (PyObject ignored = PyObject_GetAttrString(holder, "obj")) {
+                    // close() does nothing: the reference is not released
+                    releasedLater.add(ignored);
+                }
             }
-        }
 
-        long expectedLeak = before + ITERATIONS;
-        assertEquals(expectedLeak, objRefCount(), "close() on a plain PyObject leaked " + (objRefCount() - before)
-                + " references");
+            long expectedLeak = before + ITERATIONS;
+            assertEquals(expectedLeak, objRefCount(), "close() on a plain PyObject leaked " + (objRefCount() - before)
+                    + " references");
+        } finally {
+            releasedLater.forEach(PythonRuntime::decRef);
+        }
     }
 
     @Test

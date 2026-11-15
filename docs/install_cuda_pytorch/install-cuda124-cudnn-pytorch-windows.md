@@ -5,7 +5,7 @@ Notes from getting DJL's PyTorch engine (cu124 native) working on Windows with a
 ## Context - DJL versions used
 
 ```xml
-<djl.version>0.36.0</djl.version>
+<djl.version>0.40.0</djl.version>
 <djl.native.version>2.5.1</djl.native.version>
 ```
 
@@ -148,7 +148,7 @@ The DLL itself existed on disk (confirmed with `Files.exists`) - the error is Wi
 22:12:41.705 [main] DEBUG ai.djl.pytorch.jni.LibUtils - Loading native library: C:\Users\UserName\.djl.ai\pytorch\2.5.1-20241113-cu124-win-x86_64\c10_cuda.dll
 22:12:41.707 [main] DEBUG ai.djl.pytorch.jni.LibUtils - Loading native library: C:\Users\UserName\.djl.ai\pytorch\2.5.1-20241113-cu124-win-x86_64\torch_cuda.dll
 22:12:41.727 [main] DEBUG ai.djl.pytorch.jni.LibUtils - Loading native library: C:\Users\UserName\.djl.ai\pytorch\2.5.1-20241113-cu124-win-x86_64\torch.dll
-22:26:19.895 [main] DEBUG ai.djl.pytorch.jni.LibUtils - Loading native library: C:\Users\UserName\.djl.ai\pytorch\2.5.1-20241113-cu124-win-x86_64\0.36.0-djl_torch.dll
+22:26:19.895 [main] DEBUG ai.djl.pytorch.jni.LibUtils - Loading native library: C:\Users\UserName\.djl.ai\pytorch\2.5.1-20241113-cu124-win-x86_64\0.40.0-djl_torch.dll
 22:26:20.735 [main] INFO  ai.djl.pytorch.engine.PtEngine - PyTorch graph executor optimizer is enabled, this may impact your inference latency and throughput. See: https://docs.djl.ai/master/docs/development/inference_performance_optimization.html#graph-executor-optimization
 22:26:20.743 [main] INFO  ai.djl.pytorch.engine.PtEngine - Number of inter-op threads is 12
 22:26:20.743 [main] INFO  ai.djl.pytorch.engine.PtEngine - Number of intra-op threads is 12

@@ -46,7 +46,7 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.*;
  */
 @Slf4j
 @Accessors(fluent = true)
-public class RainbowQNetworkMLP implements INoisyNetwork, ICategoricalNetwork {
+public class RainbowQNetworkMLP implements IRainbowQNetwork {
 
     private boolean training;
     private final NDManager subManager;
@@ -215,6 +215,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork, ICategoricalNetwork {
         return catProj.project(probNextDist, rewards, dones, gamma);
     }
 
+    @Override
     public int atoms() {
         return atoms;
     }
@@ -277,6 +278,7 @@ public class RainbowQNetworkMLP implements INoisyNetwork, ICategoricalNetwork {
      * to (batch, 1, atoms), e.g.: (32, 1, 1) -> (32, 1, 51)
      * @return NDArray of shape (1, 1, atoms), e.g.: (1, 1, 51)
      */
+    @Override
     public NDArray newAtomsBroadcaster(NDManager external) {
         return external.ones(new Shape(1, 1, atoms))
                 .stopGradient();

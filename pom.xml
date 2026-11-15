@@ -32,6 +32,7 @@
     <junit.version>6.0.3</junit.version>
     <mlflow.version>3.11.1</mlflow.version>
     <testcontainers.version>2.0.5</testcontainers.version>
+    <apache.text.version>1.15.0</apache.text.version>
   </properties>
 
   <dependencyManagement>
@@ -108,6 +109,14 @@
       <artifactId>carla-simulator-javacpp</artifactId>
       <version>${carla.version}</version>
       <classifier>${os.detected.classifier}</classifier>
+    </dependency>
+
+    <!-- Source: https://mvnrepository.com/artifact/org.apache.commons/commons-text -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-text</artifactId>
+      <version>${apache.text.version}</version>
+      <scope>compile</scope>
     </dependency>
 
     <!-- Source: https://mvnrepository.com/artifact/ai.djl/api -->

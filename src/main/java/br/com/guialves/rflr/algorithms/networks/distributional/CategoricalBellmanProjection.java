@@ -102,7 +102,7 @@ public class CategoricalBellmanProjection {
                 // Tz = r + γ * z_j * (1 - done)
                 float targetProj = Math.clamp(reward + gamma * supportVectorZ[atomIdx] * notDone, vMin, vMax);
                 // b = (Tz - vMin) / ∆z
-                float baseIdx = (targetProj - vMin) / zDelta;
+                float baseIdx = Math.clamp((targetProj - vMin) / zDelta, 0f, atoms - 1);
                 int lowerIdx = (int) Math.floor(baseIdx);
                 int upperIdx = (int) Math.ceil(baseIdx);
                 float prob = probNextDistArr[offset + atomIdx];

@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.cpython.PyObject;
 
 import java.util.Arrays;
-import java.util.List;
 
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;

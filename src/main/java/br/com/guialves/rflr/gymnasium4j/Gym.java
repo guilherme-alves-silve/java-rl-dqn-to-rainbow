@@ -7,7 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 
-import static java.util.Objects.requireNonNull;
+import org.apache.commons.text.StringSubstitutor;
+
 import static java.util.stream.Collectors.joining;
 
 @Slf4j
@@ -30,6 +31,13 @@ public class Gym {
 
     public static sealed class EnvBuilder permits VectorGym.VectorEnvBuilder {
 
+        /**
+         * Indentation (in spaces) applied to the multi-line blocks of the generated
+         * Python script, so that they stay inside the {@code if __name__ == "__main__":}
+         * block.
+         */
+        protected static final int N_INDENT = 2;
+
         protected final String varEnvCode;
         protected final List<String> importLibs;
         protected final List<String> functionDefinitions;
@@ -45,6 +53,8 @@ public class Gym {
             this.functionDefinitions.add("""
             def make_env(idx: int, env_wrappers: tuple[str, dict]):
                 def _init():
+                    ${importLibsPy}
+                    ${importPy}
                     env_name, wrappers = env_wrappers
                     env = gym.make(id=env_name, render_mode='rgb_array')
                     for wrapper, wrapper_params in wrappers:
@@ -84,28 +94,58 @@ public class Gym {
             return this;
         }
 
+        /**
+         * Generates the Python script that creates the environment.
+         * <p>
+         * The script is assembled with {@link StringSubstitutor}: the template declares
+         * the blocks as {@code ${...}} placeholders and every block is substituted
+         * already indented, so the result is valid Python.
+         * </p>
+         * <p>
+         * The imports are placed twice on purpose: once at module level, for the
+         * process that creates the environment, and once inside {@code _init()}, for
+         * the worker processes spawned by {@code AsyncVectorEnv} — a worker is a brand
+         * new interpreter that does not inherit the parent's registry.
+         * </p>
+         *
+         * @return the Python script
+         */
         protected String generatePyEnvScript() {
-            var makeCall = generateMakeCall();
+            var params = new HashMap<String, String>();
             var importLibsPy = generateImportLibsPy();
             var functionDefinitionsCode = generateFunctionDefinitions();
+            var makeCall = generateMakeCall();
+            params.put("importLibsPy", importLibsPy);
+            params.put("functionDefinitionsCode", functionDefinitionsCode.indent(N_INDENT));
+            params.put("makeCallBlock", StringSubstitutor.replace("env_${varEnvCode} = ${makeCall}",
+                    Map.of("varEnvCode", varEnvCode,
+                            "makeCall", makeCall)).indent(N_INDENT));
             if (wrappers.isEmpty()) {
-                return """
-                %s
-                %s
-                env_%s = %s
-                """.formatted(importLibsPy, functionDefinitionsCode, varEnvCode, makeCall);
+                params.put("importPy", "");
+                var template = """
+                ${importLibsPy}
+                if __name__ == "__main__":
+                ${functionDefinitionsCode}
+                ${makeCallBlock}
+                """;
+
+                return StringSubstitutor.replace(template, params);
             }
 
             var importPy = generateImportFromPy();
-            var wrappedEnvPy = generateWrappedEnvPy();
+            params.put("importPy", importPy);
+            params.put("wrappedEnvPy", generateWrappedEnvPy().indent(N_INDENT));
 
-            return """
-            %s
-            %s
-            %s
-            env_%s = %s
-            %s
-            """.formatted(importLibsPy, importPy, functionDefinitionsCode, varEnvCode, makeCall, wrappedEnvPy);
+            var template = """
+            ${importLibsPy}
+            ${importPy}
+            if __name__ == "__main__":
+            ${functionDefinitionsCode}
+            ${makeCallBlock}
+            ${wrappedEnvPy}
+            """;
+
+            return StringSubstitutor.replace(template, params);
         }
 
         protected String generateFunctionDefinitions() {

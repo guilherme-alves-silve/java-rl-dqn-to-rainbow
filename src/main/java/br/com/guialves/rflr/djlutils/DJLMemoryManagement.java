@@ -485,4 +485,11 @@ public class DJLMemoryManagement {
         mgr.setName(name + "-" + mgr.getName());
         return model;
     }
+
+    public static NDArray toCpu(NDArray array) {
+        if (array.getDevice().equals(Device.cpu())) return array;
+        var arrayCpu = array.toDevice(Device.gpu(), false);
+        array.close();
+        return arrayCpu;
+    }
 }

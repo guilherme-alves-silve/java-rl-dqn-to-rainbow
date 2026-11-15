@@ -3,7 +3,6 @@ package br.com.guialves.rflr.gymnasium4j;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
-import br.com.guialves.rflr.python.PyRef;
 import lombok.Cleanup;
 import lombok.Getter;
 import lombok.NonNull;

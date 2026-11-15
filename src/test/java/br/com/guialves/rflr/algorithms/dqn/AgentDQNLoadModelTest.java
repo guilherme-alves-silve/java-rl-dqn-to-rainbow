@@ -8,22 +8,17 @@ import ai.djl.training.optimizer.AdamW;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.fixture.AgentDQNResourceFixture;
 import br.com.guialves.rflr.fixture.MockDiscreteEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for the "load a pre-trained {@code DeepQNetworkMLP} from
@@ -45,7 +40,6 @@ class AgentDQNLoadModelTest {
 
     @BeforeAll
     static void verifyFixturePresent() {
-        // Sanity-check the committed artifact before the tests run.
         assertTrue(Files.exists(AgentDQNResourceFixture.PARAMS_FILE),
                 "Missing fixture at " + AgentDQNResourceFixture.PARAMS_FILE
                         + " - run AgentDQNResourceFixture#main once and commit the file.");
@@ -93,7 +87,6 @@ class AgentDQNLoadModelTest {
             assertEquals(fromOriginal.getShape(), fromLoaded.getShape());
             assertEquals(fromOriginal, fromLoaded);
         } finally {
-            // best-effort cleanup of the temp file we wrote
             try (var walker = Files.walk(tmp)) {
                     walker.sorted((a, b) -> b.getNameCount() - a.getNameCount())
                         .forEach(p -> {
@@ -131,8 +124,7 @@ class AgentDQNLoadModelTest {
                 /* debugMemoryLeak */ false
         );
 
-        @Cleanup var parentPerCall = br.com.guialves.rflr.djlutils.DJLMemoryManagement
-                .subMgr(parent, "load-test-call");
+        @Cleanup var parentPerCall = DJLMemoryManagement.subMgr(parent, "load-test-call");
         @Cleanup var state = parentPerCall.ones(new Shape(OBSERVATIONS));
         var action = agent.selectAction(state);
         assertNotNull(action);

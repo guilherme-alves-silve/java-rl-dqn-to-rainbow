@@ -75,6 +75,54 @@ class VectorGymTest {
         }
     }
 
+    @ParameterizedTest(name = "[{index}] async? {arguments}")
+    @ValueSource(booleans = {false, true})
+    void shouldRunVecAtariEnv(boolean async) {
+        var envName = "ALE/Galaxian-v5";
+        int numberOfEnvs = 4;
+        try (var render = Mockito.spy(new EnvRenderWindow(numberOfEnvs));
+             var ndManager = NDManager.newBaseManager();
+             var env = VectorGym.builder()
+                     .envName(envName)
+                     .numberOfEnvs(numberOfEnvs)
+                     .async(async)
+                     .importLib("ale_py; gym.register_envs(ale_py)")
+                     .build()) {
+
+            assertTrue(env.actionSpaceStr().contains("MultiDiscrete([6 6 6 6])"));
+            assertTrue(env.observationSpaceStr().contains("Box(0, 255, (4, 210, 160, 3), uint8)"));
+
+            try (var resetResult = env.reset(ndManager)) {
+                assertNotNull(resetResult.state());
+            }
+
+            VecEnvStepResults stepResults = null;
+            try {
+                for (int frame = 1; frame <= 1000; ++frame) {
+                    var imgs = env.renderVec();
+                    assertEquals(numberOfEnvs, imgs.size());
+                    if (frame < 50) render.displayAndWait(imgs);
+                    for (var img : imgs) {
+                        assertEquals(210, img.getHeight());
+                        assertEquals(160, img.getWidth());
+                    }
+
+                    var action = env.actionSpaceSample();
+                    stepResults = env.stepVec(action, ndManager);
+                    if (stepResults.anyTerm()) break;
+                    else stepResults.close();
+                }
+
+                assertNotNull(stepResults);
+                assertNotNull(stepResults.info());
+                assertTrue(stepResults.anyDone());
+                assertTrue(stepResults.anyTerm());
+            } finally {
+                if (stepResults != null) stepResults.close();
+            }
+        }
+    }
+
     @Test
     void shouldExposeVectorEnvBuilder() {
         assertThat(VectorGym.builder()).isInstanceOf(VectorGym.VectorEnvBuilder.class);
@@ -276,7 +324,7 @@ class VectorGymTest {
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
-        assertThat(script).containsPattern(VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$")
+        assertThat(script).containsPattern("(?m)" + VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$")
                 .doesNotContain("context=")
                 .doesNotContain("autoreset=");
     }
@@ -291,7 +339,7 @@ class VectorGymTest {
                 .generatePyEnvScript();
 
         assertThat(script).containsPattern(
-                VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*, autoreset=False\\)$");
+                "(?m)" + VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*, autoreset=False\\)$");
     }
 
     @Test
@@ -304,7 +352,7 @@ class VectorGymTest {
                 .generatePyEnvScript();
 
         assertThat(script).containsPattern(
-                VAR_ENV_PATTERN + " = gym\\.vector\\.AsyncVectorEnv\\(.*, context='forkserver'\\)$");
+                "(?m)" + VAR_ENV_PATTERN + " = gym\\.vector\\.AsyncVectorEnv\\(.*, context='forkserver'\\)$");
     }
 
     @Nested
@@ -470,7 +518,7 @@ class VectorGymTest {
 
         assertThat(script).contains("env_params = [ ]")
                 .doesNotContain("from gymnasium.wrappers import")
-                .containsPattern(VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$");
+                .containsPattern("(?m)" + VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$");
     }
 
     @Test

@@ -227,7 +227,7 @@ class StableRetroGymTest {
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
-        assertThat(script).containsPattern(VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$");
+        assertThat(script).containsPattern("(?m)" + VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$");
     }
 
     @Test
@@ -305,11 +305,11 @@ class StableRetroGymTest {
                     .generatePyEnvScript();
 
             var occurrences = script.lines()
-                    .filter(line -> line.startsWith("    def _init_retro():"))
+                    .filter(line -> line.startsWith("      def _init_retro():"))
                     .count();
 
             assertThat(occurrences).isEqualTo(1);
-            assertThat(script.lines().filter(line -> line.equals("    return _init_retro")).count()).isEqualTo(1);
+            assertThat(script.lines().filter(line -> line.equals("      return _init_retro")).count()).isEqualTo(1);
         }
     }
 
@@ -321,7 +321,7 @@ class StableRetroGymTest {
 
         assertThat(script).contains("env_params = [ ]")
                 .doesNotContain("from gymnasium.wrappers import")
-                .containsPattern(VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$");
+                .containsPattern("(?m)" + VAR_ENV_PATTERN + " = gym\\.vector\\.SyncVectorEnv\\(.*\\)$");
     }
 
     /**

@@ -3,6 +3,7 @@ package br.com.guialves.rflr.python;
 import org.bytedeco.cpython.PyObject;
 import org.bytedeco.javacpp.Pointer;
 
+import static br.com.guialves.rflr.python.PythonRuntime.toStr;
 import static org.bytedeco.cpython.global.python.*;
 import static org.bytedeco.cpython.global.python.PyGILState_Release;
 
@@ -82,5 +83,14 @@ public final class PyRef extends PyObject implements AutoCloseable {
             Py_DECREF(self);
         }
         setNull();
+    }
+
+    @Override
+    public String toString() {
+        if (isNull()) {
+            return "{\"pyStr\": " + toStr(this) + ", \"pyMemAddress\": null}";
+        }
+
+        return "{\"pyStr\": " + toStr(this) + ", \"pyMemAddress\": \"" + super.toString() + "\"}";
     }
 }

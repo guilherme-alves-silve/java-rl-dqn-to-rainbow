@@ -13,6 +13,8 @@ import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
 import br.com.guialves.rflr.gymnasium4j.Gym;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
+import br.com.guialves.rflr.gymnasium4j.StableRetroGym;
+import br.com.guialves.rflr.gymnasium4j.VectorGym;
 import br.com.guialves.rflr.gymnasium4j.wrappers.IWrapper;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
@@ -28,7 +30,6 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
 import static br.com.guialves.rflr.utils.PropUtils.getBoolProp;
 
 public class RLRunner {
-
     @FunctionalInterface
     public interface AgentFactory {
         IAgent create(IEnv env, Optimizer optimizer, PlotTrackers plotTrackers, NDManager parent);
@@ -48,16 +49,30 @@ public class RLRunner {
         var modelFileName = config.modelFileName();
         var device = gpuCount() > 0 ? Device.gpu() : Device.cpu();
         @Cleanup var parent = cappedParentMgr(device);
-        var envBuilder = Gym.builder()
-                .envName(config.envName())
-                .params(config.envParams())
-                .add(config.wrappers().toArray(new IWrapper[0]));
+        Gym.EnvBuilder envBuilder;
 
+        boolean async = config.vectorized().isAsync();
+        if (config.stableRetro()) {
+            envBuilder = StableRetroGym.builder()
+                    .envName(config.envName())
+                    .numberOfEnvs(config.numberOfEnvs())
+                    .async(async);
+        } else if (config.isVectorizedEnv()) {
+            envBuilder = VectorGym.builder()
+                    .envName(config.envName())
+                    .numberOfEnvs(config.numberOfEnvs())
+                    .async(async);
+        } else {
+            envBuilder = Gym.builder()
+                    .envName(config.envName())
+                    .params(config.envParams())
+                    .add(config.wrappers().toArray(new IWrapper[0]));
+        }
         config.importLibsIn(envBuilder);
 
         if (getBoolProp("agent.records", "true")) {
             envBuilder.add(config.recordVideo())
-                      .add(config.recordEpisodeStatistics());
+                    .add(config.recordEpisodeStatistics());
         }
 
         @Cleanup var env = envBuilder.build();
@@ -83,7 +98,7 @@ public class RLRunner {
         boolean loadOnly = config.loadModelPrefix() != null;
 
         if (!loadOnly) {
-            agent.train(config.batchSize(), config.framesLimit(), config.framesSkip(), replayBuffer, lossFunc);
+            agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
 
             if (config.saveModel()) {
                 agent.save(path, modelFileName);

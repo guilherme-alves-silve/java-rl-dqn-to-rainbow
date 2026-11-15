@@ -9,8 +9,7 @@ import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLPERLoss;
-import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
-import br.com.guialves.rflr.algorithms.networks.RainbowQNetworkMLP;
+import br.com.guialves.rflr.algorithms.networks.*;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -45,8 +44,8 @@ public class AgentRainbowDQN extends AbstractAgent {
 
     private static final float CLIP_GRAD_THRESHOLD = 10.0f;
 
-    private final RainbowQNetworkMLP onlineRainbowNet;
-    private final RainbowQNetworkMLP targetRainbowNet;
+    private final IRainbowQNetwork onlineRainbowNet;
+    private final IRainbowQNetwork targetRainbowNet;
     private final NDManager subManager;
     private final NDArray atomsBroadcaster;
     private final float initialBeta;
@@ -67,13 +66,13 @@ public class AgentRainbowDQN extends AbstractAgent {
         super(epsilon, updateQTargetAtTimeN, minEpsilon, epsilonDecay,
                 gamma, env, optimizer, parent,
                 networkFactory, plotTrackers, debugMemoryLeak);
-        if (!(onlineNet instanceof RainbowQNetworkMLP)) {
-            throw new IllegalArgumentException("Invalid network type! Must be of type NoisyDuelingQNetworkMLP!");
+        if (!(onlineNet instanceof IRainbowQNetwork)) { // TODO: Refactor, accept interface
+            throw new IllegalArgumentException("Invalid network type! Must be of type IRainbowQNetwork!");
         }
 
         this.beta = this.initialBeta = beta;
-        this.onlineRainbowNet = (RainbowQNetworkMLP) onlineNet;
-        this.targetRainbowNet = (RainbowQNetworkMLP) targetNet;
+        this.onlineRainbowNet = (IRainbowQNetwork) onlineNet;
+        this.targetRainbowNet = (IRainbowQNetwork) targetNet;
         this.subManager = subMgr(parent, "sub-atoms-broadcast");
         this.atomsBroadcaster = this.targetRainbowNet.newAtomsBroadcaster(subManager);
     }

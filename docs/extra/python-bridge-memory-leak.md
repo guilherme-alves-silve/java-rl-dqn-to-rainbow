@@ -165,7 +165,7 @@ and forgetting one is a silent leak. `PyRef` removes the need to remember.
 
 ## The fix in this project: `PyRef`
 
-`src/main/java/br/com/guialves/rflr/python/PyRef.java`:
+`../../src/main/java/br/com/guialves/rflr/python/PyRef.java`:
 
 ```java
 public final class PyRef extends PyObject implements AutoCloseable {
@@ -295,8 +295,12 @@ Release exactly once, with `Py_DECREF` or by wrapping it in a `PyRef`.
 PyDict_GetItem           PyList_GetItem           PyTuple_GetItem
 PyErr_Occurred           PyModule_GetDict         PyImport_AddModule
 PyEval_GetGlobals        PyType_GetDict           PyCell_Get
-PyStructSequence_GetItem PyDict_SetDefault
+PyStructSequence_GetItem
 ```
+
+`PyDict_SetDefault` is **not** in this list: it returns a new reference when it
+inserts the default value, and a borrowed one when the key was already present.
+The value passed as argument, on the other hand, is never consumed by it.
 
 A `Py_DECREF` on a borrowed reference is a **use-after-free**, and the symptom
 (a crash somewhere random) is much worse than a leak.
@@ -340,16 +344,60 @@ reference, and yours remains yours. Releasing it afterwards is correct and
 required:
 
 ```java
-try (PyObject key = ...; PyObject value = ...) {
+var key = ...;
+var value = ...;
+try {
     if (python.PyDict_SetItem(dict, key, value) != 0) {
         throw new IllegalStateException("PyDict_SetItem failed");
     }
-    // key and value are released here: correct on both paths.
-    // The dict holds its own reference, so the object stays alive.
+} finally {
+    // PyDict_SetItem does not consume the references: the dictionary keeps its
+    // own and the caller keeps its own, so the caller releases its own here.
+    // A try-with-resources over a raw PyObject does NOT release anything (rule 1
+    // below), which is why the release is explicit.
+    decRef(key);
+    decRef(value);
 }
 ```
 
 Not releasing them after `PyDict_SetItem` leaks one reference per insertion.
+
+### Measured on CPython 3.12
+
+The official documentation says the same thing: `PyDict_SetItem` *"does not steal
+a reference to val"* (https://docs.python.org/3.12/c-api/dict.html#c.PyDict_SetItem),
+and the C header of the list object says that `PyList_SetItem` *"does decrement
+the reference count if it is not inserted in the list"*, i.e. it consumes the
+reference even when it fails (https://docs.python.org/3.12/c-api/list.html).
+
+The contract above was verified by measuring the reference count of the value
+around each call (`Py_REFCNT` before and after). A delta of `0` means the
+reference was consumed (the caller must **not** release it), `+1` means the
+container increfed it (the caller **must** release its own) and `-1` means the
+reference was consumed even though the call failed:
+
+| Call | Path | Delta | Verdict |
+|---|---|---|---|
+| `PyDict_SetItem` | success | +1 | does not steal: release yours |
+| `PyDict_SetItem` | failure | 0 | does not steal: release yours |
+| `PyDict_SetItemString` | success | +1 | does not steal: release yours |
+| `PyDict_SetDefault` | success | +1 | does not steal: release yours |
+| `PyList_Append` | success | +1 | does not steal: release yours |
+| `PySet_Add` | success | +1 | does not steal: release yours |
+| `PyObject_SetItem` | success | +1 | does not steal: release yours |
+| `PyObject_SetAttr` | success | +1 | does not steal: release yours |
+| `PyList_SetItem` | success | 0 | **steals: never release** |
+| `PyList_SetItem` | failure | **-1** | **steals even on failure: never release** |
+| `PyTuple_SetItem` | success | 0 | **steals: never release** |
+
+`PyList_SetItem` consuming the reference even when it fails comes from the
+CPython header itself (`listobject.h`): *"It does decrement the reference count
+if it is not inserted in the list"*. Releasing the item after a failed
+`PyList_SetItem` is therefore a double free, not a leak.
+
+The regression test that locks this contract in
+`PythonDataStructuresTest` asserts the reference count of the key, of the value
+and of the list items after the containers are built.
 
 ## Measured impact
 
@@ -379,11 +427,15 @@ calls, measured with the venv interpreter). It is an internal numpy cache.
 `PyRefTest` measures the release mechanism itself, with `Py_REFCNT`, over 1000
 iterations:
 
-| Case | Reference count after the loop |
-|---|---|
-| plain `PyObject` in try-with-resources | `+1000` (leaked, as expected) |
-| `PyRef.of(...)` in try-with-resources | `+0` (released) |
-| `PyRef.close()` called twice | `+0` (idempotent) |
+| Case | Reference count | Deallocated |
+|---|---|---|
+| plain `PyObject` in try-with-resources | `+1000` (not released, as expected) | at the end of the test, from the linked list |
+| `PyRef.of(...)` in try-with-resources | `+0` (released) | immediately, by `close()` |
+| `PyRef.close()` called twice | `+0` (idempotent) | — |
+
+The plain `PyObject` case accumulates every owned reference in a
+`LinkedList<PyObject>` and deallocates it with `decRef` once the test is over.
+A test that measures a leak must not leak it for the rest of the JVM lifetime.
 
 ## End-to-end validation
 
@@ -450,6 +502,8 @@ had been written with `decRef` in mind was correct, the code written with
    place) is much worse than a leak.
 6. **Never release a reference after a stealing call** (`PyList_SetItem`,
    `PyTuple_SetItem`, `PyModule_AddObject`). That is a double-free.
+   `PyList_SetItem` and `PyTuple_SetItem` consume the reference **even when they
+   fail**, so there is no path in which the caller may release the item.
 7. **Release the GIL-aware variant (`PyRef.ofGIL`) when releasing from a
    thread that does not already hold it.**
 
@@ -505,10 +559,25 @@ opposite). The commit charge is the only metric that reflects native `malloc`.
   Python deallocator. `PyRef.ofGIL` exists for that case.
 - **A `PyRef` whose `close()` is skipped is a leak, not a crash.** The pointer
   stays valid; the object is simply never released.
+- **The commit-charge test needs a JVM of its own.**
+  `stepShouldNotLeakNativeMemory` measures the **process** commit charge, so any
+  native allocation made by the JVM itself — JIT compilation, class loading, GC
+  bookkeeping — is charged to the bridge. Measured noise:
+
+  | Scenario | Commit charge growth per step | Budget | Result |
+  |---|---|---|---|
+  | the class runs alone | 0 – 88 bytes | < 256 | pass |
+  | any other test class shares the JVM | 362 – 1214 bytes | < 256 | **fail** |
+
+  The pre-fix leak was **526 bytes/step** on CartPole — below the noise floor
+  of a shared JVM. So in a full-suite run this test fails without a leak being
+  present, and it cannot reliably detect the leak it was written for. Either
+  give it a dedicated JVM fork (`<reuseForks>false</reuseForks>` in surefire)
+  or raise the budget above the JVM's own noise floor.
 
 ## Regression tests
 
-`src/test/java/br/com/guialves/rflr/gymnasium4j/PythonBridgeMemoryLeakTest.java`
+`../../src/test/java/br/com/guialves/rflr/gymnasium4j/PythonBridgeMemoryLeakTest.java`
 covers three invariants:
 
 | Test | Metric | Budget | Measured |
@@ -524,12 +593,12 @@ Against the unfixed bridge the same test fails with **7.1315 blocks/reset** and
 mvn test -Dtest=PythonBridgeMemoryLeakTest
 ```
 
-`src/test/java/br/com/guialves/rflr/python/PyRefTest.java` covers the release
+`../../src/test/java/br/com/guialves/rflr/python/PyRefTest.java` covers the release
 mechanism itself:
 
 | Test | Asserts |
 |---|---|
-| `testCloseOnPlainPyObjectDoesNotRelease` | the raw `PyObject` still leaks (documents the upstream behaviour) |
+| `testCloseOnPlainPyObjectDoesNotRelease` | the raw `PyObject` does not release on `close()`; the 1000 owned references are accumulated in a linked list and deallocated at the end of the test |
 | `testPyRefReleasesTheReference` | `PyRef` releases exactly one reference per iteration |
 | `testPyRefCloseIsIdempotent` | a second `close()` does not release twice, and the pointer is invalidated |
 
@@ -574,5 +643,5 @@ call site.
 ## Related
 
 - [`memory-management.md`](memory-management.md) — the DJL side (`NDManager`).
-- [`extra/DEBUG.md`](extra/DEBUG.md) — native leak debugging methodology.
+- [`DEBUG.md`](DEBUG.md) — native leak debugging methodology.
 - [`TODO.md`](TODO.md) — Byte Buddy based automatic `PyObject` cleanup.

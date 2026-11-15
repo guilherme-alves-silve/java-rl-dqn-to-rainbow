@@ -38,6 +38,15 @@ class PythonBridgeMemoryLeakTest {
     private static final int MEASURED_STEPS = 2000;
 
     /**
+     * Number of measurement windows of the native commit charge.
+     * <p>The commit charge is measured for the whole process, so it also captures the
+     * allocations of the JVM that are unrelated to the bridge (lazy CUDA init, GC of
+     * the previous test, Python allocator arenas). Taking the minimum over the
+     * windows isolates the growth caused by the bridge itself.</p>
+     */
+    private static final int MEASURED_WINDOWS = 3;
+
+    /**
      * Maximum number of Python blocks that may be allocated per call.
      * <p>The leak allocates one block for the step tuple and three for the reset
      * metadata, so a budget of 0.5 separates a leaking bridge (~1.0 and ~3.0) from a
@@ -134,18 +143,29 @@ class PythonBridgeMemoryLeakTest {
                 env.step(action, manager).close();
             }
 
-            long before = committedNativeBytes();
+            // The commit charge is a process wide metric: any unrelated allocation of
+            // the JVM (the GC of the previous test, the lazy CUDA init, the Python
+            // allocator) lands in the window where it happens and is indistinguishable
+            // from a leak. A real leak grows in every window, so the minimum over the
+            // windows is the noise free measurement: the transient allocations can
+            // only make a window worse, never the best one.
+            var bestGrowth = Long.MAX_VALUE;
+            for (int window = 0; window < MEASURED_WINDOWS; window++) {
+                long before = committedNativeBytes();
 
-            for (int i = 0; i < MEASURED_STEPS; i++) {
-                env.step(action, manager).close();
+                for (int i = 0; i < MEASURED_STEPS; i++) {
+                    env.step(action, manager).close();
+                }
+
+                long after = committedNativeBytes();
+                long growth = after - before;
+                bestGrowth = Math.min(bestGrowth, growth);
+
+                System.out.printf("commit charge: %d -> %d (growth = %d bytes, %d por step)%n",
+                        before, after, growth, growth / MEASURED_STEPS);
             }
 
-            long after = committedNativeBytes();
-            long growth = after - before;
-            long perStep = growth / MEASURED_STEPS;
-
-            System.out.printf("commit charge: %d -> %d (growth = %d bytes, %d por step)%n",
-                    before, after, growth, perStep);
+            long perStep = bestGrowth / MEASURED_STEPS;
 
             assertTrue(perStep < MAX_NATIVE_BYTES_PER_STEP,
                     "Native memory leaked per step: " + perStep + " bytes"

@@ -7,6 +7,7 @@ import br.com.guialves.rflr.gymnasium4j.wrappers.RecordEpisodeStatistics;
 import br.com.guialves.rflr.gymnasium4j.wrappers.RecordVideo;
 import br.com.guialves.rflr.utils.ModelFileNames;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.nio.charset.StandardCharsets;
@@ -15,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -26,61 +28,65 @@ import static java.util.stream.Collectors.joining;
 
 @Builder(toBuilder = true)
 public record RLConfig(
-    String envName,
-    String runnerClass,
-    String algorithmName,
-    int observations,
-    int actions,
-    float learningRate,
-    float maxEpsilon,
-    float minEpsilon,
-    float epsilonDecay,
-    float discountFactor, // or gamma
-    float alpha, // for PER
-    float beta, // for PER
-    int updateQTargetAtTimeN,
-    int batchSize,
-    int nStep,
-    int framesLimit,
-    int bufferCapacity,
-    int atoms,
-    float vMin,
-    float vMax,
-    boolean saveModel,
-    DuelingType duelingType,
-    Path path,
-    boolean debugMemoryLeak,
-    int runMaxTries,
-    boolean renderRun,
-    String loadModelPrefix,
-    Vectorized vectorized,
-    int channels,
-    boolean stableRetro,
-    boolean vectorizedEnv,
-    Gym.PyMap envParams,
-    List<String> importLibs,
-    List<IWrapper> wrappers,
-    int framesSkip,
-    int resize,
-    int concatenate
+        String envName,
+        String runnerClass,
+        String algorithmName,
+        int observations,
+        int actions,
+        float learningRate,
+        float maxEpsilon,
+        float minEpsilon,
+        float epsilonDecay,
+        float discountFactor, // or gamma
+        float alpha, // for PER
+        float beta, // for PER
+        int updateQTargetAtTimeN,
+        int batchSize,
+        int nStep,
+        int framesLimit,
+        int bufferCapacity,
+        int atoms,
+        float vMin,
+        float vMax,
+        boolean saveModel,
+        DuelingType duelingType,
+        Path path,
+        boolean debugMemoryLeak,
+        int runMaxTries,
+        boolean renderRun,
+        int evaluateAt,
+        String loadModelPrefix,
+        Vectorized vectorized,
+        int channels,
+        boolean stableRetro,
+        Gym.PyMap envParams,
+        List<String> importLibs,
+        List<IWrapper> wrappers,
+        int framesSkip,
+        int resize,
+        int concatenate,
+        int numberOfEnvs
 ) {
-
     private static final int DEFAULT_N_STEP = 1;
     private static final int DEFAULT_CHANNELS = 1;
     private static final float DELTA = 1e-6f;
     private static final int DEFAULT_FRAMES_SKIP = 1;
+    private static final int DEFAULT_VECTORIZED_ENVS = 1;
 
+    public boolean isVectorizedEnv() {
+        return Vectorized.VECTORIZED.contains(vectorized);
+    }
+
+    @Getter
     public enum Vectorized {
         SYNC(false), ASYNC(true), NONE(false);
+
+        private static final EnumSet<Vectorized> VECTORIZED = EnumSet.of(SYNC, ASYNC);
 
         private final boolean async;
 
         Vectorized(boolean async) {
             this.async = async;
-        }
-
-        public boolean isAsync() {
-            return async;
         }
     }
 
@@ -90,6 +96,7 @@ public record RLConfig(
         path = path != null ? path : Paths.get("./output_models/", algorithmName);
         vectorized = vectorized == null ? Vectorized.NONE : vectorized;
         channels = channels <= 0 ? DEFAULT_CHANNELS : channels;
+        numberOfEnvs = numberOfEnvs <= 0 ? DEFAULT_VECTORIZED_ENVS : numberOfEnvs;
         envParams = envParams == null ? Gym.builderMap() : envParams;
     }
 

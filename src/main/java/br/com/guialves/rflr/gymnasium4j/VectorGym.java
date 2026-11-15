@@ -5,7 +5,11 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.text.StringSubstitutor;
 
 import static java.util.stream.Collectors.joining;
 
@@ -115,31 +119,45 @@ public class VectorGym extends Gym {
         }
 
         protected String generatePyEnvScript() {
+            var params = new HashMap<String, String>();
             var correctionMultiprocessingWhenAsync = generateCorrectionMultiprocessingWhenAsync();
             var wrappedEnvParams = generateWrappedEnvPy();
             var makeCall = generateMakeCall();
             var importLibsPy = generateImportLibsPy();
             var functionDefinitionsCode = generateFunctionDefinitions();
+            params.put("correctionMultiprocessingWhenAsync", correctionMultiprocessingWhenAsync);
+            params.put("importLibsPy", importLibsPy);
+            params.put("functionDefinitionsCode", functionDefinitionsCode.indent(N_INDENT));
+            params.put("wrappedEnvParams", wrappedEnvParams.indent(N_INDENT));
+            params.put("makeCallBlock", StringSubstitutor.replace("env_${varEnvCode} = ${makeCall}",
+                    Map.of("varEnvCode", varEnvCode,
+                            "makeCall", makeCall)).indent(N_INDENT));
             if (wrappers.isEmpty()) {
-                return """
-                %s%s
-                %s
-                %s
-                env_%s = %s
-                """.formatted(correctionMultiprocessingWhenAsync, importLibsPy, functionDefinitionsCode,
-                        wrappedEnvParams, varEnvCode, makeCall);
+                params.put("importPy", "");
+                var template = """
+                ${correctionMultiprocessingWhenAsync}${importLibsPy}
+                if __name__ == "__main__":
+                ${functionDefinitionsCode}
+                ${wrappedEnvParams}
+                ${makeCallBlock}
+                """;
+
+                return StringSubstitutor.replace(template, params);
             }
 
             var importPy = generateImportFromPy();
+            params.put("importPy", importPy);
 
-            return """
-            %s%s
-            %s
-            %s
-            %s
-            env_%s = %s
-            """.formatted(correctionMultiprocessingWhenAsync, importLibsPy, importPy, functionDefinitionsCode,
-                    wrappedEnvParams, varEnvCode, makeCall);
+            var template = """
+            ${correctionMultiprocessingWhenAsync}${importLibsPy}
+            ${importPy}
+            if __name__ == "__main__":
+            ${functionDefinitionsCode}
+            ${wrappedEnvParams}
+            ${makeCallBlock}
+            """;
+
+            return StringSubstitutor.replace(template, params);
         }
 
         /**

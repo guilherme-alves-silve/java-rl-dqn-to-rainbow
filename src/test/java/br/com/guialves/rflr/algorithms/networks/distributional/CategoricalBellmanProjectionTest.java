@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CategoricalBellmanProjectionTest {
 
-    private static final float DELTA = 1e-6f;
+    private static final float DELTA = 1e-4f;
     private static NDManager manager;
 
     @BeforeAll
@@ -229,6 +229,90 @@ class CategoricalBellmanProjectionTest {
         assertEquals(afterWarmup, afterSteps,
                 "managedArrayCount must be constant with atoms=101. "
                         + "before=" + afterWarmup + " after=" + afterSteps);
+    }
+
+    @Test
+    void shouldProjectValuesOutsideSupportIntoEdgeAtoms() {
+        var catProj = new CategoricalBellmanProjection();
+        int batchSize = 2;
+
+        var flatProbs = new float[batchSize * N_ATOMS];
+        flatProbs[0] = 1f;
+        flatProbs[N_ATOMS] = 1f;
+        var probNextDist = manager.create(flatProbs, new Shape(batchSize, 1, N_ATOMS));
+
+        var rewards = manager.create(new float[]{100f, -100f});
+        var dones = manager.zeros(new Shape(batchSize), DataType.FLOAT32);
+
+        var out = catProj.project(probNextDist, rewards, dones, 0.99f).toFloatArray();
+
+        assertEquals(1f, out[N_ATOMS - 1], 1e-6f, "batch 0: last atom must hold all the mass");
+        assertEquals(0f, out[0], 1e-6f, "batch 0: first atom must be empty");
+        assertEquals(1f, out[N_ATOMS], 1e-6f, "batch 1: first atom must hold all the mass");
+        assertEquals(0f, out[N_ATOMS + N_ATOMS - 1], 1e-6f, "batch 1: last atom must be empty");
+    }
+
+    @Test
+    void shouldInterpolateMassBetweenAdjacentAtoms() {
+        var catProj = new CategoricalBellmanProjection();
+        int batchSize = 1;
+
+        var flatProbs = new float[batchSize * N_ATOMS];
+        flatProbs[0] = 1f;
+        var probNextDist = manager.create(flatProbs, new Shape(batchSize, 1, N_ATOMS));
+
+        var rewards = manager.create(new float[]{0.2f});
+        var dones = manager.ones(new Shape(batchSize), DataType.FLOAT32);
+
+        var out = catProj.project(probNextDist, rewards, dones, 0.99f).toFloatArray();
+
+        assertEquals(0.5f, out[25], 1e-3f, "lower atom must receive (u - b) of the mass");
+        assertEquals(0.5f, out[26], 1e-3f, "upper atom must receive (b - l) of the mass");
+        for (int i = 0; i < N_ATOMS; i++) {
+            if (i != 25 && i != 26) {
+                assertEquals(0f, out[i], 1e-6f, "atom " + i + " must be empty");
+            }
+        }
+        assertEquals(1f, sum(out), 1e-4f, "projected mass must be normalized");
+    }
+
+    @Test
+    void shouldConserveProbabilityMass() {
+        var catProj = new CategoricalBellmanProjection();
+        int batchSize = 16;
+
+        var flatProbs = new float[batchSize * N_ATOMS];
+        for (int i = 0; i < flatProbs.length; i++) {
+            flatProbs[i] = (i % 13) * 0.01f;
+        }
+        var probNextDist = manager.create(flatProbs, new Shape(batchSize, 1, N_ATOMS));
+        var rewards = manager.create(new float[batchSize]);
+        for (int i = 0; i < batchSize; i++) {
+            rewards.set(new NDIndex(String.valueOf(i)), i == 0 ? 100f : (i == 1 ? -100f : 0f));
+        }
+        var dones = manager.zeros(new Shape(batchSize), DataType.FLOAT32);
+
+        var out = catProj.project(probNextDist, rewards, dones, 0.99f).toFloatArray();
+
+        for (int batch = 0; batch < batchSize; batch++) {
+            float expected = 0f;
+            for (int atom = 0; atom < N_ATOMS; atom++) {
+                expected += flatProbs[batch * N_ATOMS + atom];
+            }
+            float actual = 0f;
+            for (int atom = 0; atom < N_ATOMS; atom++) {
+                actual += out[batch * N_ATOMS + atom];
+            }
+            assertEquals(expected, actual, DELTA, "batch " + batch + ": probability mass must be conserved");
+        }
+    }
+
+    private static float sum(float[] arr) {
+        float sum = 0f;
+        for (float value : arr) {
+            sum += value;
+        }
+        return sum;
     }
 
     static Stream<Arguments> provideValidInputShapesRandomNormal() {

@@ -80,8 +80,10 @@ public final class PythonDataStructures {
         for (int i = 0; i < size; i++) {
             var item = getSequenceItem(obj, i);
             try {
-                if (!isDouble(item)) throw new IllegalArgumentException("element is not double");
-                result[i] = PyFloat_AsDouble(item);
+                if (!isDouble(item) && !isNumpyArray(item)) {
+                    throw new IllegalArgumentException("element is not double");
+                }
+                result[i] = toDoubleChecked(item);
             } finally {
                 Py_DECREF(item);
             }
@@ -98,8 +100,10 @@ public final class PythonDataStructures {
         for (int i = 0; i < size; i++) {
             var item = getSequenceItem(obj, i);
             try {
-                if (!isLong(item)) throw new IllegalArgumentException("element is not int");
-                result[i] = (int) PyLong_AsLong(item);
+                if (!isLong(item) && !isNumpyArray(item)) {
+                    throw new IllegalArgumentException("element is not int");
+                }
+                result[i] = (int) toLongChecked(item);
             } finally {
                 Py_DECREF(item);
             }
@@ -116,8 +120,7 @@ public final class PythonDataStructures {
         for (int i = 0; i < size; ++i) {
             var item = getSequenceItem(obj, i);
             try {
-                if (!isLong(item)) throw new IllegalArgumentException("element is not long");
-                result[i] = PyLong_AsLong(item);
+                result[i] = toLongChecked(item);
             } finally {
                 Py_DECREF(item);
             }
@@ -125,6 +128,17 @@ public final class PythonDataStructures {
         return result;
     }
 
+    /**
+     * Converts a sequence of booleans into a Java {@code boolean[]}.
+     * <p>
+     * {@code PyObject_IsTrue()} is used instead of the string representation because it
+     * works for the Python {@code bool} and for the NumPy {@code numpy.bool} scalar
+     * alike, and it never leaves a pending exception behind.
+     * </p>
+     *
+     * @param obj the sequence of booleans
+     * @return the values as a Java boolean array
+     */
     public static boolean[] toBoolArray(PyObject obj) {
         validateSequence(obj);
         int size = (int) getSequenceSize(obj);
@@ -133,8 +147,7 @@ public final class PythonDataStructures {
         for (int i = 0; i < size; ++i) {
             var item = getSequenceItem(obj, i);
             try {
-                // numpy.bool returns false when isBool(item) is invoked, so I simplified.
-                result[i] = toStr(item).equals("True");
+                result[i] = toBool(item);
             } finally {
                 Py_DECREF(item);
             }
@@ -177,7 +190,9 @@ public final class PythonDataStructures {
             if (item == null) throw new IllegalStateException("Mapper returned null");
 
             if (PyList_SetItem(pyList, i, item) != 0) {
-                decRef(item);
+                // PyList_SetItem consumes the reference, even when it fails, so the
+                // item must never be released by the caller.
+                checkError();
             }
         }
         return PyRef.of(pyList);
@@ -210,7 +225,9 @@ public final class PythonDataStructures {
             PyObject item = supplier.apply(i);
 
             if (PyList_SetItem(pyList, i, item) != 0) {
-                decRef(item);
+                // PyList_SetItem consumes the reference, even when it fails, so the
+                // item must never be released by the caller.
+                checkError();
             }
         }
         return PyRef.of(pyList);
@@ -262,7 +279,9 @@ public final class PythonDataStructures {
             if (item == null) checkError();
 
             if (PyTuple_SetItem(tuple, i, item) != 0) {
-                decRef(item);
+                // PyTuple_SetItem consumes the reference, even when it fails, so the
+                // item must never be released by the caller.
+                checkError();
             }
         }
         return PyRef.of(tuple);
@@ -342,15 +361,22 @@ public final class PythonDataStructures {
         if (dict == null) checkError();
 
         for (int i = 0; i < keys.length; i++) {
-            try (PyObject key = keyMapper.apply(keys[i]);
-                 PyObject value = valueMapper.apply(values[i])) {
+            var key = keyMapper.apply(keys[i]);
+            var value = valueMapper.apply(values[i]);
 
+            try {
                 if (key == null || value == null)
                     throw new IllegalStateException("Mapper returned null");
 
+                // PyDict_SetItem does NOT consume the references: the dictionary
+                // stores its own reference to the key and to the value, and the
+                // caller keeps its own. Both are released below.
                 if (PyDict_SetItem(dict, key, value) != 0) {
                     checkError();
                 }
+            } finally {
+                decRef(key);
+                decRef(value);
             }
         }
         return PyRef.of(dict);
@@ -369,24 +395,55 @@ public final class PythonDataStructures {
         if (dict == null) checkError();
 
         for (int i = 0; i < keys.length; ++i) {
-            try (PyObject key = pyStr(keys[i]);
-                 PyObject value = valueMapper.apply(values[i])) {
+            var key = pyStr(keys[i]);
+            var value = valueMapper.apply(values[i]);
 
+            try {
                 if (key == null || value == null)
                     throw new IllegalStateException("Mapper returned null");
 
+                // PyDict_SetItem does NOT consume the references: the dictionary
+                // stores its own reference to the key and to the value, and the
+                // caller keeps its own. Both are released below.
                 if (PyDict_SetItem(dict, key, value) != 0) {
                     checkError();
                 }
+            } finally {
+                decRef(key);
+                decRef(value);
             }
         }
         return PyRef.of(dict);
     }
 
+    /**
+     * Converts a Python value into a Java value.
+     * <p>
+     * <b>Why NumPy objects need a dedicated branch:</b> {@code PySequence_Check()} is
+     * {@code true} for a {@code numpy.ndarray}, so a generic sequence conversion would
+     * call {@code PySequence_GetItem()}, which returns NumPy <i>scalars</i>. Converting a
+     * {@code numpy.bool} with {@code PyLong_AsLong()} raises
+     * {@code TypeError: 'numpy.bool' object cannot be interpreted as an integer}
+     * (NumPy 2.x removed {@code __index__} from {@code numpy.bool}) and, since the error is
+     * not checked, it stays <b>pending</b> in the CPython error indicator. Any later call
+     * that returns a value is then converted by CPython 3.12 into
+     * {@code SystemError: ... returned a result with an exception set}.
+     * </p>
+     *
+     * @param obj the Python object
+     * @return the Java representation of the object
+     */
     private static Object primitiveOrObjFromPy(PyObject obj) {
 
         if (obj == null || Py_IsNone(obj) >= 1) {
             return null;
+        }
+
+        // NumPy objects (ndarray and NumPy scalars) must be handled before the generic
+        // sequence branch: PySequence_Check() is true for ndarray and the items are
+        // NumPy scalars.
+        if (isNumpyArray(obj)) {
+            return numpyValue(obj);
         }
 
         if (isBool(obj)) {
@@ -394,11 +451,11 @@ public final class PythonDataStructures {
         }
 
         if (isLong(obj)) {
-            return PyLong_AsLong(obj);
+            return toLongChecked(obj);
         }
 
         if (isDouble(obj)) {
-            return PyFloat_AsDouble(obj);
+            return toDoubleChecked(obj);
         }
 
         if (isString(obj)) {
@@ -409,9 +466,130 @@ public final class PythonDataStructures {
             return toMap(obj);
         }
 
+        if (isSequence(obj)) {
+            return toLongArray(obj);
+        }
+
         throw new IllegalArgumentException(
                 "Unsupported Python type in dict: " + toStr(obj)
         );
+    }
+
+    /**
+     * Converts a NumPy object into a Java value, according to its dtype.
+     * <p>
+     * A NumPy scalar ({@code numpy.bool}, {@code numpy.int64}, {@code numpy.float64}, ...)
+     * has {@code ndim == 0} and is converted into a single Java value; an {@code ndarray}
+     * is converted into a Java array. NumPy objects also expose
+     * {@code __array_interface__}, so {@link PythonTypeChecks#isNumpyArray(PyObject)} is
+     * {@code true} for both.
+     * </p>
+     *
+     * @param obj the NumPy object
+     * @return {@code Boolean}, {@code Long}, {@code Double}, {@code boolean[]},
+     * {@code long[]} or {@code double[]}
+     */
+    private static Object numpyValue(PyObject obj) {
+        var dtype = numpyDtype(obj);
+
+        if (numpyNdim(obj) == 0) {
+            // NumPy scalar.
+            return switch (dtype) {
+                case "bool" -> toBool(obj);
+                case "int8", "int16", "int32", "int64",
+                     "uint8", "uint16", "uint32", "uint64" -> toLongChecked(obj);
+                case "float16", "float32", "float64" -> toDoubleChecked(obj);
+                default -> throw unsupportedNumpyDtype(dtype);
+            };
+        }
+
+        return switch (dtype) {
+            case "bool" -> toBoolArray(obj);
+            case "int8", "int16", "int32", "int64",
+                 "uint8", "uint16", "uint32", "uint64" -> toLongArray(obj);
+            case "float16", "float32", "float64" -> toDoubleArray(obj);
+            default -> throw unsupportedNumpyDtype(dtype);
+        };
+    }
+
+    /**
+     * Reads the dtype name of a NumPy object (e.g. {@code bool}, {@code int64},
+     * {@code float64}).
+     *
+     * @param obj the NumPy object
+     * @return the dtype name
+     */
+    private static String numpyDtype(PyObject obj) {
+        var dtype = attr(obj, "dtype");
+        try {
+            return attrStr(dtype, "name");
+        } finally {
+            decRef(dtype);
+        }
+    }
+
+    /**
+     * Reads the number of dimensions of a NumPy object: {@code 0} for a NumPy scalar and
+     * {@code >= 1} for an {@code ndarray}.
+     *
+     * @param obj the NumPy object
+     * @return the number of dimensions
+     */
+    private static int numpyNdim(PyObject obj) {
+        var ndim = attr(obj, "ndim");
+        try {
+            return (int) toLongChecked(ndim);
+        } finally {
+            decRef(ndim);
+        }
+    }
+
+    private static IllegalArgumentException unsupportedNumpyDtype(String dtype) {
+        return new IllegalArgumentException("Unsupported NumPy dtype in dict: " + dtype);
+    }
+
+    /**
+     * Converts a Python integer into a Java long.
+     * <p>
+     * {@code PyLong_AsLong()} returns {@code -1} on error <b>and leaves the exception
+     * pending</b>. This helper detects the pending error and drains it through
+     * {@link PythonRuntime#checkError()}, so the error indicator is never left dirty.
+     * </p>
+     *
+     * @param obj the Python integer
+     * @return the value as a Java long
+     */
+    private static long toLongChecked(PyObject obj) {
+        var value = PyLong_AsLong(obj);
+        if (value == -1 && hasPendingError()) {
+            checkError();
+        }
+        return value;
+    }
+
+    /**
+     * Converts a Python float into a Java double, draining a pending error instead of
+     * leaving it in the CPython error indicator.
+     *
+     * @param obj the Python float
+     * @return the value as a Java double
+     */
+    private static double toDoubleChecked(PyObject obj) {
+        var value = PyFloat_AsDouble(obj);
+        if (value == -1.0 && hasPendingError()) {
+            checkError();
+        }
+        return value;
+    }
+
+    /**
+     * Tells whether the CPython error indicator holds a pending exception.
+     *
+     * @return {@code true} when an exception is pending
+     */
+    private static boolean hasPendingError() {
+        var err = PyErr_Occurred();
+        return err != null && !err.isNull();
     }
 
     public static long getSequenceSize(PyObject obj) {
