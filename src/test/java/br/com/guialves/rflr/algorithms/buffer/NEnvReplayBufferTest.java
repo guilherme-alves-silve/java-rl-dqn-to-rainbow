@@ -1,139 +1,134 @@
 package br.com.guialves.rflr.algorithms.buffer;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import br.com.guialves.rflr.fixture.ExperienceFixture;
-import lombok.Cleanup;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.concurrent.ThreadLocalRandom;
-
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
-import static br.com.guialves.rflr.fixture.ExperienceFixture.BATCH_1_SHAPE;
-import static java.util.stream.IntStream.range;
+import static br.com.guialves.rflr.djlutils.DJLUtils.gpuCount;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-public class NEnvReplayBufferTest {
+/**
+ * The multienvironment buffer: one buffer per environment, one mini-batch per
+ * environment, merged into a single batch (env-major order).
+ */
+class NEnvReplayBufferTest {
 
-    private static NDManager manager;
+    private static final int NUMBER_OF_ENVS = 2;
+    private static final int CAPACITY = 16;
+    private static final int EXPERIENCES_PER_ENV = 8;
+    private static final int BATCH_SIZE = 4;
 
-    @BeforeAll
-    static void setUp() {
-        manager = NDManager.newBaseManager();
-    }
+    @Test
+    void shouldStoreTheExperienceInTheBufferOfItsEnv() {
+        try (var manager = NDManager.newBaseManager(Device.cpu())) {
+            var buffer = newBuffer(manager);
+            for (int env = 0; env < NUMBER_OF_ENVS; ++env) {
+                for (int i = 0; i < EXPERIENCES_PER_ENV; ++i) {
+                    buffer.store(ExperienceFixture.createRandomExperience(manager, env, i + (env * 100)));
+                }
+            }
 
-    @AfterAll
-    static void shutdown() {
-        manager.close();
+            assertEquals(NUMBER_OF_ENVS * EXPERIENCES_PER_ENV, buffer.size());
+            assertEquals(CAPACITY, buffer.capacity());
+            assertEquals(CAPACITY / NUMBER_OF_ENVS, buffer.capacityPerEnv());
+            assertTrue(buffer.isOpen());
+
+            buffer.close();
+            assertFalse(buffer.isOpen());
+        }
     }
 
     @Test
-    void shouldNotOverflow() {
-        int expectedCapacity = 10;
-        int expectedEnvs = 4;
-        NEnvReplayBuffer.ReplayBufferFactory bufferFactory = capacity -> new ExperienceReplayBuffer(capacity, manager);
-        var replayBuffer = new NEnvReplayBuffer(expectedCapacity, expectedEnvs, bufferFactory);
-        assertTrue(replayBuffer.isOpen());
-        for (int i = 0; i < 1000; ++i) {
-            var exp = createRandomExperience(i);
-            if (i < expectedCapacity) assertEquals(i, replayBuffer.pos());
-            else assertEquals(i % expectedCapacity, replayBuffer.pos());
-            replayBuffer.store(exp);
-            assertTrue(replayBuffer.size() <= expectedCapacity);
-            assertDoesNotThrow(() -> replayBuffer.sample(1).close());
+    void shouldNotBeEnoughWhenOneEnvHasNoData() {
+        try (var manager = NDManager.newBaseManager(Device.cpu())) {
+            var buffer = newBuffer(manager);
+            assertFalse(buffer.enough(BATCH_SIZE));
+
+            for (int i = 0; i < EXPERIENCES_PER_ENV; ++i) {
+                buffer.store(ExperienceFixture.createRandomExperience(manager, 0, i));
+            }
+            assertFalse(buffer.enough(BATCH_SIZE), "the env 1 has no data yet");
+            assertNull(buffer.sample(BATCH_SIZE));
+
+            for (int i = 0; i < EXPERIENCES_PER_ENV; ++i) {
+                buffer.store(ExperienceFixture.createRandomExperience(manager, 1, i + 100));
+            }
+            assertTrue(buffer.enough(BATCH_SIZE));
+
+            buffer.close();
         }
-        replayBuffer.close();
-        assertFalse(replayBuffer.isOpen());
     }
 
     @Test
-    void shouldSampleCorrectly() {
+    void shouldMergeTheBatchOfEveryEnv() {
+        try (var manager = NDManager.newBaseManager(Device.cpu())) {
+            var buffer = newBuffer(manager);
+            for (int env = 0; env < NUMBER_OF_ENVS; ++env) {
+                for (int i = 0; i < EXPERIENCES_PER_ENV; ++i) {
+                    buffer.store(ExperienceFixture.createRandomExperience(manager, env, i + (env * 100)));
+                }
+            }
 
-        int size = 10;
-        int batchSize = 5;
-        int expectedEnvs = 4;
-        var expectedShape = new Shape(batchSize, 3, 3);
+            try (var samples = buffer.sample(BATCH_SIZE)) {
+                assertEquals(BATCH_SIZE, samples.states().getShape().get(0));
+                assertEquals(new Shape(BATCH_SIZE, 3, 3), samples.states().getShape());
+                assertEquals(BATCH_SIZE, samples.nextStates().getShape().get(0));
+                assertEquals(BATCH_SIZE, samples.actions().getShape().get(0));
 
-        var expectedDoneActions = manager.create(
-                new long[] {0L, 2L, 4L, 6L, 8L}).reshape(BATCH_1_SHAPE);
-        var expectedDone = manager.create(
-                new float[] {1f, 1f, 1f, 1f, 1f}).reshape(BATCH_1_SHAPE);
+                // env-major order: the first half comes from the env 0, the second half from the env 1
+                var actions = samples.actions().toLongArray();
+                assertEquals(BATCH_SIZE, actions.length);
+                for (int i = 0; i < BATCH_SIZE / NUMBER_OF_ENVS; ++i) {
+                    assertTrue(actions[i] < 100, "the sample " + i + " must come from the env 0");
+                    assertTrue(actions[i + (BATCH_SIZE / NUMBER_OF_ENVS)] >= 100,
+                            "the sample " + i + " must come from the env 1");
+                }
+            }
 
-        var expectedNotDoneActions = manager.create(
-                new long[] {1L, 3L, 5L, 7L, 9L}).reshape(BATCH_1_SHAPE);
-        var expectedNotDone = manager.create(
-                new float[] {0f, 0f, 0f, 0f, 0f}).reshape(BATCH_1_SHAPE);
-
-        try (var mockRandomFactory = mockStatic(ThreadLocalRandom.class)) {
-            NEnvReplayBuffer.ReplayBufferFactory bufferFactory = capacity -> new ExperienceReplayBuffer(capacity, manager);
-            @Cleanup var replayBuffer = new NEnvReplayBuffer(size, expectedEnvs, bufferFactory);
-            range(0, size).forEach(i -> replayBuffer.store(createRandomExperience(i)));
-
-            var mockRandom = mock(ThreadLocalRandom.class);
-            mockRandomFactory.when(ThreadLocalRandom::current).thenReturn(mockRandom);
-
-            when(mockRandom.nextInt(anyInt(), anyInt()))
-                    .thenReturn(0, 2, 4, 6, 8);
-
-            assertTrue(replayBuffer.enough(batchSize));
-
-            var vecExpDone = replayBuffer.sample(batchSize);
-            assertEquals(size, replayBuffer.capacity());
-            assertEquals(batchSize, vecExpDone.states().size(0));
-            assertEquals(expectedShape, vecExpDone.states().getShape());
-            assertTrue(vecExpDone.actions().contentEquals(expectedDoneActions));
-            assertTrue(vecExpDone.dones().contentEquals(expectedDone));
-
-            when(mockRandom.nextInt(anyInt(), anyInt()))
-                    .thenReturn(1, 3, 5, 7, 9);
-
-            var vecExpNotDone = replayBuffer.sample(batchSize);
-            assertEquals(batchSize, vecExpNotDone.states().size(0));
-            assertEquals(expectedShape, vecExpNotDone.states().getShape());
-            assertTrue(vecExpNotDone.actions().contentEquals(expectedNotDoneActions));
-            assertTrue(vecExpNotDone.dones().contentEquals(expectedNotDone));
+            buffer.close();
         }
     }
 
-    @ParameterizedTest(name = "[{index}] size={arguments}")
-    @ValueSource(ints = {50, 100, 500, 1000, 5000})
-    void shouldNotHaveMemoryLeak(int size) {
-        int expectedEnvs = 4;
-        int beforeAll = managedArrayCount(manager);
-        int batchSize = 25;
-        NEnvReplayBuffer.ReplayBufferFactory bufferFactory = capacity -> new ExperienceReplayBuffer(capacity, manager);
-        var replayBuffer = new NEnvReplayBuffer(size, expectedEnvs, bufferFactory);
-        range(0, size).forEach(i -> replayBuffer.store(createRandomExperience(i)));
+    @Test
+    void shouldSampleOnGpu() {
+        assumeTrue(gpuCount() > 0, "GPU is not available");
 
-        int before = managedArrayCount(manager);
-        try (var samples = replayBuffer.sample(batchSize)) {
-            assertFalse(samples.states().isReleased());
-            assertFalse(samples.actions().isReleased());
-            assertFalse(samples.rewards().isReleased());
-            assertFalse(samples.nextStates().isReleased());
-            assertFalse(samples.dones().isReleased());
-            assertTrue(managedArrayCount(manager) > before);
-            assertNotEquals(samples.states().getManager(), manager);
-            assertNotEquals(samples.actions().getManager(), manager);
-            assertNotEquals(samples.rewards().getManager(), manager);
-            assertNotEquals(samples.nextStates().getManager(), manager);
-            assertNotEquals(samples.dones().getManager(), manager);
+        try (var manager = NDManager.newBaseManager(Device.gpu())) {
+            var buffer = newBuffer(manager);
+            for (int env = 0; env < NUMBER_OF_ENVS; ++env) {
+                for (int i = 0; i < EXPERIENCES_PER_ENV; ++i) {
+                    buffer.store(ExperienceFixture.createRandomExperience(manager, env, i + (env * 100)));
+                }
+            }
+
+            try (var samples = buffer.sample(BATCH_SIZE)) {
+                assertEquals(Device.gpu(), samples.states().getDevice());
+                assertEquals(Device.gpu(), samples.actions().getDevice());
+                assertEquals(Device.gpu(), samples.rewards().getDevice());
+                assertEquals(Device.gpu(), samples.nextStates().getDevice());
+                assertEquals(Device.gpu(), samples.dones().getDevice());
+            }
+
+            buffer.close();
         }
-
-        int after = managedArrayCount(manager);
-        assertEquals(before, after);
-
-        replayBuffer.close();
-        assertEquals(beforeAll, managedArrayCount(manager));
     }
 
-    private Experience createRandomExperience(int i) {
-        return ExperienceFixture.createRandomExperience(manager, i);
+    @Test
+    void shouldRejectAnInvalidEnvNumber() {
+        try (var manager = NDManager.newBaseManager(Device.cpu())) {
+            var buffer = newBuffer(manager);
+            var exp = ExperienceFixture.createRandomExperience(manager, NUMBER_OF_ENVS, 0);
+            assertThrows(IllegalArgumentException.class, () -> buffer.store(exp));
+
+            buffer.close();
+        }
+    }
+
+    private NEnvReplayBuffer newBuffer(NDManager manager) {
+        return new NEnvReplayBuffer(CAPACITY, NUMBER_OF_ENVS, manager,
+                capacity -> new ExperienceReplayBuffer(capacity, manager));
     }
 }
