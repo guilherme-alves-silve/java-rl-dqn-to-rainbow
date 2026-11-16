@@ -4,7 +4,6 @@ import lombok.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static java.util.Objects.requireNonNull;
@@ -21,14 +20,16 @@ public class NEnvReplayBuffer implements IReplayBuffer {
 
     public NEnvReplayBuffer(int capacity,
                             int numberOfEnvs,
-                            @NonNull Function<Integer, IReplayBuffer> iReplayBufferSupplierWithCapacity) {
+                            @NonNull ReplayBufferFactory replayBufferFactory) {
         this.capacity = capacity;
         this.numberOfEnvs = numberOfEnvs;
         this.capacityPerEnv = getValidCapacityPerEnv();
-        this.envNumberAndReplayBuffer = new HashMap<>();
+        this.pos = 0;
+        var envNumberAndReplayBuffer = new HashMap<Integer, IReplayBuffer>();
         IntStream.range(0, numberOfEnvs).forEach(i ->
                 envNumberAndReplayBuffer.put(i,
-                        requireNonNull(iReplayBufferSupplierWithCapacity.apply(capacityPerEnv), "replayBuffer must no be null!")));
+                        requireNonNull(replayBufferFactory.create(capacityPerEnv), "replayBuffer must no be null!")));
+        this.envNumberAndReplayBuffer = Map.copyOf(envNumberAndReplayBuffer);
     }
 
     private int getValidCapacityPerEnv() {
@@ -40,40 +41,18 @@ public class NEnvReplayBuffer implements IReplayBuffer {
     @Override
     public void store(Experience exp) {
         envNumberAndReplayBuffer.get(exp.envNumber()).store(exp);
-        if (size < capacity) size += 1;
+        if (size < capacity) size += capacityPerEnv;
+        pos = (pos + capacityPerEnv) % capacity;
+    }
+
+    int pos() {
+        return pos;
     }
 
     @Override
     public boolean enough(int batchSize) {
         return size >= batchSize;
     }
-
-    /**
-     *     @Override
-     *     public VecExperience sample(int batchSize) {
-     *         if (!enough(batchSize)) return null;
-     *
-     *         var sub = subMgr(subManager, "buffer-sample");
-     *         var batch = sampler.sample(experiences, batchSize, size, false);
-     *
-     *         var states = newAttachedList(sub, batch, exp -> exp.state().duplicate());
-     *         var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
-     *         var rewards = djlMapToFloat32(sub, batch, Experience::reward);
-     *         var nextStates = newAttachedList(sub, batch, exp -> exp.nextState().duplicate());
-     *         var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
-     *
-     *         return new VecExperience(
-     *                 sub,
-     *                 states,
-     *                 actions,
-     *                 rewards,
-     *                 nextStates,
-     *                 dones
-     *         );
-     *     }
-     * @param batchSize The number of samples used to generate the mini-batch.
-     * @return
-     */
 
     @Override
     public IVecExperience sample(int batchSize) {
@@ -109,5 +88,10 @@ public class NEnvReplayBuffer implements IReplayBuffer {
     public void close() {
         this.open = false;
         this.envNumberAndReplayBuffer.forEach((_, replayBuffer) -> replayBuffer.close());
+    }
+
+    @FunctionalInterface
+    public interface ReplayBufferFactory {
+        IReplayBuffer create(int capacity);
     }
 }

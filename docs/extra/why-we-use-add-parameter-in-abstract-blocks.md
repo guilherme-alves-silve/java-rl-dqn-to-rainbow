@@ -29,7 +29,7 @@ stops working if the field is not registered.
 
 ```java
 // AbstractBlock.java:81
-protected LinkedHashMap<String, Parameter> parameters = new LinkedHashMap<>();
+private LinkedHashMap<String, Parameter> parameters = new LinkedHashMap<>();
 
 // AbstractBlock.java:142-145
 protected final <P extends Parameter> P addParameter(P parameter) {

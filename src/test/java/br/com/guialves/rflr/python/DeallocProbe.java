@@ -24,7 +24,7 @@ import static br.com.guialves.rflr.python.PythonRuntime.*;
  */
 public class DeallocProbe {
 
-    public static void main(String[] args) throws Exception {
+    static void main(String[] args) throws Exception {
         initPython();
 
         Field field = Pointer.class.getDeclaredField("deallocator");   // Pointer.java:606

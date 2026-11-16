@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.algorithms;
 
-import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
@@ -126,11 +125,12 @@ public abstract class AbstractAgent implements IAgent {
                 var stepResult = env.step(action, sub);
                 var reward = stepResult.reward();
                 var nextState = stepResult.state();
+                var term = stepResult.term();
+                var trunc = stepResult.trunc();
                 var done = stepResult.done();
                 var info = stepResult.info();
                 if (!info.isEmpty()) lastInfo = info;
-                var exp = new Experience(toCpu(state.duplicate()), action.duplicate(), reward,
-                        toCpu(nextState.duplicate()), done);
+                var exp = Experience.copy(state, action, reward, nextState, term, trunc);
                 replayBuffer.store(exp);
 
                 float lossItem = trainOnline(batchSize, replayBuffer, lossFunc, sub);

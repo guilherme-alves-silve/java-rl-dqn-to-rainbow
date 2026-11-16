@@ -4,9 +4,7 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import lombok.extern.slf4j.Slf4j;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.setName;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static java.util.Objects.requireNonNull;
@@ -39,7 +37,7 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
         if (capacity <= 0) throw new IllegalArgumentException("Invalid capacity " + capacity + ": Must be greater than 0!");
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.subManager = subMgr(parent, getClass());
+        this.subManager = subMgrInCPU(parent, getClass());
         this.sampler = requireNonNull(sampler);
         this.pos = 0;
     }
@@ -79,6 +77,7 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
         var actions = djlMapToLong(sub, batch, exp -> exp.actionAs(Long.class));
         var rewards = djlMapToFloat32(sub, batch, Experience::reward);
         var nextStates = newAttachedList(sub, batch, exp -> exp.nextState().duplicate());
+        // TODO: Correct term or trunc bias
         var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
 
         return new VecExperience(

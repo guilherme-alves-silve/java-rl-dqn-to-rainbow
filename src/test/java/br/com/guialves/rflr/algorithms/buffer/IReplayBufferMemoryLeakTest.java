@@ -4,9 +4,11 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
+import lombok.Cleanup;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
@@ -135,11 +137,12 @@ public class IReplayBufferMemoryLeakTest {
     private Experience[] createBatch(int n) {
         var batch = new Experience[n];
         for (int i = 0; i < n; ++i) {
-            var state = testManager.randomUniform(0, 10, STATE_SHAPE);
-            var action = mock(ActionSpaceType.ActionResult.class);
+            @Cleanup var state = testManager.randomUniform(0, 10, STATE_SHAPE);
+            @Cleanup var action = mock(ActionSpaceType.ActionResult.class);
             when(action.valueAs(Long.class)).thenReturn((long) (i));
-            var nextState = testManager.randomNormal(STATE_SHAPE);
-            batch[i] = new Experience(state, action, i, nextState, false);
+            when(action.duplicate()).thenReturn(action);
+            @Cleanup var nextState = testManager.randomNormal(STATE_SHAPE);
+            batch[i] = Experience.copy(state, action, i, nextState, false, false);
         }
         return batch;
     }

@@ -8,8 +8,7 @@ import br.com.guialves.rflr.datastructure.MinSegmentTree;
 import br.com.guialves.rflr.datastructure.SumSegmentTree;
 import lombok.NonNull;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.release;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
 import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
 import static br.com.guialves.rflr.djlutils.DJLUtils.toFloatArray;
@@ -53,7 +52,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
         if (alpha <= 0 || alpha > 1) throw new IllegalArgumentException("alpha must be between range (0, 1]: " + alpha);
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
-        this.subManager = subMgr(parent, getClass());
+        this.subManager = subMgrInCPU(parent, getClass());
         this.device = parent.getDevice();
         this.sumSegmentTree = new SumSegmentTree(this.capacity);
         this.minSegmentTree = new MinSegmentTree(this.capacity);
@@ -128,6 +127,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
         var rewards = djlMapToFloat32(sub, batch, Experience::reward);
         var nextStates = newAttachedList(sub, batch, exp -> exp.nextState().duplicate());
         var dones = djlMapToFloat32(sub, batch, exp -> exp.done() ? 1 : 0);
+        // TODO: Correct term or trunc bias
         var weights = calculateWeights(sub, bufferIndexes, beta);
 
         return new VecExperience(

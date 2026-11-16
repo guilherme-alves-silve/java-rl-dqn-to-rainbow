@@ -27,10 +27,6 @@ class StableRetroGymTest {
     private static final List<String> GAMES = List.of("MegaMan-Nes-v0", "MegaMan2-Nes-v0");
     private static final String VIDEO = "/tmp/video";
 
-    // ------------------------------------------------------------------
-    // Builder construction
-    // ------------------------------------------------------------------
-
     @Test
     void shouldExposeStableRetroEnvBuilder() {
         assertThat(StableRetroGym.builder()).isInstanceOf(StableRetroGym.StableRetroEnvBuilder.class);
@@ -40,10 +36,6 @@ class StableRetroGymTest {
     void shouldBeAVectorGym() {
         assertThat(StableRetroGym.builder()).isInstanceOf(VectorGym.VectorEnvBuilder.class);
     }
-
-    // ------------------------------------------------------------------
-    // Retro-specific script generation
-    // ------------------------------------------------------------------
 
     @Test
     void shouldImportStableRetroAlongsideGymnasium() {
@@ -129,10 +121,6 @@ class StableRetroGymTest {
                 .contains("params['video_folder'] = f\"{params['video_folder']}/{env_name}{idx}\"");
     }
 
-    // ------------------------------------------------------------------
-    // Wrapper kwargs
-    // ------------------------------------------------------------------
-
     @Test
     void shouldRenderSingleWrapperEnvParams() {
         var script = StableRetroGym.builder()
@@ -193,10 +181,6 @@ class StableRetroGymTest {
                                 "for idx in range(7)]")
                 .containsOnlyOnce("env_params = [");
     }
-
-    // ------------------------------------------------------------------
-    // sync / async / params inherited from VectorGym
-    // ------------------------------------------------------------------
 
     @Test
     void shouldDefaultToSyncVectorEnv() {

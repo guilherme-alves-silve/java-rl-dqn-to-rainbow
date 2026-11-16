@@ -79,13 +79,14 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
             ++k;
         }
         requireNonNull(newest, "Cannot be null!");
-        var oldState = oldest.state().duplicate();
-        var oldAction = oldest.action().duplicate();
-        var newNextState = newest.nextState().duplicate();
-        var done = newest.done();
+        var oldState = oldest.state();
+        var oldAction = oldest.action();
+        var newNextState = newest.nextState();
+        var term = newest.term();
+        var trunc = newest.trunc();
 
-        var nStepExperience = new Experience(oldState, oldAction,
-                nStepReward, newNextState, done);
+        var nStepExperience = Experience.copy(oldState, oldAction,
+                nStepReward, newNextState, term, trunc);
 
         super.store(nStepExperience);
     }

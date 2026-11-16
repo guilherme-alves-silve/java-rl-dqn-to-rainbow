@@ -13,8 +13,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
-import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToFloat32;
-import static br.com.guialves.rflr.djlutils.DJLUtils.djlMapToLong;
+import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DJLUtilsTest {
@@ -55,9 +54,9 @@ class DJLUtilsTest {
                 .add(Activation::relu);
         net2.initialize(manager, DataType.FLOAT32, new Shape(2, 2));
 
-        assertTrue(DJLUtils.diff(net1, net2));
-        DJLUtils.copy(net1, net2);
-        assertFalse(DJLUtils.diff(net1, net2));
+        assertTrue(diff(net1, net2));
+        copy(net1, net2);
+        assertFalse(diff(net1, net2));
     }
 
     @Test
@@ -67,7 +66,7 @@ class DJLUtilsTest {
 
         // Warmup
         for (int i = 0; i < 5; i++) {
-            float[] result = DJLUtils.toFloatArray(array);
+            float[] result = toFloatArray(array);
             assertEquals(size, result.length, "toFloatArray must return array of correct size");
         }
 
@@ -76,7 +75,7 @@ class DJLUtilsTest {
         debugDump(manager);
 
         for (int i = 0; i < 50; i++) {
-            float[] result = DJLUtils.toFloatArray(array);
+            float[] result = toFloatArray(array);
             assertEquals(size, result.length);
         }
         int afterSteps = managedArrayCount(manager);
@@ -95,7 +94,7 @@ class DJLUtilsTest {
 
         // Warmup
         for (int i = 0; i < 5; i++) {
-            float result = DJLUtils.getFloat(scalar);
+            float result = getFloat(scalar);
             assertTrue(Float.isFinite(result), "getFloat must has finite value.");
         }
 
@@ -104,7 +103,7 @@ class DJLUtilsTest {
         debugDump(manager);
 
         for (int i = 0; i < 50; i++) {
-            float result = DJLUtils.getFloat(scalar);
+            float result = getFloat(scalar);
             assertTrue(Float.isFinite(result));
         }
         int afterSteps = managedArrayCount(manager);
@@ -123,14 +122,14 @@ class DJLUtilsTest {
         var array = manager.randomUniform(0f, 1f, new Shape(size), DataType.FLOAT32);
 
         for (int i = 0; i < 3; i++) {
-            float[] result = DJLUtils.toFloatArray(array);
+            float[] result = toFloatArray(array);
             assertEquals(size, result.length);
         }
         int afterWarmup = managedArrayCount(manager);
         debugDump(manager);
 
         for (int i = 0; i < 10; i++) {
-            float[] result = DJLUtils.toFloatArray(array);
+            float[] result = toFloatArray(array);
             assertEquals(size, result.length);
         }
         int afterSteps = managedArrayCount(manager);
@@ -147,14 +146,14 @@ class DJLUtilsTest {
         var array = manager.randomUniform(0f, 1f, new Shape(64, 32, 16), DataType.FLOAT32);
 
         for (int i = 0; i < 5; i++) {
-            float[] result = DJLUtils.toFloatArray(array);
+            float[] result = toFloatArray(array);
             assertEquals(64 * 32 * 16, result.length);
         }
         int afterWarmup = managedArrayCount(manager);
         debugDump(manager);
 
         for (int i = 0; i < 20; i++) {
-            float[] result = DJLUtils.toFloatArray(array);
+            float[] result = toFloatArray(array);
             assertEquals(64 * 32 * 16, result.length);
         }
         int afterSteps = managedArrayCount(manager);
@@ -171,14 +170,14 @@ class DJLUtilsTest {
         var array = manager.create(42.0f);
 
         for (int i = 0; i < 5; i++) {
-            float result = DJLUtils.getFloat(array);
+            float result = getFloat(array);
             assertEquals(42.0f, result, DELTA);
         }
         int afterWarmup = managedArrayCount(manager);
         debugDump(manager);
 
         for (int i = 0; i < 20; i++) {
-            float result = DJLUtils.getFloat(array);
+            float result = getFloat(array);
             assertEquals(42.0f, result, DELTA);
         }
         int afterSteps = managedArrayCount(manager);
@@ -325,7 +324,7 @@ class DJLUtilsTest {
         var batch = createBatch(BATCH_SIZE);
         try (var sub = subMgr(testManager, "values-f32")) {
             var rewards = djlMapToFloat32(sub, batch, Experience::reward);
-            var asFloats = DJLUtils.toFloatArray(rewards);
+            var asFloats = toFloatArray(rewards);
             assertEquals(BATCH_SIZE, asFloats.length);
             for (int i = 0; i < BATCH_SIZE; ++i) {
                 assertEquals((float) batch[i].reward(), asFloats[i], DELTA,

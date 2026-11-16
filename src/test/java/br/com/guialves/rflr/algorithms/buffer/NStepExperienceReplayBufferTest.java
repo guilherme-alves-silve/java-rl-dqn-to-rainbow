@@ -170,9 +170,9 @@ class NStepExperienceReplayBufferTest {
     }
 
     private Experience buildExp(NDManager mgr, int seed, double reward, boolean done) {
-        var state = mgr.ones(new Shape(2, 2));
-        var nextState = mgr.zeros(new Shape(2, 2));
-        var action = DISCRETE.get(seed);
-        return new Experience(state, action, reward, nextState, done);
+        @Cleanup var state = mgr.ones(new Shape(2, 2));
+        @Cleanup var nextState = mgr.zeros(new Shape(2, 2));
+        @Cleanup var action = DISCRETE.get(seed);
+        return Experience.copy(state, action, reward, nextState, done, done);
     }
 }

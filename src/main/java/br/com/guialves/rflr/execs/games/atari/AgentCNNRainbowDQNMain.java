@@ -62,7 +62,7 @@ public class AgentCNNRainbowDQNMain {
      */
     private static final int BUFFER_CAPACITY = 1_000_000;
 
-    public static void main() {
+    static void main() {
         run();
     }
 

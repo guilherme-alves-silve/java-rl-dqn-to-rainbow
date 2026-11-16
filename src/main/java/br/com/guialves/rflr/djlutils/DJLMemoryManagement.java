@@ -28,6 +28,8 @@ public class DJLMemoryManagement {
     public static final int NOT_FOUND_COUNT = -1;
     private static final com.sun.management.OperatingSystemMXBean OS =
             (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+    /** If you pass null, the default device is used, can be cpu or gpu. */
+    private static final Device GET_DEFAULT_DEVICE = null;
 
     private DJLMemoryManagement() {
         throw new IllegalStateException("No DJLMemoryManagement!");
@@ -461,8 +463,16 @@ public class DJLMemoryManagement {
         return subMgr(manager, clazz.getSimpleName());
     }
 
+    public static NDManager subMgrInCPU(NDManager manager, Class<?> clazz) {
+        return subMgr(manager, clazz.getSimpleName(), Device.cpu());
+    }
+
     public static NDManager subMgr(NDManager manager, String name) {
-        var sub = manager.newSubManager();
+        return subMgr(manager, name, GET_DEFAULT_DEVICE);
+    }
+
+    public static NDManager subMgr(NDManager manager, String name, Device device) {
+        var sub = manager.newSubManager(device);
         sub.setName(name + "-" + sub.getName());
         return sub;
     }
@@ -486,10 +496,8 @@ public class DJLMemoryManagement {
         return model;
     }
 
-    public static NDArray toCpu(NDArray array) {
-        if (array.getDevice().equals(Device.cpu())) return array;
-        var arrayCpu = array.toDevice(Device.gpu(), false);
-        array.close();
-        return arrayCpu;
+    public static NDArray duplicateToCpu(NDArray array) {
+        if (array.getDevice().equals(Device.cpu())) return array.duplicate();
+        return array.toDevice(Device.cpu(), true);
     }
 }

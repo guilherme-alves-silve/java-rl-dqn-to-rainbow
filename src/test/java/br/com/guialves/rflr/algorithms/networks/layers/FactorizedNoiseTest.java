@@ -75,7 +75,7 @@ class FactorizedNoiseTest {
         var fixedIn = manager.create(new float[]{1f, -4f, 0f});
 
         var mockManager = mock(NDManager.class);
-        when(mockManager.newSubManager()).thenReturn(mockManager);
+        when(mockManager.newSubManager(any())).thenReturn(mockManager);
         when(mockManager.ret(any())).thenAnswer(it -> it.getArgument(0));
         when(mockManager.getName()).thenReturn("mock");
         when(mockManager.randomNormal(0f, 1f, new Shape(2), DataType.FLOAT32))

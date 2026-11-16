@@ -132,7 +132,7 @@ public class AgentRainbowDQN extends AbstractAgent {
             return onlineRainbowNet.forwardLogits(states, logits -> logits.gather(actions, AXIS_1));
         }, samples.states(), samples.actions());
 
-        var lossItem = scopedToFloat(NDArray::mean, losses);;
+        var lossItem = scopedToFloat(NDArray::mean, losses);
         @Cleanup var priorities = scoped(it -> it.abs().add(MIN_PRIORITY), losses);
 
         replayBuffer.updatePriorities(samples.bufferIndexes(), priorities);

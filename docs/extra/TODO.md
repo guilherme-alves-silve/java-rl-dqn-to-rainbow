@@ -232,7 +232,7 @@ public class PyObjectCleanupPlugin implements Plugin {
         private final String descriptor;
         private boolean hasAnnotation = false;
         private boolean debug = false;
-        private Set<String> excludedVars = new HashSet<>();
+        private final Set<String> excludedVars = new HashSet<>();
         
         public AnnotationCheckingMethodVisitor(int api, MethodVisitor mv,
                                               int access, String name, String descriptor) {

@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.algorithms.buffer;
 
+import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.fixture.ExperienceFixture;
@@ -13,6 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.managedArrayCount;
 import static java.util.stream.IntStream.range;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class PrioritizedReplayBufferTest {
 
@@ -26,6 +28,17 @@ class PrioritizedReplayBufferTest {
     @AfterAll
     static void shutdown() {
         manager.close();
+    }
+
+    @Test
+    void shouldMaintainTheExperiencesInTheCPU() throws NoSuchFieldException, IllegalAccessException {
+        int capacity = 100;
+        @Cleanup var cpuManager = manager.newSubManager(Device.cpu());
+        var replayBuffer = new ExperienceReplayBuffer(capacity, cpuManager);
+        var field = ExperienceReplayBuffer.class.getDeclaredField("subManager");
+        field.setAccessible(true);
+        var subManager = (NDManager) field.get(replayBuffer);
+        assertEquals(Device.cpu(), subManager.getDevice());
     }
 
     @Test

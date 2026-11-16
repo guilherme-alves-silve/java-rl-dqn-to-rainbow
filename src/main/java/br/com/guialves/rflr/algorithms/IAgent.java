@@ -12,7 +12,7 @@ import java.util.Map;
 
 public interface IAgent extends AutoCloseable {
 
-    static final int DEFAULT_FRAME_SKIP = 1;
+    int DEFAULT_FRAME_SKIP = 1;
 
     default void train(int batchSize,
                        long framesLimit,

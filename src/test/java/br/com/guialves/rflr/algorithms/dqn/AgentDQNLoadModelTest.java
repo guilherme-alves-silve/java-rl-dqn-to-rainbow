@@ -8,7 +8,6 @@ import ai.djl.training.optimizer.AdamW;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
 import br.com.guialves.rflr.algorithms.networks.DeepQNetworkMLP;
-import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.fixture.AgentDQNResourceFixture;
 import br.com.guialves.rflr.fixture.MockDiscreteEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -18,6 +17,7 @@ import org.junit.jupiter.api.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -124,7 +124,7 @@ class AgentDQNLoadModelTest {
                 /* debugMemoryLeak */ false
         );
 
-        @Cleanup var parentPerCall = DJLMemoryManagement.subMgr(parent, "load-test-call");
+        @Cleanup var parentPerCall = subMgr(parent, "load-test-call");
         @Cleanup var state = parentPerCall.ones(new Shape(OBSERVATIONS));
         var action = agent.selectAction(state);
         assertNotNull(action);
