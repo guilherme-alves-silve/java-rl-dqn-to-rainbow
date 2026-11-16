@@ -36,7 +36,6 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
     private final Experience[] experiences;
     private final NDManager subManager;
     private final int capacity;
-    private final Device device;
     private int size;
     private int pos;
     private float maxPriority;
@@ -53,7 +52,6 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
         this.capacity = capacity;
         this.experiences = new Experience[capacity];
         this.subManager = subMgrInCPU(parent, getClass());
-        this.device = parent.getDevice();
         this.sumSegmentTree = new SumSegmentTree(this.capacity);
         this.minSegmentTree = new MinSegmentTree(this.capacity);
         this.pos = 0;
@@ -172,8 +170,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
                 })
                 .toArray())
                 .toType(DataType.FLOAT32, false)
-                .expandDims(1)
-                .toDevice(device, false);
+                .expandDims(1);
     }
 
     /**
