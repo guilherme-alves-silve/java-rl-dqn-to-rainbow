@@ -4,7 +4,9 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.experimental.Accessors;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,15 +16,16 @@ import java.util.stream.IntStream;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static java.util.Objects.requireNonNull;
 
+@Accessors(fluent = true)
 public class NEnvReplayBuffer implements IReplayBuffer {
 
     private final Map<Integer, IReplayBuffer> envNumberAndReplayBuffer;
     private final int capacity;
+    @Getter
     private final int numberOfEnvs;
     private final int capacityPerEnv;
     private final NDManager subManager;
     private int size;
-    private int pos;
 
     public NEnvReplayBuffer(int capacity,
                             int numberOfEnvs,
@@ -33,7 +36,6 @@ public class NEnvReplayBuffer implements IReplayBuffer {
         this.capacityPerEnv = getValidCapacityPerEnv();
         // this sub manager stays in the GPU (if available)
         this.subManager = subMgr(parent, getClass());
-        this.pos = 0;
         var envNumberAndReplayBuffer = new HashMap<Integer, IReplayBuffer>();
         IntStream.range(0, numberOfEnvs).forEach(i ->
                 envNumberAndReplayBuffer.put(i,
@@ -97,7 +99,8 @@ public class NEnvReplayBuffer implements IReplayBuffer {
 
         var samplesPerEnvToClose = new ArrayList<IVecExperience>(numberOfEnvs);
         try {
-            for (var replayBuffer : envNumberAndReplayBuffer.values()) {
+            for (int envNumber = 0; envNumber < numberOfEnvs; ++envNumber) {
+                var replayBuffer = envNumberAndReplayBuffer.get(envNumber);
                 var vecExperience = replayBuffer.sample(batchSizePerEnv);
                 samplesPerEnvToClose.add(vecExperience);
                 listStates.add(vecExperience.states());

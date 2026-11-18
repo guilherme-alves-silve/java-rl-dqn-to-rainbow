@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.algorithms.buffer;
 
-import ai.djl.Device;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
