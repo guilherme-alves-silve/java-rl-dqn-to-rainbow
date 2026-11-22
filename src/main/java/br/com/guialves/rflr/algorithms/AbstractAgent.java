@@ -7,6 +7,7 @@ import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
+import br.com.guialves.rflr.algorithms.networks.INoisyNetwork;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 import static br.com.guialves.rflr.djlutils.DJLUtils.*;
@@ -99,6 +101,12 @@ public abstract class AbstractAgent implements IAgent {
 
         requireNonNull(replayBuffer, "replayBuffer cannot be null!");
         requireNonNull(lossFunc, "loss cannot be null!");
+
+        if (env.vectorized()) {
+            trainVectorized(batchSize, framesLimit, framesSkip, replayBuffer, lossFunc);
+            return;
+        }
+
         plotTrackers.explainTrackersMessage();
 
         this.test = false;
@@ -175,6 +183,127 @@ public abstract class AbstractAgent implements IAgent {
     }
 
     /**
+     * Vectorized training loop: all the environments are stepped in lockstep and
+     * a single gradient step is performed per vectorized step.
+     *
+     * <p>The observation batch has the shape {@code (numEnvs, ...)} and is fed to
+     * the online network in a single batched forward pass, which is the whole
+     * point of the vectorization: the GPU sees {@code numEnvs} samples at once
+     * instead of one.</p>
+     *
+     * <p>The frames counter follows the <b>emulator frames</b>, so one vectorized
+     * step advances {@code framesSkip * numEnvs} frames.</p>
+     *
+     * @param batchSize     the mini-batch size
+     * @param framesLimit   the training budget, in emulator frames
+     * @param framesSkip    the number of emulator frames consumed by one env step
+     * @param replayBuffer  the buffer that receives the transitions
+     * @param lossFunc      the loss function
+     */
+    private void trainVectorized(int batchSize,
+                                 long framesLimit,
+                                 int framesSkip,
+                                 IReplayBuffer replayBuffer,
+                                 Loss lossFunc) {
+        plotTrackers.explainTrackersMessage();
+
+        this.test = false;
+        this.episodes = 0;
+
+        @Cleanup var pbar = ProgressBar.builder()
+                .setTaskName("training " + getClass().getSimpleName())
+                .setInitialMax(framesLimit)
+                .setMaxRenderedLength(200)
+                .build();
+
+        @Cleanup var parentVec = subMgr(parent, "parent-vectorized");
+
+        var stateAndInfo = env.reset(parentVec);
+        var states = stateAndInfo.state();
+        // (Envs, Channels, Height, Width)
+        int numberOfEnvs = (int) states.getShape().get(0);
+
+        var episodeRewards = new ArrayList<Double>(numberOfEnvs);
+        IntStream.rangeClosed(0, numberOfEnvs).forEach(_ -> episodeRewards.add(0d));
+
+        float lossSum = 0f;
+        int lossSteps = 0;
+
+        long frames = 0;
+        while (frames < framesLimit) {
+            @Cleanup var sub = subMgr(parentVec, "sub-vectorized-step");
+            @Cleanup var actions = selectActions(states);
+            @Cleanup var vecResult = env.stepVec(actions, sub);
+
+            for (int idxEnv = 0; idxEnv < numberOfEnvs; ++idxEnv) {
+                var step = vecResult.step(idxEnv);
+                var reward = step.reward();
+                var done = step.done();
+                // TODO: probably close, check
+                var currState = states.get(idxEnv);
+                var exp = Experience.copy(idxEnv, currState, actions.toDiscrete(idxEnv), step.reward(),
+                        step.state(), step.term(), step.trunc());
+                replayBuffer.store(exp);
+
+                episodeRewards.set(idxEnv, episodeRewards.get(idxEnv) + reward);
+                if (done) {
+                    ++episodes;
+                    float avgLoss = lossSteps > 0? lossSum / lossSteps : 0;
+                    plotTrackers.add(epsilon, List.of(episodeRewards.get(idxEnv)), avgLoss);
+                    episodeRewards.set(idxEnv, 0d);
+                }
+            }
+
+            float lossItem = trainOnline(batchSize, replayBuffer, lossFunc, sub);
+            if (trained(lossItem)) {
+                lossSum += lossItem;
+                ++lossSteps;
+            }
+
+            states = transfer(parentVec, states, vecResult.states());
+
+            frames += (long) framesSkip * numberOfEnvs;
+            epsilon = reduceEpsilon(epsilon, numberOfEnvs);
+            updateTargetNetworkAtN((int) frames);
+
+            pbar.stepTo(frames);
+            plotTrackers.updateTrackersMessage(pbar, (int) frames, replayBuffer.size(), parent, parentVec);
+            templateExtraProcessing((int) frames, framesLimit);
+        }
+
+        if (debugMemoryLeak) getDebugDump(parent).ifPresent(managerNodes::offer);
+
+        plotTrackers.updateTrackersMessage(pbar, (int) frames, replayBuffer.size(), parent);
+
+        if (getBoolProp("agent.showAllMetrics")) {
+            plotTrackers.showAllMetrics();
+        }
+    }
+
+    /**
+     * Selects one action per environment with a single batched forward pass.
+     *
+     * @param states the batched observation, shape {@code (numEnvs, ...)}
+     * @return the greedy action of each environment
+     */
+    protected ActionSpaceType.ActionResult selectActions(NDArray states) {
+        if (onlineNet instanceof INoisyNetwork noisyNetwork) {
+            noisyNetwork.resetNoise();
+        }
+
+        if (!test) {
+            var rand = ThreadLocalRandom.current().nextFloat();
+            if (rand < epsilon) {
+                return env.actionSpaceSample();
+            }
+        }
+
+        long[] action = onlineNet.forwardLongs(states,
+                qValue -> qValue.stopGradient().argMax(AXIS_1));
+        return actionSpaceType.get(action);
+    }
+
+    /**
      * Follow the design pattern template method
      */
     protected void templateExtraProcessing(int frames, long frameLimit) {
@@ -233,6 +362,18 @@ public abstract class AbstractAgent implements IAgent {
     @Override
     public float reduceEpsilon(float epsilon) {
         return Math.max(minEpsilon, epsilon - epsilonDecay);
+    }
+
+    /**
+     * Reduces the exploration rate taking into account that one vectorized step
+     * advances {@code steps} environment steps.
+     *
+     * @param epsilon the current exploration rate
+     * @param steps   the number of environment steps performed
+     * @return the new exploration rate
+     */
+    protected float reduceEpsilon(float epsilon, int steps) {
+        return Math.max(minEpsilon, epsilon - epsilonDecay * steps);
     }
 
     @Override

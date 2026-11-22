@@ -64,4 +64,9 @@ public class CarlaEnv implements IEnv {
     public void close() {
 
     }
+
+    @Override
+    public boolean vectorized() {
+        return false;
+    }
 }

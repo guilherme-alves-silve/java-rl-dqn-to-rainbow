@@ -85,4 +85,9 @@ public final class MockDiscreteEnv implements IEnv {
     public void close() {
         // Ignored
     }
+
+    @Override
+    public boolean vectorized() {
+        return false;
+    }
 }

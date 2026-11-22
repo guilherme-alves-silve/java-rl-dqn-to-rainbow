@@ -36,11 +36,13 @@ public final class Env implements IEnv {
     private final String envName;
     private final PyObject pyEnv;
     private final PyObject pyActionSpace;
+    private final PyObject pySingleActionSpace;
     private final PyObject pyObservationSpace;
     private final PyObject pyRender;
     private final PyObject pyStep;
     private final PyObject pyReset;
     private final ActionSpaceType actionSpaceType;
+    private final boolean vectorized;
 
     @Getter
     private boolean closed;
@@ -61,11 +63,23 @@ public final class Env implements IEnv {
 
         this.pyEnv = eval("env_" + varEnvCode);
         this.pyActionSpace = attr(pyEnv, "action_space");
-        this.actionSpaceType = detectActionSpaceType(pyActionSpace);
+        this.vectorized = hasAttr(pyEnv, "single_action_space");
+        if (vectorized) {
+            this.pySingleActionSpace = attr(pyEnv, "single_action_space");
+            this.actionSpaceType = detectActionSpaceType(pySingleActionSpace);
+        } else {
+            this.pySingleActionSpace = null;
+            this.actionSpaceType = detectActionSpaceType(pyActionSpace);
+        }
         this.pyObservationSpace = attr(pyEnv, "observation_space");
         this.pyRender = attr(pyEnv, "render");
         this.pyStep = attr(pyEnv, "step");
         this.pyReset = attr(pyEnv, "reset");
+    }
+
+    @Override
+    public boolean vectorized() {
+        return vectorized;
     }
 
     @Override
@@ -76,6 +90,11 @@ public final class Env implements IEnv {
     @Override
     public String actionSpaceStr() {
         return toStr(pyActionSpace);
+    }
+
+    @Override
+    public String singleActionSpaceStr() {
+        return vectorized ? toStr(pySingleActionSpace) : actionSpaceStr();
     }
 
     @Override
@@ -158,8 +177,13 @@ public final class Env implements IEnv {
     }
 
     @Override
-    public VecEnvStepResults stepVec(ActionResult action, NDManager sub) {
-        @Cleanup var result = callFunction(pyStep, action.pyObj);
+    public VecEnvStepResults stepVec(ActionResult actions, NDManager sub) {
+        if (null == actions || actions.sizeIfMulti() <= 0L) {
+            throw new IllegalArgumentException("actions must not be empty!");
+        }
+
+        // TODO: Check memory leak or if closes to soon
+        @Cleanup var result = callFunction(pyStep, actions.pyObj);
         if (stateBuffer == null) {
             throw new IllegalStateException("You should call reset() first!");
         }
@@ -239,6 +263,7 @@ public final class Env implements IEnv {
             }
 
             decRef(pyActionSpace);
+            if (pySingleActionSpace != null) decRef(pySingleActionSpace);
             decRef(pyObservationSpace);
             decRef(pyRender);
             decRef(pyStep);

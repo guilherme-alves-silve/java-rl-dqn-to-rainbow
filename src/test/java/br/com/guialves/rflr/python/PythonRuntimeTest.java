@@ -303,10 +303,11 @@ class PythonRuntimeTest {
     void testGetItem() {
         exec("t = (10, 20, 30)");
 
-        try (var tuple = eval("t");
-             var item0 = getItem(tuple, 0);
-             var item1 = getItem(tuple, 1);
-             var item2 = getItem(tuple, 2)) {
+        try (var tuple = eval("t")) {
+            var item0 = getItem(tuple, 0);
+            var item1 = getItem(tuple, 1);
+            var item2 = getItem(tuple, 2);
+
             assertEquals(10L, toLong(item0));
             assertEquals(20L, toLong(item1));
             assertEquals(30L, toLong(item2));

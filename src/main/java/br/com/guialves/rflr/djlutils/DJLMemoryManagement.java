@@ -116,6 +116,13 @@ public class DJLMemoryManagement {
         return out.getLong(FIRST_POS);
     }
 
+    public static long[] scopedToLongs(final UnaryOperator<NDArray> block,
+                                       final NDArray input) {
+        @Cleanup var sub = subMgr(input, "scoped-o-ls");
+        var out = scopedNotReturned(sub, block, input);
+        return out.toLongArray();
+    }
+
     public static NDArray scoped(final BinaryOperator<NDArray> block,
                                  final NDArray inputA,
                                  final NDArray inputB) {

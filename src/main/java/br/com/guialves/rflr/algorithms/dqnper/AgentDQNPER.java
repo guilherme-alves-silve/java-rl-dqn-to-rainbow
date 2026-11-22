@@ -5,8 +5,8 @@ import ai.djl.ndarray.NDManager;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
+import br.com.guialves.rflr.algorithms.buffer.IPrioritizedBuffer;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -19,7 +19,7 @@ import static br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer.MIN
 import static br.com.guialves.rflr.djlutils.DJLLoss.rawBackwardLoss;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFloat;
-import static br.com.guialves.rflr.djlutils.DJLOptimizer.*;
+import static br.com.guialves.rflr.djlutils.DJLOptimizer.trainStep;
 import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
 @Slf4j
@@ -59,9 +59,10 @@ public class AgentDQNPER extends AbstractAgent {
     @Override
     protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
-        if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
-            throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
+        if (!(ireplayBuffer instanceof IPrioritizedBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass an IPrioritizedBuffer!");
         }
+
         if (!(lossFunc instanceof PERL2Loss perl2LossFunc)) {
             throw new IllegalArgumentException("You must pass PERL2Loss!");
         }

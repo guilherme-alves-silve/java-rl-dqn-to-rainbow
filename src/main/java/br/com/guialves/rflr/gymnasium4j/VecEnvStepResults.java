@@ -9,27 +9,43 @@ import java.util.Map;
 /**
  * I choose to convert the vectorized to a list of EnvStepResult to maintain
  * compatibility with the actual design.
- * @param steps
+ *
+ * @param steps one step result per environment
+ * @param info  the batched info dictionary returned by the vector environment
+ * @param states the batched observation, shape {@code (numEnvs, ...)}
  */
 public record VecEnvStepResults(List<EnvStepResult> steps,
-                                Map<Object, Object> info) implements AutoCloseable {
+                                Map<Object, Object> info,
+                                NDArray states) implements AutoCloseable {
 
     VecEnvStepResults(double[] rewards,
                       boolean[] terms,
                       boolean[] truncs,
                       Map<Object, Object> info,
                       NDArray states) {
-        this(new ArrayList<>(rewards.length), info);
+        this(buildSteps(rewards, terms, truncs, info, states), info, states);
+    }
+
+    private static List<EnvStepResult> buildSteps(double[] rewards,
+                                                  boolean[] terms,
+                                                  boolean[] truncs,
+                                                  Map<Object, Object> info,
+                                                  NDArray states) {
+        var steps = new ArrayList<EnvStepResult>(rewards.length);
         for (int i = 0; i < rewards.length; ++i) {
-            var step = new EnvStepResult(
+            steps.add(new EnvStepResult(
                     rewards[i],
                     terms[i],
                     truncs[i],
                     info,
                     states.get(i)
-            );
-            steps.add(step);
+            ));
         }
+        return steps;
+    }
+
+    public EnvStepResult step(int idx) {
+        return steps.get(idx);
     }
 
     public boolean anyTerm() {

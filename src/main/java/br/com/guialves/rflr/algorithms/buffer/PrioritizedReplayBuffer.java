@@ -26,11 +26,10 @@ import static java.util.Arrays.stream;
  *  @see <a href="https://arxiv.org/abs/1511.05952">Prioritized Experience Replay</a>
  *  @see <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/03_per.py">PER Python implementation</a>
  */
-public class PrioritizedReplayBuffer implements IReplayBuffer {
+public class PrioritizedReplayBuffer implements IPrioritizedBuffer {
 
     public static final float DEFAULT_ALPHA = 0.2f;
     public static final float DEFAULT_BETA = 0.6f;
-    public static final float MIN_PRIORITY = 0.000_000_001f;
 
     private final Experience[] experiences;
     private final NDManager subManager;
@@ -108,11 +107,12 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
     }
 
     @Override
-    public VecExperience sample(int batchSize) {
+    public PrioritizedVecExperience sample(int batchSize) {
         return sample(batchSize, DEFAULT_BETA);
     }
 
-    public VecExperience sample(int batchSize, float beta) {
+    @Override
+    public PrioritizedVecExperience sample(int batchSize, float beta) {
         if (!enough(batchSize)) return null;
 
         var sub = subMgr(subManager, "prioritized-sample");
@@ -127,7 +127,7 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
         // TODO: Correct term or trunc bias
         var weights = calculateWeights(sub, bufferIndexes, beta);
 
-        return new VecExperience(
+        return new PrioritizedVecExperience(
                 sub,
                 states,
                 actions,
@@ -218,21 +218,6 @@ public class PrioritizedReplayBuffer implements IReplayBuffer {
 
     int pos() {
         return pos;
-    }
-
-    public record VecExperience(NDManager sub,
-                                NDArray states,
-                                NDArray actions,
-                                NDArray rewards,
-                                NDArray nextStates,
-                                NDArray dones,
-                                NDArray weights,
-                                int[] bufferIndexes) implements IVecExperience {
-
-        @Override
-        public void close() {
-            sub.close();
-        }
     }
 
     @Override

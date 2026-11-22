@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -17,11 +19,16 @@ import static java.util.Objects.requireNonNull;
  * <a href="https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/01_dqn.py">rainbow-is-all-you-need/01_dqn.py</a>
  */
 @Slf4j
-public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
+public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer implements INStepBuffer {
 
     private final int nStep;
     private final float gamma;
-    private final Deque<Experience> nStepDeque;
+    /**
+     * One deque per environment. A vectorized environment steps all the
+     * environments in lockstep, so the n-step window of one environment must not
+     * be mixed with the window of another one.
+     */
+    private final Map<Integer, Deque<Experience>> nStepDeques;
 
     public NStepExperienceReplayBuffer(int capacity,
                                        int nStep,
@@ -40,7 +47,7 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
         if (gamma <= 0 || gamma > 1) throw new IllegalArgumentException("gamma must be between range (0, 1]: " + gamma);
         this.nStep = nStep;
         this.gamma = gamma;
-        this.nStepDeque = new ArrayDeque<>(nStep);
+        this.nStepDeques = new HashMap<>();
     }
 
     /**
@@ -51,23 +58,25 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
     @Override
     public void store(Experience exp) {
 
+        var nStepDeque = nStepDeques.computeIfAbsent(exp.envNumber(),
+                _ -> new ArrayDeque<>(nStep));
         nStepDeque.addLast(exp);
 
         if (!exp.done()) {
             if (nStepDeque.size() == nStep) {
-                emitExperience();
+                emitExperience(nStepDeque);
                 nStepDeque.pollFirst().close();
             }
             return;
         }
 
         while (!nStepDeque.isEmpty()) {
-            emitExperience();
+            emitExperience(nStepDeque);
             nStepDeque.pollFirst().close();
         }
     }
 
-    private void emitExperience() {
+    private void emitExperience(Deque<Experience> nStepDeque) {
         double nStepReward = 0f;
         var oldest = nStepDeque.getFirst();
         int k = 0;
@@ -79,13 +88,14 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
             ++k;
         }
         requireNonNull(newest, "Cannot be null!");
+        int envNumber = oldest.envNumber();
         var oldState = oldest.state();
         var oldAction = oldest.action();
         var newNextState = newest.nextState();
         var term = newest.term();
         var trunc = newest.trunc();
 
-        var nStepExperience = Experience.copy(oldState, oldAction,
+        var nStepExperience = Experience.copy(envNumber, oldState, oldAction,
                 nStepReward, newNextState, term, trunc);
 
         super.store(nStepExperience);
@@ -98,6 +108,7 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer {
     @Override
     public void close() {
         super.close();
-        nStepDeque.forEach(Experience::close);
+        nStepDeques.values().forEach(nStepDeque -> nStepDeque.forEach(Experience::close));
+        nStepDeques.clear();
     }
 }

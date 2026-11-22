@@ -6,8 +6,8 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.INStepBuffer;
+import br.com.guialves.rflr.algorithms.buffer.IPrioritizedBuffer;
 import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLPERLoss;
 import br.com.guialves.rflr.algorithms.networks.*;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -90,8 +90,11 @@ public class AgentRainbowDQN extends AbstractAgent {
     @Override
     protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
-        if (!(ireplayBuffer instanceof NStepPrioritizedReplayBuffer replayBuffer)) {
-            throw new IllegalArgumentException("You must pass NStepPrioritizedReplayBuffer!");
+        if (!(ireplayBuffer instanceof INStepBuffer nStepBuffer)) {
+            throw new IllegalArgumentException("You must pass an INStepBuffer!");
+        }
+        if (!(ireplayBuffer instanceof IPrioritizedBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass IPrioritizedBuffer!");
         }
         if (!(lossFunc instanceof CategoricalNLLPERLoss catLossFunc)) {
             throw new IllegalArgumentException("You must pass CategoricalNLLPERLoss!");
@@ -111,7 +114,7 @@ public class AgentRainbowDQN extends AbstractAgent {
                         .mul(atomsBroadcaster));
 
         @Cleanup var targetQValue = targetRainbowNet.forwardDist(nextStates, probNextDist -> {
-            float gammaNBootstrap = (float) Math.pow(gamma, replayBuffer.nStep());
+            float gammaNBootstrap = (float) Math.pow(gamma, nStepBuffer.nStep());
             // q_target(s', a*) - DDQN
             var bestNextProbDist = probNextDist.gather(action, AXIS_1);
             // Bellman Projection - mi (with n-step gammaNBootstrap instead of just gamma)

@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.gymnasium4j;
 
+import br.com.guialves.rflr.python.PyRef;
 import br.com.guialves.rflr.python.numpy.NumPyByteBuffer;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -150,6 +151,8 @@ public enum ActionSpaceType {
     @Accessors(fluent = true)
     public static class ActionResult implements AutoCloseable {
 
+        private static final String EX_DISCRETE_MSG = "Expected list for MULTI_DISCRETE";
+
         // I don't want to expose this, to avoid crashes
         final PyObject pyObj;
         @Getter
@@ -297,19 +300,8 @@ public enum ActionSpaceType {
         }
 
         private Object extractMultiDiscreteValue(PyObject obj) {
-            if (!isList(obj)) {
-                throw new IllegalStateException("Expected list for MULTI_DISCRETE");
-            }
-
-            long size = PyList_Size(obj);
-
-            if (size > 0) {
-                var first = PyList_GetItem(obj, 0);
-                long value = PyLong_AsLong(first);
-
-                if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
-                    return toIntArray(obj);
-                }
+            if (!isSequence(obj)) {
+                throw new IllegalStateException(EX_DISCRETE_MSG);
             }
 
             return toLongArray(obj);
@@ -341,6 +333,19 @@ public enum ActionSpaceType {
             } catch (Exception e) {
                 return "[error: " + e.getMessage() + "]";
             }
+        }
+
+        public long sizeIfMulti() {
+            if (isSequence(pyObj)) return getSequenceSize(pyObj);
+            return -1L;
+        }
+
+        public ActionResult toDiscrete(int idxEnv) {
+            if (closed) throw new IllegalArgumentException("Already closed! idxEnv = " + idxEnv);
+            if (!isSequence(pyObj)) throw new IllegalStateException(EX_DISCRETE_MSG);
+            // TODO: Check memory leak of parent pyObj (that is a list)
+            var discretePyObj = PyRef.of(getItem(pyObj, idxEnv));
+            return new ActionResult(discretePyObj, ActionSpaceType.DISCRETE);
         }
 
         @Override

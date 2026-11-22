@@ -118,6 +118,47 @@ The `Gym` class mirrors the `import gymnasium as gym` convention. Environments a
 - **`varEnvCode`** — UUID-scoped global variable names prevent collisions in the Python interpreter's `globals` dict
 - **`IEnv`** — interface providing `reset()`, `step()`, `render()`, `actionSpaceSample()`, and `close()`, backed by the `Env` implementation
 
+### Single-environment and vectorized training flows
+
+> **Why the two flows coexist.** The articles published about this project describe the
+> single-environment flow, from the environment to the replay buffer, one transition at a
+> time. That flow is kept **exactly as it was** — same class, same methods, same
+> behavior — so that anyone following the articles can read the code and recognize it
+> immediately. The vectorized flow was added **alongside** it, not on top of it, and the
+> duplication is deliberate: a shared abstraction would force the reader to hold two
+> mental models (a batch of environments and a single one) while reading a tutorial.
+> The cost is a duplicated loop in `AbstractAgent`; the benefit is that neither flow
+> compromises the other.
+
+**How to choose the flow** — it is decided by the configuration, not by a flag in the
+agent:
+
+| Configuration | Flow |
+|---|---|
+| `RLConfig.vectorized(NONE)` (default) | `AbstractAgent.train()` — one environment, one transition per step, one gradient step per step |
+| `RLConfig.vectorized(SYNC/ASYNC)` + `numberOfEnvs(n)` | `AbstractAgent.trainVectorized()` — `n` environments stepped in lockstep, one batched forward, one gradient step per vectorized step |
+
+Both flows share the same networks, the same losses and the same agents. The agents
+themselves are not duplicated: `selectAction()` (single) and `selectActions()` (vectorized)
+live side by side in `AbstractAgent`, and the vectorized one only adds the batched
+forward pass.
+
+**The replay buffer** — `NEnvReplayBuffer` holds one buffer per environment
+(`ReplayBufferFactory` decides which kind: `PrioritizedReplayBuffer`,
+`NStepPrioritizedReplayBuffer`, …). The vectorized loop stores each transition with its
+environment number (`Experience.envNumber()`), and the buffer routes it to the right
+environment. The batch is assembled by sampling every environment and concatenating the
+results in environment order. **The batch size must be divisible by the number of
+environments.**
+
+**Auto-reset** — the vectorized environments use the gymnasium default
+(`autoreset_mode = NEXT_STEP`): the observation returned by a step that terminates an
+environment is its **final** observation, and the **next** step returns the observation of
+the freshly reset environment. Therefore the vectorized loop has no special case at all:
+it stores the transition with the observation that the step returned, and the next step
+starts from that same observation. The `terminated`/`truncated` flags always belong to the
+transition that ends at the step they were returned with.
+
 ## Optimization
 
 TODO:

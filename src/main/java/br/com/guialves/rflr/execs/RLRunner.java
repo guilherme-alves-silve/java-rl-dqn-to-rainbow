@@ -64,10 +64,10 @@ public class RLRunner {
                     .async(async);
         } else {
             envBuilder = Gym.builder()
-                    .envName(config.envName())
-                    .params(config.envParams())
-                    .add(config.wrappers().toArray(new IWrapper[0]));
+                    .envName(config.envName());
         }
+        envBuilder.params(config.envParams())
+                .add(config.wrappers().toArray(new IWrapper[0]));
         config.importLibsIn(envBuilder);
 
         if (getBoolProp("agent.records", "true")) {
@@ -98,7 +98,7 @@ public class RLRunner {
         boolean loadOnly = config.loadModelPrefix() != null;
 
         if (!loadOnly) {
-            agent.train(config.batchSize(), config.framesLimit(), replayBuffer, lossFunc);
+            agent.train(config.batchSize(), config.framesLimit(), config.framesSkip(), replayBuffer, lossFunc);
 
             if (config.saveModel()) {
                 agent.save(path, modelFileName);

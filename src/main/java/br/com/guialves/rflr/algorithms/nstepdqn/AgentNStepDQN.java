@@ -5,7 +5,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.NStepExperienceReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.INStepBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
@@ -21,7 +21,7 @@ import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 /**
  * DQN with n-step returns.
  *
- * <p>Uses an {@link NStepExperienceReplayBuffer} that, on every {@code store()} call, builds
+ * <p>Uses an {@link INStepBuffer} that, on every {@code store()} call, builds
  * the n-step return and writes a synthetic multistep transition to the underlying ring buffer.
  * The training step is identical to vanilla DQN but the bootstrap target is computed over
  * the n-step reward.
@@ -61,8 +61,8 @@ public class AgentNStepDQN extends AbstractAgent {
     @Override
     protected float trainOnline(int batchSize, IReplayBuffer ireplayBuffer, Loss lossFunc, NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
-        if (!(ireplayBuffer instanceof NStepExperienceReplayBuffer replayBuffer)) {
-            throw new IllegalArgumentException("You must pass NStepExperienceReplayBuffer!");
+        if (!(ireplayBuffer instanceof INStepBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass an INStepBuffer!");
         }
 
         @Cleanup var samples = replayBuffer.sample(batchSize);

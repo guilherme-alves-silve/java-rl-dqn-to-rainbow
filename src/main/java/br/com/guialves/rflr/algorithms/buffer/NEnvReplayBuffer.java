@@ -4,20 +4,37 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.index.NDIndex;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.IntStream;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
+import static java.util.Collections.*;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A replay buffer that holds one buffer per environment.
+ *
+ * <p>Every environment has its own buffer, so the experience of an environment is never
+ * mixed with the experience of another one. The batches are assembled by sampling each
+ * environment and concatenating the results, in environment order.</p>
+ *
+ * <p>It supports the Prioritized Experience Replay: the {@link ReplayBufferFactory} must
+ * create a {@link IPrioritizedBuffer} per environment, and the buffer indexes of the
+ * concatenated batch are globalized as {@code envNumber * capacityPerEnv + localIndex}, so
+ * that {@link #updatePriorities(int[], NDArray)} can route each priority back to the buffer
+ * that owns the sample.</p>
+ *
+ * @see IPrioritizedBuffer
+ */
+@Slf4j
 @Accessors(fluent = true)
-public class NEnvReplayBuffer implements IReplayBuffer {
+public class NEnvReplayBuffer implements IPrioritizedBuffer, INStepBuffer {
 
     private final Map<Integer, IReplayBuffer> envNumberAndReplayBuffer;
     private final int capacity;
@@ -42,6 +59,23 @@ public class NEnvReplayBuffer implements IReplayBuffer {
                         requireNonNull(replayBufferFactory.create(capacityPerEnv), "replayBuffer must no be null!")));
         // immutable hash-map
         this.envNumberAndReplayBuffer = Map.copyOf(envNumberAndReplayBuffer);
+
+        warnAboutNStepBuffersWithDifferentNSteps(envNumberAndReplayBuffer);
+    }
+
+    private static void warnAboutNStepBuffersWithDifferentNSteps(HashMap<Integer, IReplayBuffer> envNumberAndReplayBuffer) {
+        var nStepsSizes = new ArrayList<Integer>();
+        for (var buffer : envNumberAndReplayBuffer.values()) {
+            if (buffer instanceof INStepBuffer nStepBuffer) {
+                nStepsSizes.add(nStepBuffer.nStep());
+            }
+        }
+
+        if (nStepsSizes.isEmpty()) return;
+
+        if (!Objects.equals(min(nStepsSizes), max(nStepsSizes))) {
+            log.warn("Different nStep between the buffers! Are you sure? {}", nStepsSizes);
+        }
     }
 
     private int getValidCapacityPerEnv() {
@@ -62,13 +96,41 @@ public class NEnvReplayBuffer implements IReplayBuffer {
         size = getSize();
     }
 
+    /**
+     * The number of samples that each environment contributes to a batch.
+     *
+     * <p>The batch is assembled in environment order and every environment
+     * contributes at least one sample, so that no environment is left out of the
+     * batch. When the batch size is not a multiple of the number of environments,
+     * the remainder is spread over the first environments.</p>
+     *
+     * @param batchSize the size of the whole batch
+     * @return an array with the number of samples of each environment
+     */
+    private int[] samplesPerEnv(int batchSize) {
+        if (batchSize < numberOfEnvs) {
+            throw new IllegalArgumentException(
+                    ("The batch size (%d) must be at least the number of environments (%d)," +
+                     "otherwise some environment would not be part of the batch!").formatted(batchSize, numberOfEnvs));
+        }
+
+        int[] samplesPerEnv = new int[numberOfEnvs];
+        int base = batchSize / numberOfEnvs;
+        int remainder = batchSize % numberOfEnvs;
+        for (int idxEnv = 0; idxEnv < numberOfEnvs; ++idxEnv) {
+            samplesPerEnv[idxEnv] = base + (idxEnv < remainder ? 1 : 0);
+        }
+
+        return samplesPerEnv;
+    }
+
     @Override
     public boolean enough(int batchSize) {
-        if (batchSize % numberOfEnvs != 0) return false;
-        int batchSizePerEnv = batchSize / numberOfEnvs;
+        int[] samplesPerEnv = samplesPerEnv(batchSize);
         // Avoiding lambda to make sure it runs faster
-        for (var buffer : envNumberAndReplayBuffer.values()) {
-            if (!buffer.enough(batchSizePerEnv)) {
+        for (int envNumber = 0;  envNumber < numberOfEnvs; ++envNumber) {
+            var buffer = envNumberAndReplayBuffer.get(envNumber);
+            if (!buffer.enough(samplesPerEnv[envNumber])) {
                 return false;
             }
         }
@@ -88,8 +150,7 @@ public class NEnvReplayBuffer implements IReplayBuffer {
     public IVecExperience sample(int batchSize) {
         if (!enough(batchSize)) return null;
 
-        int batchSizePerEnv = batchSize / numberOfEnvs;
-        if (batchSize % numberOfEnvs != 0) throw new IllegalArgumentException("The condition (batchSize mod numberOfEnvs == 0) must be satisfied!");
+        int[] samplesPerEnv = samplesPerEnv(batchSize);
         var sub = subMgr(subManager, "n-buffer-sample");
         var listStates = new NDList(numberOfEnvs);
         var listActions = new NDList(numberOfEnvs);
@@ -101,7 +162,7 @@ public class NEnvReplayBuffer implements IReplayBuffer {
         try {
             for (int envNumber = 0; envNumber < numberOfEnvs; ++envNumber) {
                 var replayBuffer = envNumberAndReplayBuffer.get(envNumber);
-                var vecExperience = replayBuffer.sample(batchSizePerEnv);
+                var vecExperience = replayBuffer.sample(samplesPerEnv[envNumber]);
                 samplesPerEnvToClose.add(vecExperience);
                 listStates.add(vecExperience.states());
                 listActions.add(vecExperience.actions());
@@ -114,15 +175,132 @@ public class NEnvReplayBuffer implements IReplayBuffer {
 
             return new ExperienceReplayBuffer.VecExperience(
                     sub,
-                    NDArrays.concat(listStates),
-                    NDArrays.concat(listActions),
-                    NDArrays.concat(listRewards),
-                    NDArrays.concat(listNextStates),
-                    NDArrays.concat(listDones)
+                    concat(sub, listStates),
+                    concat(sub, listActions),
+                    concat(sub, listRewards),
+                    concat(sub, listNextStates),
+                    concat(sub, listDones)
             );
         } finally {
             samplesPerEnvToClose.forEach(IVecExperience::close);
         }
+    }
+
+    /**
+     * Samples a prioritized mini-batch: each environment is sampled with its own
+     * priorities and the results are concatenated in environment order.
+     *
+     * @param batchSize the number of samples of the whole batch
+     * @param beta      the degree of the importance-sampling correction
+     * @return the batch with the importance-sampling weights and the globalized indexes
+     */
+    @Override
+    public PrioritizedVecExperience sample(int batchSize, float beta) {
+        if (!enough(batchSize)) return null;
+
+        int[] samplesPerEnv = samplesPerEnv(batchSize);
+        var sub = subMgr(subManager, "n-buffer-sample");
+        var listStates = new NDList(numberOfEnvs);
+        var listActions = new NDList(numberOfEnvs);
+        var listRewards = new NDList(numberOfEnvs);
+        var listNextStates = new NDList(numberOfEnvs);
+        var listDones = new NDList(numberOfEnvs);
+        var listWeights = new NDList(numberOfEnvs);
+        var globalIndexes = new int[batchSize];
+
+        var samplesPerEnvToClose = new ArrayList<IVecExperience>(numberOfEnvs);
+        try {
+            int offset = 0;
+            for (int envNumber = 0; envNumber < numberOfEnvs; ++envNumber) {
+                var replayBuffer = envNumberAndReplayBuffer.get(envNumber);
+                if (!(replayBuffer instanceof IPrioritizedBuffer prioritizedBuffer)) {
+                    throw new IllegalArgumentException("The buffer of the environment %d is not a prioritized buffer!"
+                            .formatted(envNumber));
+                }
+
+                var vecExperience = prioritizedBuffer.sample(samplesPerEnv[envNumber], beta);
+                samplesPerEnvToClose.add(vecExperience);
+                listStates.add(vecExperience.states());
+                listActions.add(vecExperience.actions());
+                listRewards.add(vecExperience.rewards());
+                listNextStates.add(vecExperience.nextStates());
+                listDones.add(vecExperience.dones());
+                listWeights.add(vecExperience.weights());
+
+                var localIndexes = vecExperience.bufferIndexes();
+                for (int i = 0; i < localIndexes.length; ++i) {
+                    globalIndexes[offset + i] = envNumber * capacityPerEnv + localIndexes[i];
+                }
+                offset += samplesPerEnv[envNumber];
+            }
+
+            sub.attachAll(listStates, listActions, listRewards, listNextStates, listDones);
+
+            return new PrioritizedVecExperience(
+                    sub,
+                    concat(sub, listStates),
+                    concat(sub, listActions),
+                    concat(sub, listRewards),
+                    concat(sub, listNextStates),
+                    concat(sub, listDones),
+                    concat(sub, listWeights),
+                    globalIndexes
+            );
+        } finally {
+            samplesPerEnvToClose.forEach(IVecExperience::close);
+        }
+    }
+
+    /**
+     * Updates the priorities of the samples, routing each one to the buffer of the
+     * environment that owns it.
+     *
+     * @param bufferIndexes the globalized indexes, as returned by
+     *                       {@link #sample(int, float)}
+     * @param priorities    the new priorities, one per sample
+     */
+    @Override
+    public void updatePriorities(int[] bufferIndexes, NDArray priorities) {
+        if (bufferIndexes.length != priorities.size()) throw new IllegalArgumentException("Invalid length!");
+        var samplesPerEnv = samplesPerEnv(bufferIndexes.length);
+        int offset = 0;
+        for (int envNumber = 0; envNumber < numberOfEnvs; ++envNumber) {
+            var replayBuffer = envNumberAndReplayBuffer.get(envNumber);
+            if (!(replayBuffer instanceof IPrioritizedBuffer prioritizedBuffer)) {
+                throw new IllegalArgumentException("The buffer of the environment %d is not a prioritized buffer!"
+                        .formatted(envNumber));
+            }
+
+            int count = samplesPerEnv[envNumber];
+            var localIndexes = new int[count];
+            for (int i = 0; i < count; ++i) {
+                var globalIndex = bufferIndexes[offset + i];
+                localIndexes[i] = globalIndex - envNumber * capacityPerEnv;
+            }
+            var localPriorities = priorities.get(NDIndex.sliceAxis(0, offset, offset + count));
+            prioritizedBuffer.updatePriorities(localIndexes, localPriorities);
+            offset += count;
+        }
+    }
+
+    private static NDArray concat(NDManager sub, NDList arrays) {
+        var concat = NDArrays.concat(arrays);
+        concat.attach(sub);
+        return concat;
+    }
+
+    /**
+     * @return the n-step of the buffers of the environments
+     */
+    @Override
+    public int nStep() {
+        for (var buffer : envNumberAndReplayBuffer.values()) {
+            if (buffer instanceof INStepBuffer nStepBuffer) {
+                return nStepBuffer.nStep();
+            }
+        }
+
+        return 1;
     }
 
     int capacityPerEnv() {

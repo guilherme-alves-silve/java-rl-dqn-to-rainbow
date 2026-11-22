@@ -6,7 +6,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.AbstractAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
-import br.com.guialves.rflr.algorithms.buffer.PrioritizedReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.IPrioritizedBuffer;
 import br.com.guialves.rflr.algorithms.networks.CategoricalQNoisyNetworkMLP;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
@@ -118,8 +118,8 @@ public class AgentC51NoisyNetDQNPER extends AbstractAgent {
                                 Loss lossFunc,
                                 NDManager sub) {
         if (!ireplayBuffer.enough(batchSize)) return Float.NaN;
-        if (!(ireplayBuffer instanceof PrioritizedReplayBuffer replayBuffer)) {
-            throw new IllegalArgumentException("You must pass PrioritizedReplayBuffer!");
+        if (!(ireplayBuffer instanceof IPrioritizedBuffer replayBuffer)) {
+            throw new IllegalArgumentException("You must pass IPrioritizedBuffer!");
         }
         if (!(lossFunc instanceof CategoricalNLLPERLoss catLossFunc)) {
             throw new IllegalArgumentException("You must pass CategoricalNLLPERLoss!");

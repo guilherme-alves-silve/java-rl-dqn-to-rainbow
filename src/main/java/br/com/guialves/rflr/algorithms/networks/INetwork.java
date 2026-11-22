@@ -8,8 +8,7 @@ import lombok.Cleanup;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scoped;
-import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.scopedToFirstLong;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.*;
 
 public interface INetwork extends AutoCloseable {
 
@@ -37,6 +36,14 @@ public interface INetwork extends AutoCloseable {
 
     default long forwardLong(NDArray input, final UnaryOperator<NDArray> block) {
         return scopedToFirstLong(it -> {
+            @Cleanup var out = forward(it);
+            out.tempAttach(it.getManager());
+            return block.apply(out);
+        }, input);
+    }
+
+    default long[] forwardLongs(NDArray input, final UnaryOperator<NDArray> block) {
+        return scopedToLongs(it -> {
             @Cleanup var out = forward(it);
             out.tempAttach(it.getManager());
             return block.apply(out);
