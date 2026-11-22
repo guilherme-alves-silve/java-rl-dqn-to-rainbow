@@ -1,6 +1,5 @@
 package br.com.guialves.rflr.gymnasium4j;
 
-import br.com.guialves.rflr.python.PyRef;
 import br.com.guialves.rflr.python.numpy.NumPyByteBuffer;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -11,8 +10,9 @@ import java.util.Arrays;
 
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
 import static br.com.guialves.rflr.python.PythonRuntime.*;
-import static br.com.guialves.rflr.python.PythonTypeChecks.*;
-import static org.bytedeco.cpython.global.python.*;
+import static br.com.guialves.rflr.python.PythonTypeChecks.isPyNull;
+import static br.com.guialves.rflr.python.PythonTypeChecks.isSequence;
+import static org.bytedeco.cpython.global.python.PyFloat_AsDouble;
 
 /**
  * Represent the <code>gymnasium.spaces</code>, it can be Box, Discrete and other.
@@ -344,7 +344,7 @@ public enum ActionSpaceType {
             if (closed) throw new IllegalArgumentException("Already closed! idxEnv = " + idxEnv);
             if (!isSequence(pyObj)) throw new IllegalStateException(EX_DISCRETE_MSG);
             // TODO: Check memory leak of parent pyObj (that is a list)
-            var discretePyObj = PyRef.of(getItem(pyObj, idxEnv));
+            var discretePyObj = getItem(pyObj, idxEnv);
             return new ActionResult(discretePyObj, ActionSpaceType.DISCRETE);
         }
 

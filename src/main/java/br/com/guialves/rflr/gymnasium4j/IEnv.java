@@ -4,6 +4,7 @@ import ai.djl.ndarray.NDManager;
 
 import java.awt.image.BufferedImage;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public interface IEnv extends AutoCloseable {
 
@@ -51,16 +52,30 @@ public interface IEnv extends AutoCloseable {
     default void throwIfNotSupported(int actions) {
         var msg = "Incorrect number of actions for the environment %s: " +
                 "Config=%s, Environment=%s";
-        switch (actionSpaceType()) {
+        var actionSpaceType = actionSpaceType();
+        switch (actionSpaceType) {
             case DISCRETE -> {
                 var actionConfigSpaceStr = "Discrete(%s)".formatted(String.valueOf(actions));
-                var actionSpaceStr = actionSpaceStr();
+                var actionSpaceStr = singleActionSpaceStr();
                 if (!actionConfigSpaceStr.equals(actionSpaceStr)) {
                     throw new IllegalArgumentException(msg.formatted(envName(),
                             actionConfigSpaceStr, actionSpaceStr));
                 }
             }
-            case BOX, MULTI_DISCRETE, MULTI_BINARY, TEXT, UNKNOWN -> throw new UnsupportedOperationException("Not supported yet!");
+            case MULTI_DISCRETE -> {
+                if (!vectorized()) {
+                    throw new UnsupportedOperationException("The type MULTI_DISCRETE must be vectorized!");
+                }
+
+                var actionConfigSpacePattern = Pattern.compile("MultiDiscrete\\(\\[(%d+\\s*)+]\\)".formatted(actions));
+                var actionSpaceStr = actionSpaceStr();
+                if (!actionConfigSpacePattern.asMatchPredicate().test(actionSpaceStr)) {
+                    throw new IllegalArgumentException(msg.formatted(envName(),
+                            actionConfigSpacePattern, actionSpaceStr));
+                }
+            }
+            case BOX, TEXT, MULTI_BINARY, UNKNOWN -> throw new UnsupportedOperationException("Type %s not supported yet!".formatted(actionSpaceType.toString()));
+            default -> throw new UnsupportedOperationException("Inform at least one type! But was: " + actionSpaceType);
         }
     }
 

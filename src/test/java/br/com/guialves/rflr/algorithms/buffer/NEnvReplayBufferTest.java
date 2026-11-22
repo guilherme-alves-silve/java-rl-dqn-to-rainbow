@@ -48,6 +48,15 @@ class NEnvReplayBufferTest {
     }
 
     @Test
+    void shouldNotAcceptInnerBufferToHaveDifferentCapacityPerEnv() {
+        try (var manager = NDManager.newBaseManager(Device.cpu())) {
+            var exception =  assertThrows(IllegalArgumentException.class, () -> new NEnvReplayBuffer(CAPACITY, NUMBER_OF_ENVS, manager,
+                    _ -> new ExperienceReplayBuffer(100, manager)));
+            assertEquals(exception.getMessage(), "The replay buffer in env 0 must use the capacityPerEnv 8");
+        }
+    }
+
+    @Test
     void shouldNotBeEnoughWhenOneEnvHasNoData() {
         try (var manager = NDManager.newBaseManager(Device.cpu())) {
             var buffer = newBuffer(manager);

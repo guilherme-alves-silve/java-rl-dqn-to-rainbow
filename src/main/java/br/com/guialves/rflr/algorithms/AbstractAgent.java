@@ -298,9 +298,9 @@ public abstract class AbstractAgent implements IAgent {
             }
         }
 
-        long[] action = onlineNet.forwardLongs(states,
+        long[] actions = onlineNet.forwardLongs(states,
                 qValue -> qValue.stopGradient().argMax(AXIS_1));
-        return actionSpaceType.get(action);
+        return actionSpaceType.get(actions);
     }
 
     /**

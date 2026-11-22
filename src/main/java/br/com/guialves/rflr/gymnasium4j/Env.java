@@ -64,12 +64,11 @@ public final class Env implements IEnv {
         this.pyEnv = eval("env_" + varEnvCode);
         this.pyActionSpace = attr(pyEnv, "action_space");
         this.vectorized = hasAttr(pyEnv, "single_action_space");
+        this.actionSpaceType = detectActionSpaceType(pyActionSpace);
         if (vectorized) {
             this.pySingleActionSpace = attr(pyEnv, "single_action_space");
-            this.actionSpaceType = detectActionSpaceType(pySingleActionSpace);
         } else {
             this.pySingleActionSpace = null;
-            this.actionSpaceType = detectActionSpaceType(pyActionSpace);
         }
         this.pyObservationSpace = attr(pyEnv, "observation_space");
         this.pyRender = attr(pyEnv, "render");
@@ -119,7 +118,7 @@ public final class Env implements IEnv {
         this.stateBuffer = null;
 
         @Cleanup var result = callFunction(pyReset);
-        var pyState = getItem(result, 0);
+        @Cleanup var pyState = getItem(result, 0);
         var infoMap = getItemMap(result, 1);
 
         if (!hasAttr(pyState, "shape")) {
@@ -150,7 +149,7 @@ public final class Env implements IEnv {
         @Cleanup var result = callFunction(pyStep, action.pyObj);
         NDArray state;
         if (scalarObservation) {
-            var pyState = getItem(result, 0);
+            @Cleanup var pyState = getItem(result, 0);
             long observationValue = toLong(pyState);
             state = sub.create(observationValue);
 
@@ -160,7 +159,8 @@ public final class Env implements IEnv {
                 throw new IllegalStateException("You should call reset() first!");
             }
 
-            fillFromNumpy(getItem(result, 0), stateBuffer);
+            @Cleanup var item = getItem(result, 0);
+            fillFromNumpy(item, stateBuffer);
             state = sub.create(
                     stateBuffer,
                     stateMetadata.djlShape,
@@ -188,16 +188,17 @@ public final class Env implements IEnv {
             throw new IllegalStateException("You should call reset() first!");
         }
 
-        fillFromNumpy(getItem(result, 0), stateBuffer);
+        @Cleanup var ndarray = getItem(result, 0);
+        fillFromNumpy(ndarray, stateBuffer);
         var states = sub.create(
                 stateBuffer,
                 stateMetadata.djlShape,
                 stateMetadata.djlType
         );
 
-        double[] rewards = toDoubleArray(getSequenceItem(result, 1));
-        boolean[] terminates = toBoolArray(getSequenceItem(result, 2));
-        boolean[] truncates = toBoolArray(getSequenceItem(result, 3));
+        double[] rewards = getItemDoubleArray(result, 1);
+        boolean[] terminates = getItemBoolArray(result, 2);
+        boolean[] truncates = getItemBoolArray(result, 3);
         var infoMap = getItemMap(result, 4);
 
         return new VecEnvStepResults(rewards, terminates, truncates, infoMap, states);
@@ -213,8 +214,7 @@ public final class Env implements IEnv {
         int size = (int) getSequenceSize(tupleNDArray);
         var bufferedImages = new ArrayList<BufferedImage>(size);
         for (int i = 0; i < size; ++i) {
-            // borrowed reference, you don't close
-            var ndarray = getItem(tupleNDArray, i);
+            @Cleanup var ndarray = getItem(tupleNDArray, i);
             var bufferedImage = ndarrayToBufferedImage(ndarray);
             bufferedImages.add(bufferedImage);
         }

@@ -1,5 +1,6 @@
 package br.com.guialves.rflr.python;
 
+import lombok.Cleanup;
 import org.bytedeco.cpython.PyObject;
 import org.bytedeco.javacpp.SizeTPointer;
 
@@ -19,28 +20,32 @@ public final class PythonDataStructures {
     }
 
     public static PyObject getItem(PyObject obj, int pos) {
-        if (!isTuple(obj)) {
+        if (!isSequence(obj)) {
             throw new IllegalArgumentException("Expected PyTuple");
         }
-        var item = PyTuple_GetItem(obj, pos);
+        var item = getSequenceItem(obj, pos);
         if (item == null) checkError();
-        return item; // borrowed reference
+        return PyRef.of(item); // new reference
     }
 
     public static boolean getItemBool(PyObject obj, int pos) {
-        return toBool(getItem(obj, pos));
+        @Cleanup var item = getItem(obj, pos);
+        return toBool(item);
     }
 
     public static long getItemLong(PyObject obj, int pos) {
-        return toLong(getItem(obj, pos));
+        @Cleanup var item = getItem(obj, pos);
+        return toLong(item);
     }
 
     public static double getItemDouble(PyObject obj, int pos) {
-        return toDouble(getItem(obj, pos));
+        @Cleanup var item = getItem(obj, pos);
+        return toDouble(item);
     }
 
     public static <K, V> Map<K, V> getItemMap(PyObject obj, int pos) {
-        return toMap(getItem(obj, pos));
+        @Cleanup var item = getItem(obj, pos);
+        return toMap(item);
     }
 
     @SuppressWarnings("unchecked")
@@ -70,6 +75,16 @@ public final class PythonDataStructures {
         }
 
         return result;
+    }
+
+    public static double[] getItemDoubleArray(PyObject obj, int pos) {
+        @Cleanup var item = getItem(obj, pos);
+        return toDoubleArray(item);
+    }
+
+    public static boolean[] getItemBoolArray(PyObject obj, int pos) {
+        @Cleanup var item = getItem(obj, pos);
+        return toBoolArray(item);
     }
 
     public static double[] toDoubleArray(PyObject obj) {
@@ -605,7 +620,7 @@ public final class PythonDataStructures {
         return PySequence_Size(obj);
     }
 
-    public static PyObject getSequenceItem(PyObject obj, int i) {
+    private static PyObject getSequenceItem(PyObject obj, int i) {
 
         PyObject item;
 

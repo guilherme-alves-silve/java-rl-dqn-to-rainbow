@@ -5,6 +5,7 @@ import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import br.com.guialves.rflr.algorithms.IAgent;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
+import br.com.guialves.rflr.algorithms.buffer.NEnvReplayBuffer;
 import br.com.guialves.rflr.algorithms.buffer.NStepPrioritizedReplayBuffer;
 import br.com.guialves.rflr.algorithms.c51dqn.CategoricalNLLPERLoss;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
@@ -147,12 +148,17 @@ public class AgentCNNRainbowDQNMain {
 
             @Override
             public IReplayBuffer replayBuffer(RLConfig config, NDManager manager) {
-                return new NStepPrioritizedReplayBuffer(
+                return new NEnvReplayBuffer(
                         config.bufferCapacity(),
-                        config.nStep(),
-                        config.discountFactor(),
-                        config.alpha(),
-                        manager
+                        config.numberOfEnvs(),
+                        manager,
+                        capacityPerEnv -> new NStepPrioritizedReplayBuffer(
+                                capacityPerEnv,
+                                config.nStep(),
+                                config.discountFactor(),
+                                config.alpha(),
+                                manager
+                        )
                 );
             }
         });

@@ -54,9 +54,12 @@ public class NEnvReplayBuffer implements IPrioritizedBuffer, INStepBuffer {
         // this sub manager stays in the GPU (if available)
         this.subManager = subMgr(parent, getClass());
         var envNumberAndReplayBuffer = new HashMap<Integer, IReplayBuffer>();
-        IntStream.range(0, numberOfEnvs).forEach(i ->
-                envNumberAndReplayBuffer.put(i,
-                        requireNonNull(replayBufferFactory.create(capacityPerEnv), "replayBuffer must no be null!")));
+        IntStream.range(0, numberOfEnvs).forEach(i -> {
+            var replayBuffer = requireNonNull(replayBufferFactory.create(capacityPerEnv), "replayBuffer must no be null!");
+            if (replayBuffer.capacity() != capacityPerEnv) throw new IllegalArgumentException(
+                    "The replay buffer in env %d must use the capacityPerEnv %d".formatted(i, capacityPerEnv));
+            envNumberAndReplayBuffer.put(i, replayBuffer);
+        });
         // immutable hash-map
         this.envNumberAndReplayBuffer = Map.copyOf(envNumberAndReplayBuffer);
 
