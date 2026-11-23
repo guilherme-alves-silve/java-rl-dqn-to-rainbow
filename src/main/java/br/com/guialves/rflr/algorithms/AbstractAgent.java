@@ -22,10 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.tongfei.progressbar.ProgressBar;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -40,6 +37,10 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractAgent implements IAgent {
 
     private static final int DEFAULT_MANAGER_NODES = 500;
+    /**
+     * The minimum interval between two updates of the progress bar on the console.
+     */
+    private static final long PROGRESS_UPDATE_INTERVAL_NANOS = 200_000_000L;
     protected final ActionSpaceType actionSpaceType;
     protected final NDManager parent;
     protected final boolean debugMemoryLeak;
@@ -59,6 +60,8 @@ public abstract class AbstractAgent implements IAgent {
     protected final IDeepQNetwork targetNet;
     protected final PlotTrackers plotTrackers;
     protected final RingBuffer<ManagerNode> managerNodes;
+
+    private long lastProgressUpdate = 0;
 
     public AbstractAgent(float epsilon,
                          int updateQTargetAtTimeN,
@@ -162,8 +165,7 @@ public abstract class AbstractAgent implements IAgent {
 
                 state = transfer(parentPerEpisode, state, nextState);
 
-                pbar.stepTo(frames);
-                plotTrackers.updateTrackersMessage(pbar, frames, replayBuffer.size(), parent, parentPerEpisode);
+                updateProgressBar(pbar, frames, replayBuffer.size(), parentPerEpisode);
                 templateExtraProcessing(frames, framesLimit);
                 epsilon = reduceEpsilon(epsilon);
             } while (frames < framesLimit);
@@ -171,11 +173,35 @@ public abstract class AbstractAgent implements IAgent {
 
         if (debugMemoryLeak) getDebugDump(parent).ifPresent(managerNodes::offer);
 
+        pbar.stepTo(frames);
         plotTrackers.updateTrackersMessage(pbar, frames, replayBuffer.size(), parent);
 
         if (getBoolProp("agent.showAllMetrics")) {
             plotTrackers.showAllMetrics();
         }
+    }
+
+    /**
+     * Updates the progress bar and the trackers of the console.
+     *
+     * <p>The update is throttled: writing the progress bar on the console costs a few
+     * milliseconds, and doing it on every step of a vectorized training (where a step is a few
+     * milliseconds itself) is a significant part of the training time.</p>
+     *
+     * @param pbar             the progress bar
+     * @param frames           the number of frames played so far
+     * @param bufferSize       the number of experiences in the replay buffer
+     * @param parentPerEpisode the parent manager of the episode, when there is one
+     */
+    private void updateProgressBar(ProgressBar pbar,
+                                   int frames,
+                                   int bufferSize,
+                                   NDManager parentPerEpisode) {
+        long now = System.nanoTime();
+        if (now - lastProgressUpdate < PROGRESS_UPDATE_INTERVAL_NANOS) return;
+        lastProgressUpdate = now;
+        pbar.stepTo(frames);
+        plotTrackers.updateTrackersMessage(pbar, frames, bufferSize, parent, parentPerEpisode);
     }
 
     private boolean trained(float lossItem) {
@@ -388,29 +414,86 @@ public abstract class AbstractAgent implements IAgent {
         this.onlineNet.eval();
 
         var totalRewardPerTry = new ArrayList<Double>(maxTries);
-        @Cleanup var envRender = new EnvRenderWindow();
         for (int tries = 0; tries < maxTries; ++tries) {
             @Cleanup var sub = subMgr(parent, "run-episode");
-            if (!(env.reset(sub) instanceof EnvResetResult(var state, var _)))
-                throw new IllegalStateException("Must be of type EnvResetResult!");
-
-            double totalReward = 0d;
-            boolean done;
-            do {
-                if (render) envRender.displayAndWait(env.render());
-                @Cleanup var action = selectAction(state);
-                var stepResult = env.step(action, sub);
-                var reward = stepResult.reward();
-                var nextState = stepResult.state();
-                done = stepResult.done();
-                state = transfer(sub, state, nextState);
-                totalReward += reward;
-            } while (!done);
-
+            var totalReward = env.vectorized()?
+                    runVectorizedEpisode(sub, render) :
+                    runSingleEpisode(sub, render);
             totalRewardPerTry.add(totalReward);
         }
 
         return totalRewardPerTry;
+    }
+
+    /**
+     * Runs one episode of a single environment.
+     *
+     * @param sub    the manager of the episode
+     * @param render whether the episode must be rendered
+     * @return the reward of the episode
+     */
+    private double runSingleEpisode(NDManager sub, boolean render) {
+        @Cleanup var envRender = new EnvRenderWindow();
+        if (!(env.reset(sub) instanceof EnvResetResult(var state, var _)))
+            throw new IllegalStateException("Must be of type EnvResetResult!");
+
+        double totalReward = 0d;
+        boolean done;
+        do {
+            if (render) envRender.displayAndWait(env.render());
+            @Cleanup var action = selectAction(state);
+            var stepResult = env.step(action, sub);
+            var reward = stepResult.reward();
+            var nextState = stepResult.state();
+            done = stepResult.done();
+            state = transfer(sub, state, nextState);
+            totalReward += reward;
+        } while (!done);
+
+        return totalReward;
+    }
+
+    /**
+     * Runs one episode of a vectorized environment: every environment advances at the same time,
+     * with one batched forward pass, and the reward of each environment is accumulated until it
+     * is done.
+     *
+     * <p>The environment auto-resets, so the reward of an environment that is already done is not
+     * accumulated anymore.</p>
+     *
+     * @param sub    the manager of the episode
+     * @param render whether the episode must be rendered
+     * @return the mean reward of the episode of the environments
+     */
+    private double runVectorizedEpisode(NDManager sub, boolean render) {
+        if (!(env.reset(sub) instanceof EnvResetResult(var state, var _)))
+            throw new IllegalStateException("Must be of type EnvResetResult!");
+
+        int numberOfEnvs = (int) state.getShape().get(0);
+        @Cleanup var envRender = new EnvRenderWindow(numberOfEnvs);
+        var totalReward = new double[numberOfEnvs];
+        var done = new boolean[numberOfEnvs];
+        int pending = numberOfEnvs;
+
+        while (pending > 0) {
+            if (render) envRender.displayAndWait(env.renderVec());
+            @Cleanup var actions = selectActions(state);
+            @Cleanup var stepResults = env.stepVec(actions, sub);
+            for (int idxEnv = 0; idxEnv < numberOfEnvs; ++idxEnv) {
+                if (done[idxEnv]) continue;
+                var step = stepResults.step(idxEnv);
+                totalReward[idxEnv] += step.reward();
+                if (step.done()) {
+                    done[idxEnv] = true;
+                    --pending;
+                }
+            }
+            state = transfer(sub, state, stepResults.states());
+        }
+
+        return Arrays.stream(totalReward)
+                .average()
+                .orElse(0d);
     }
 
     @Override

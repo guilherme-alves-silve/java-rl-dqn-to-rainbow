@@ -474,6 +474,22 @@ public class DJLMemoryManagement {
         return subMgr(manager, clazz.getSimpleName(), Device.cpu());
     }
 
+    /**
+     * Creates a sub manager on the <b>default device of the engine</b>.
+     *
+     * <p>This is the device policy of the project: everything that is computed lives on the GPU,
+     * even when the parent manager is on the CPU (see {@code ReplayBufferGpuDeviceTest}). The
+     * replay buffer keeps the transitions on the CPU, but the mini batch delivered to the
+     * training is assembled on the GPU.</p>
+     *
+     * <p>Careful: the sub manager of a CPU manager is therefore <b>not</b> on the CPU, and the
+     * arrays created in it are on the GPU. Mixing them with arrays of the parent would split the
+     * batch across devices.</p>
+     *
+     * @param manager the parent manager
+     * @param name    the name of the sub manager
+     * @return the sub manager, on the default device of the engine
+     */
     public static NDManager subMgr(NDManager manager, String name) {
         return subMgr(manager, name, GET_DEFAULT_DEVICE);
     }

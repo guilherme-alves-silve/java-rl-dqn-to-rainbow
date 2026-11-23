@@ -18,8 +18,18 @@ public class PlotTrackers {
     private int lastResourcesCount;
     private int lastResourcesCountPerEpisode;
 
+    /**
+     * The default number of frames between two counts of the managed resources.
+     *
+     * <p>Counting the resources walks the whole tree of managers and materializes the list of
+     * every managed array: with a replay buffer of a million experiences that is more than a
+     * million arrays, and the walk costs hundreds of milliseconds. It is a diagnostic, it does not
+     * need to be refreshed so often.</p>
+     */
+    private static final int DEFAULT_FRAMES_TO_CALC_MEM_RESOURCES = 100_000;
+
     public PlotTrackers(String algorithmName) {
-        this(100, algorithmName);
+        this(DEFAULT_FRAMES_TO_CALC_MEM_RESOURCES, algorithmName);
     }
 
     public PlotTrackers(int framesToCalcMemResources, String algorithmName) {

@@ -1,6 +1,7 @@
 package br.com.guialves.rflr.execs.base;
 
 import br.com.guialves.rflr.execs.games.atari.AgentCNNDQNMain;
+import br.com.guialves.rflr.execs.games.atari.AgentCNNRainbowDQNMain;
 import br.com.guialves.rflr.fixture.AgentDQNResourceFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -93,6 +94,23 @@ class AgentExecsMainTest {
     @Test
     void shouldRunAgentCNNDQNMain() {
         assertDoesNotThrow(AgentCNNDQNMain::main);
+    }
+
+    /**
+     * End-to-end test of the vectorized training of {@link AgentCNNRainbowDQNMain}: the training
+     * runs against a vectorized environment and the evaluation at the end of the training (which
+     * used to be single environment only, and crashed with the batched observation) runs against
+     * the vectorized environment as well.
+     */
+    @Test
+    @DisplayName("AgentCNNRainbowDQNMain: trains and evaluates with a vectorized environment")
+    void shouldRunAgentCNNRainbowDQNMainVectorized() {
+        System.setProperty("agent.numberOfEnvs", "4");
+        try {
+            assertDoesNotThrow((Executable) AgentCNNRainbowDQNMain::run);
+        } finally {
+            System.clearProperty("agent.numberOfEnvs");
+        }
     }
 
     /**

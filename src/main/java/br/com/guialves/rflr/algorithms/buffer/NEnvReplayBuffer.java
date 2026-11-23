@@ -286,8 +286,24 @@ public class NEnvReplayBuffer implements IPrioritizedBuffer, INStepBuffer {
         }
     }
 
+    /**
+     * Concatenates the batches of the environments and moves the result to the device of the
+     * training.
+     *
+     * <p>The experiences live on the CPU (the replay buffer is a CPU structure), so the mini batch
+     * is assembled on the CPU and moved to the device of the training <b>once</b>, here. This is
+     * the only place where the batch is allocated on the GPU.</p>
+     *
+     * @param sub    the manager of the training
+     * @param arrays the batches of the environments
+     * @return the concatenated batch, on the device of the training
+     */
     private static NDArray concat(NDManager sub, NDList arrays) {
         var concat = NDArrays.concat(arrays);
+        if (!concat.getDevice().equals(sub.getDevice())) {
+            // TODO: Check leak
+            concat = concat.toDevice(sub.getDevice(), true);
+        }
         concat.attach(sub);
         return concat;
     }
