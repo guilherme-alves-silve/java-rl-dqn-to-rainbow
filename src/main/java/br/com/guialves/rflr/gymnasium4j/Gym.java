@@ -112,9 +112,11 @@ public class Gym {
          */
         protected String generatePyEnvScript() {
             var params = new HashMap<String, String>();
+            var envVarsPy = generateEnvVarsPy();
             var importLibsPy = generateImportLibsPy();
             var functionDefinitionsCode = generateFunctionDefinitions();
             var makeCall = generateMakeCall();
+            params.put("envVarsPy", envVarsPy);
             params.put("importLibsPy", importLibsPy);
             params.put("functionDefinitionsCode", functionDefinitionsCode.indent(N_INDENT));
             params.put("makeCallBlock", StringSubstitutor.replace("env_${varEnvCode} = ${makeCall}",
@@ -123,6 +125,7 @@ public class Gym {
             if (wrappers.isEmpty()) {
                 params.put("importPy", "");
                 var template = """
+                ${envVarsPy}
                 ${importLibsPy}
                 if __name__ == "__main__":
                 ${functionDefinitionsCode}
@@ -137,6 +140,7 @@ public class Gym {
             params.put("wrappedEnvPy", generateWrappedEnvPy().indent(N_INDENT));
 
             var template = """
+            ${envVarsPy}
             ${importLibsPy}
             ${importPy}
             if __name__ == "__main__":
@@ -146,6 +150,35 @@ public class Gym {
             """;
 
             return StringSubstitutor.replace(template, params);
+        }
+
+        /**
+         * The Python code that configures the process-wide environment variables
+         * <b>before</b> any library that spawns a thread pool is imported.
+         *
+         * <p>Every worker of the {@code AsyncVectorEnv} is a brand-new interpreter that
+         * imports NumPy, and NumPy is linked against OpenBLAS, which reserves a
+         * ~32 MiB buffer <b>per thread</b>. With the 24 logical CPUs of the host, each
+         * worker commits ~750 MiB just to emulate Atari: with 64 workers that is
+         * ~48 GB of commit charge, enough to exhaust the commit limit of the machine
+         * (RAM + page file) and to abort the training with a
+         * {@code numpy._ArrayMemoryError}. One BLAS thread per worker is enough for
+         * an emulator.</p>
+         *
+         * <p>{@code setdefault} is used, so an explicit configuration of the
+         * environment still wins. The workers inherit the variables of the parent
+         * process, so setting them in the script that creates the environment is
+         * enough.</p>
+         *
+         * @return the Python code that sets the environment variables
+         */
+        protected String generateEnvVarsPy() {
+            return """
+            import os
+            os.environ['OPENBLAS_NUM_THREADS'] = '1'
+            os.environ['OMP_NUM_THREADS'] = '1'
+            os.environ['MKL_NUM_THREADS'] = '1'
+            """.stripIndent();
         }
 
         protected String generateFunctionDefinitions() {

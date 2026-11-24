@@ -446,7 +446,16 @@ class VectorGymTest {
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
-        assertThat(script).startsWith("import gymnasium as gym\n");
+        var openBlasEtcIdx = script.indexOf("""
+        import os
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MKL_NUM_THREADS'] = '1'
+        """.stripIndent());
+        var importIdx = script.indexOf("import gymnasium as gym\n");
+        assertThat(openBlasEtcIdx).isZero();
+        assertThat(importIdx).isGreaterThan(openBlasEtcIdx);
+        assertThat(script).contains("import gymnasium as gym\n");
     }
 
     @Test
@@ -458,7 +467,16 @@ class VectorGymTest {
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
-        assertThat(script).startsWith("import gymnasium as gym, ale_py, shimmy\n");
+        var openBlasEtcIdx = script.indexOf("""
+        import os
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MKL_NUM_THREADS'] = '1'
+        """.stripIndent());
+        var importIdx = script.indexOf("import gymnasium as gym, ale_py, shimmy\n");
+        assertThat(openBlasEtcIdx).isZero();
+        assertThat(importIdx).isGreaterThan(openBlasEtcIdx);
+        assertThat(script).contains("import gymnasium as gym, ale_py, shimmy\n");
     }
 
     @Test

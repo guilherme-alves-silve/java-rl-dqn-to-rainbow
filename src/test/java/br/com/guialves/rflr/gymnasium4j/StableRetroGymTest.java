@@ -44,7 +44,13 @@ class StableRetroGymTest {
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
-        assertThat(script).startsWith("import gymnasium as gym, stable_retro as retro\n");
+        assertThat(script).startsWith("""
+        import os
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MKL_NUM_THREADS'] = '1'
+        """.stripIndent());
+        assertThat(script).contains("import gymnasium as gym, stable_retro as retro\n");
     }
 
     @Test
@@ -55,7 +61,13 @@ class StableRetroGymTest {
                 .add(new DelayObservation(1))
                 .generatePyEnvScript();
 
-        assertThat(script).startsWith("import gymnasium as gym, stable_retro as retro, shimmy\n");
+        assertThat(script).startsWith("""
+        import os
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MKL_NUM_THREADS'] = '1'
+        """.stripIndent());
+        assertThat(script).contains("import gymnasium as gym, stable_retro as retro, shimmy\n");
     }
 
     @Test
@@ -236,13 +248,20 @@ class StableRetroGymTest {
                     .add(new DelayObservation(1))
                     .generatePyEnvScript();
 
+            var openBlasEtcIdx = script.indexOf("""
+            import os
+            os.environ['OPENBLAS_NUM_THREADS'] = '1'
+            os.environ['OMP_NUM_THREADS'] = '1'
+            os.environ['MKL_NUM_THREADS'] = '1'
+            """.stripIndent());
             var importIdx = script.indexOf("import gymnasium as gym, stable_retro as retro");
             var wrapperImportIdx = script.indexOf("from gymnasium.wrappers import");
             var defIdx = script.indexOf("def make_retro_env");
             var paramsIdx = script.indexOf("env_params = [");
             var assignIdx = script.lastIndexOf("= gym.vector.");
 
-            assertThat(importIdx).isZero();
+            assertThat(openBlasEtcIdx).isZero();
+            assertThat(importIdx).isGreaterThan(openBlasEtcIdx);
             assertThat(wrapperImportIdx).isGreaterThan(importIdx);
             assertThat(defIdx).isGreaterThan(wrapperImportIdx);
             assertThat(paramsIdx).isGreaterThan(defIdx);

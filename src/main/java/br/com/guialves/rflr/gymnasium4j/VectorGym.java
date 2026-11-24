@@ -120,11 +120,13 @@ public class VectorGym extends Gym {
 
         protected String generatePyEnvScript() {
             var params = new HashMap<String, String>();
+            var envVarsPy = generateEnvVarsPy();
             var correctionMultiprocessingWhenAsync = generateCorrectionMultiprocessingWhenAsync();
             var wrappedEnvParams = generateWrappedEnvPy();
             var makeCall = generateMakeCall();
             var importLibsPy = generateImportLibsPy();
             var functionDefinitionsCode = generateFunctionDefinitions();
+            params.put("envVarsPy", envVarsPy);
             params.put("correctionMultiprocessingWhenAsync", correctionMultiprocessingWhenAsync);
             params.put("importLibsPy", importLibsPy);
             params.put("functionDefinitionsCode", functionDefinitionsCode.indent(N_INDENT));
@@ -135,6 +137,7 @@ public class VectorGym extends Gym {
             if (wrappers.isEmpty()) {
                 params.put("importPy", "");
                 var template = """
+                ${envVarsPy}
                 ${correctionMultiprocessingWhenAsync}${importLibsPy}
                 if __name__ == "__main__":
                 ${functionDefinitionsCode}
@@ -149,6 +152,7 @@ public class VectorGym extends Gym {
             params.put("importPy", importPy);
 
             var template = """
+            ${envVarsPy}
             ${correctionMultiprocessingWhenAsync}${importLibsPy}
             ${importPy}
             if __name__ == "__main__":
