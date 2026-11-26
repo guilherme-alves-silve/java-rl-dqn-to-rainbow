@@ -60,8 +60,7 @@ public class PrioritizedReplayBuffer implements IPrioritizedBuffer {
     @Override
     public void store(Experience exp) {
 
-        exp.state().attach(subManager);
-        exp.nextState().attach(subManager);
+        keepAlive(exp);
 
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
@@ -71,6 +70,26 @@ public class PrioritizedReplayBuffer implements IPrioritizedBuffer {
         minSegmentTree.update(pos, defaultPriority);
         if (oldExp != null) oldExp.close();
         pos = (pos + 1) % experiences.length;
+    }
+
+    /**
+     * Moves the arrays of the experience to the manager of the buffer.
+     *
+     * <p>The arrays of an experience are created as copies of the observations, and
+     * {@code NDArray.toDevice} puts the copy in a sub manager of the <b>origin</b> manager
+     * of the source array. In the vectorized training loop the origin is the per-step
+     * manager ({@code sub-vectorized-step}), which is closed at the end of the step: an
+     * experience that is not re-parented dies with it, and the n-step buffer, which keeps
+     * the raw experiences for {@code nStep} steps, would later read a released array.</p>
+     *
+     * <p>Re-parenting to the manager of the buffer makes the buffer the owner of the
+     * arrays: they live as long as the experience is in the buffer.</p>
+     *
+     * @param exp the experience to keep alive
+     */
+    protected void keepAlive(Experience exp) {
+        transferFromTempOwner(exp.state(), subManager);
+        transferFromTempOwner(exp.nextState(), subManager);
     }
 
     @Override
@@ -162,14 +181,14 @@ public class PrioritizedReplayBuffer implements IPrioritizedBuffer {
         float pMin = Math.max(minSegmentTree.min() / sum, MIN_PRIORITY);
         int count = minSegmentTree.size();
         float maxISWeight = (float) Math.pow(count * pMin, -beta);
-        return sub.create(stream(bufferIndexes)
+        return namedAs(sub.create(stream(bufferIndexes)
                 .mapToDouble(idx -> {
                     float pSample = sumSegmentTree.get(idx) / sum;
                     return Math.pow(count * pSample, -beta) / maxISWeight;
                 })
                 .toArray())
                 .toType(DataType.FLOAT32, false)
-                .expandDims(1);
+                .expandDims(1), "prio-calc-wei");
     }
 
     /**

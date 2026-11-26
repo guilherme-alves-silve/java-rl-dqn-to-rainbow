@@ -270,7 +270,7 @@ public class RainbowQNetworkCNN implements IRainbowQNetwork {
     public IDeepQNetwork clone() {
         var cloned = new RainbowQNetworkCNN(channels, observations, actions,
                 catProj, subManager.getParentManager(), duelingType);
-        setName(cloned.subManager, "clone");
+        namedAs(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToLongFunction;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.namedAs;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static java.util.Arrays.stream;
 
@@ -99,15 +100,15 @@ public class DJLUtils {
         return Engine.getInstance().getGpuCount();
     }
 
-    public static <T> NDArray djlMapToLong(NDManager subManager, T[] input, ToLongFunction<T> mapper) {
-        return subManager.create(stream(input).mapToLong(mapper).toArray())
-                .expandDims(AXIS_1);
+    public static <T> NDArray djlMapToLong(NDManager sub, T[] input, ToLongFunction<T> mapper) {
+        return DJLMemoryManagement.namedAs(sub.create(stream(input).mapToLong(mapper).toArray())
+                .expandDims(AXIS_1), "djl-l");
     }
 
-    public static <T> NDArray djlMapToFloat32(NDManager subManager, T[] input, ToDoubleFunction<T> mapper) {
-        return subManager.create(stream(input).mapToDouble(mapper).toArray())
+    public static <T> NDArray djlMapToFloat32(NDManager sub, T[] input, ToDoubleFunction<T> mapper) {
+        return DJLMemoryManagement.namedAs(sub.create(stream(input).mapToDouble(mapper).toArray())
                 .toType(DataType.FLOAT32, false)
-                .expandDims(AXIS_1);
+                .expandDims(AXIS_1), "djl-f32");
     }
 
     public static boolean equalsDims(Shape shape1, Shape shape2, int start) {

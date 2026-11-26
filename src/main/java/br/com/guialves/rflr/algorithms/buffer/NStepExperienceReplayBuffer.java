@@ -57,7 +57,7 @@ public class NStepExperienceReplayBuffer extends ExperienceReplayBuffer implemen
      */
     @Override
     public void store(Experience exp) {
-
+        keepAlive(exp);
         var nStepDeque = nStepDeques.computeIfAbsent(exp.envNumber(),
                 _ -> new ArrayDeque<>(nStep));
         nStepDeque.addLast(exp);

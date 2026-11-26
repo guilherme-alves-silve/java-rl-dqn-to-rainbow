@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.duplicateToCpu;
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.namedAs;
 
 /**
  * A single reinforcement-learning transition {@code (s, a, r, s', done)}
@@ -58,10 +59,10 @@ public class Experience implements AutoCloseable {
     private Experience(int envNumber, NDArray state, ActionResult action,
                        double reward, NDArray nextState, boolean term, boolean trunc) {
         this.envNumber = envNumber;
-        this.state = duplicateToCpu(state);
+        this.state = namedAs(duplicateToCpu(state), "exp-s");
         this.action = action.duplicate();
         this.reward = reward;
-        this.nextState = duplicateToCpu(nextState);
+        this.nextState = namedAs(duplicateToCpu(nextState), "exp-n-s");
         this.term = term;
         this.trunc = trunc;
     }

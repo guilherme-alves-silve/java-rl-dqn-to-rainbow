@@ -212,7 +212,7 @@ public class CategoricalQNetworkMLP implements ICategoricalNetwork {
     public IDeepQNetwork clone() {
         var cloned = new CategoricalQNetworkMLP(observations, actions,
                                                 catProj, subManager.getParentManager());
-        setName(cloned.subManager, "clone");
+        namedAs(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

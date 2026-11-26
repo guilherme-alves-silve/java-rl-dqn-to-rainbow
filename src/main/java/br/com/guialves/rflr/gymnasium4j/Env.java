@@ -2,6 +2,7 @@ package br.com.guialves.rflr.gymnasium4j;
 
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import br.com.guialves.rflr.gymnasium4j.utils.ImageFromByteBuffer;
 import lombok.Cleanup;
 import lombok.Getter;
@@ -16,6 +17,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.namedAs;
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.ActionResult;
 import static br.com.guialves.rflr.gymnasium4j.ActionSpaceType.detectActionSpaceType;
 import static br.com.guialves.rflr.python.PythonDataStructures.*;
@@ -124,7 +126,7 @@ public final class Env implements IEnv {
         if (!hasAttr(pyState, "shape")) {
             this.scalarObservation = true;
             long observationValue = toLong(pyState);
-            var state = sub.create(observationValue);
+            var state = DJLMemoryManagement.namedAs(sub.create(observationValue), "reset-s-state");
             log.debug("Discrete observation: {}", observationValue);
             return new EnvResetResult(state, infoMap);
         }
@@ -135,11 +137,11 @@ public final class Env implements IEnv {
 
         fillFromNumpy(pyState, stateBuffer);
 
-        var state = sub.create(
+        var state = DJLMemoryManagement.namedAs(sub.create(
                 stateBuffer,
                 stateMetadata.djlShape,
                 stateMetadata.djlType
-        );
+        ), "reset-m-state");
 
         return new EnvResetResult(state, infoMap);
     }
@@ -151,7 +153,7 @@ public final class Env implements IEnv {
         if (scalarObservation) {
             @Cleanup var pyState = getItem(result, 0);
             long observationValue = toLong(pyState);
-            state = sub.create(observationValue);
+            state = DJLMemoryManagement.namedAs(sub.create(observationValue), "step-s-state");
 
             log.debug("Discrete observation after step: {}", observationValue);
         } else {
@@ -161,11 +163,11 @@ public final class Env implements IEnv {
 
             @Cleanup var item = getItem(result, 0);
             fillFromNumpy(item, stateBuffer);
-            state = sub.create(
+            state = DJLMemoryManagement.namedAs(sub.create(
                     stateBuffer,
                     stateMetadata.djlShape,
                     stateMetadata.djlType
-            );
+            ), "step-m-state");
         }
 
         double reward = getItemDouble(result, 1);
@@ -190,11 +192,11 @@ public final class Env implements IEnv {
 
         @Cleanup var ndarray = getItem(result, 0);
         fillFromNumpy(ndarray, stateBuffer);
-        var states = sub.create(
+        var states = DJLMemoryManagement.namedAs(sub.create(
                 stateBuffer,
                 stateMetadata.djlShape,
                 stateMetadata.djlType
-        );
+        ), "step-vec-states");
 
         double[] rewards = getItemDoubleArray(result, 1);
         boolean[] terminates = getItemBoolArray(result, 2);

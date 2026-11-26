@@ -8,12 +8,12 @@ import br.com.guialves.rflr.algorithms.buffer.Experience;
 import br.com.guialves.rflr.algorithms.buffer.IReplayBuffer;
 import br.com.guialves.rflr.algorithms.networks.IDeepQNetwork;
 import br.com.guialves.rflr.algorithms.networks.INoisyNetwork;
+import br.com.guialves.rflr.djlutils.DJLMemoryLeakChecker;
 import br.com.guialves.rflr.gymnasium4j.ActionSpaceType;
 import br.com.guialves.rflr.gymnasium4j.EnvResetResult;
 import br.com.guialves.rflr.gymnasium4j.IEnv;
 import br.com.guialves.rflr.gymnasium4j.utils.EnvRenderWindow;
 import br.com.guialves.rflr.utils.ModelFileNames;
-import br.com.guialves.rflr.utils.datastructure.RingBuffer;
 import br.com.guialves.rflr.utils.dataviz.PlotTrackers;
 import lombok.Cleanup;
 import lombok.SneakyThrows;
@@ -36,14 +36,13 @@ import static java.util.Objects.requireNonNull;
 @Accessors(fluent = true)
 public abstract class AbstractAgent implements IAgent {
 
-    private static final int DEFAULT_MANAGER_NODES = 500;
     /**
      * The minimum interval between two updates of the progress bar on the console.
      */
     private static final long PROGRESS_UPDATE_INTERVAL_NANOS = 200_000_000L;
     protected final ActionSpaceType actionSpaceType;
     protected final NDManager parent;
-    protected final boolean debugMemoryLeak;
+    protected final DJLMemoryLeakChecker memLeakChecker;
 
     protected boolean test;
     protected int episodes;
@@ -59,7 +58,6 @@ public abstract class AbstractAgent implements IAgent {
     protected final IDeepQNetwork onlineNet;
     protected final IDeepQNetwork targetNet;
     protected final PlotTrackers plotTrackers;
-    protected final RingBuffer<ManagerNode> managerNodes;
 
     private long lastProgressUpdate = 0;
 
@@ -91,8 +89,7 @@ public abstract class AbstractAgent implements IAgent {
         this.parent = parent;
         parent.cap();
         this.actionSpaceType = env.actionSpaceType();
-        this.debugMemoryLeak = debugMemoryLeak;
-        this.managerNodes = new RingBuffer<>(DEFAULT_MANAGER_NODES);
+        this.memLeakChecker = new DJLMemoryLeakChecker(debugMemoryLeak, parent);
     }
 
     @Override
@@ -121,6 +118,8 @@ public abstract class AbstractAgent implements IAgent {
                 .setMaxRenderedLength(200)
                 .build();
         int frames = 0;
+        long steps = 0;
+        int snapshotInterval = memLeakChecker.snapshotInterval(framesLimit, framesSkip);
         do {
             @Cleanup var parentPerEpisode = subMgr(parent, "parent-episode");
             var stateAndInfoMap = env.reset(parentPerEpisode);
@@ -151,6 +150,7 @@ public abstract class AbstractAgent implements IAgent {
                 }
 
                 frames += framesSkip;
+                ++steps;
                 updateTargetNetworkAtN(frames);
 
                 episodeRewards.add(reward);
@@ -158,20 +158,20 @@ public abstract class AbstractAgent implements IAgent {
                     ++episodes;
                     float avgLoss = episodeSteps > 0 ? episodeLossSum / episodeSteps : 0;
                     plotTrackers.add(epsilon, episodeRewards, avgLoss);
-                    if (debugMemoryLeak) getDebugDump(parent).ifPresent(managerNodes::offer);
+                    memLeakChecker.offerMemorySnapshot(steps, snapshotInterval);
                     release(state, nextState);
                     break;
                 }
 
                 state = transfer(parentPerEpisode, state, nextState);
-
+                memLeakChecker.offerMemorySnapshot(steps, snapshotInterval);
                 updateProgressBar(pbar, frames, replayBuffer.size(), parentPerEpisode);
                 templateExtraProcessing(frames, framesLimit);
                 epsilon = reduceEpsilon(epsilon);
             } while (frames < framesLimit);
         } while ((frames < framesLimit));
 
-        if (debugMemoryLeak) getDebugDump(parent).ifPresent(managerNodes::offer);
+        memLeakChecker.offerMemorySnapshot();
 
         pbar.stepTo(frames);
         plotTrackers.updateTrackersMessage(pbar, frames, replayBuffer.size(), parent);
@@ -243,11 +243,11 @@ public abstract class AbstractAgent implements IAgent {
                 .build();
 
         @Cleanup var parentVec = subMgr(parent, "parent-vectorized");
-
         var stateAndInfo = env.reset(parentVec);
-        var states = stateAndInfo.state();
+        @Cleanup var states = stateAndInfo.state();
         // (Envs, Channels, Height, Width)
         int numberOfEnvs = (int) states.getShape().get(0);
+        long realFramesSkip = (long) framesSkip * numberOfEnvs;
 
         var episodeRewards = new ArrayList<Double>(numberOfEnvs);
         IntStream.rangeClosed(0, numberOfEnvs).forEach(_ -> episodeRewards.add(0d));
@@ -256,19 +256,22 @@ public abstract class AbstractAgent implements IAgent {
         int lossSteps = 0;
 
         long frames = 0;
+        long steps = 0;
+        int snapshotInterval = memLeakChecker.snapshotInterval(framesLimit, realFramesSkip);
         while (frames < framesLimit) {
             @Cleanup var sub = subMgr(parentVec, "sub-vectorized-step");
+            states.attach(sub);
             @Cleanup var actions = selectActions(states);
             @Cleanup var vecResult = env.stepVec(actions, sub);
 
             for (int idxEnv = 0; idxEnv < numberOfEnvs; ++idxEnv) {
                 var step = vecResult.step(idxEnv);
+                @Cleanup var state = states.get(idxEnv);
                 var reward = step.reward();
                 var done = step.done();
-                // TODO: probably close, check
-                var currState = states.get(idxEnv);
-                var exp = Experience.copy(idxEnv, currState, actions.toDiscrete(idxEnv), step.reward(),
-                        step.state(), step.term(), step.trunc());
+                var nextState = step.state();
+                var exp = Experience.copy(idxEnv, state, actions.toDiscrete(idxEnv), step.reward(),
+                        nextState, step.term(), step.trunc());
                 replayBuffer.store(exp);
 
                 episodeRewards.set(idxEnv, episodeRewards.get(idxEnv) + reward);
@@ -286,18 +289,21 @@ public abstract class AbstractAgent implements IAgent {
                 ++lossSteps;
             }
 
-            states = transfer(parentVec, states, vecResult.states());
+            var nextStates = vecResult.states();
+            states = transferDetached(states, nextStates);
 
-            frames += (long) framesSkip * numberOfEnvs;
+            frames += realFramesSkip;
+            ++steps;
             epsilon = reduceEpsilon(epsilon, numberOfEnvs);
             updateTargetNetworkAtN((int) frames);
 
+            memLeakChecker.offerMemorySnapshot(steps, snapshotInterval);
             pbar.stepTo(frames);
             plotTrackers.updateTrackersMessage(pbar, (int) frames, replayBuffer.size(), parent, parentVec);
             templateExtraProcessing((int) frames, framesLimit);
         }
 
-        if (debugMemoryLeak) getDebugDump(parent).ifPresent(managerNodes::offer);
+        memLeakChecker.offerMemorySnapshot();
 
         plotTrackers.updateTrackersMessage(pbar, (int) frames, replayBuffer.size(), parent);
 
@@ -498,7 +504,7 @@ public abstract class AbstractAgent implements IAgent {
 
     @Override
     public List<ManagerNode> getManagerNodes() {
-        return List.copyOf(new ArrayList<>(managerNodes));
+        return memLeakChecker.getManagerNodes();
     }
 
     @Override

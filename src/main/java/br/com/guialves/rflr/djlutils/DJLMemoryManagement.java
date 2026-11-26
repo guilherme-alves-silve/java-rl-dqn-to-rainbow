@@ -2,10 +2,7 @@ package br.com.guialves.rflr.djlutils;
 
 import ai.djl.Device;
 import ai.djl.Model;
-import ai.djl.ndarray.BaseNDManager;
-import ai.djl.ndarray.NDArray;
-import ai.djl.ndarray.NDList;
-import ai.djl.ndarray.NDManager;
+import ai.djl.ndarray.*;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.nn.Block;
 import ai.djl.training.ParameterStore;
@@ -13,23 +10,28 @@ import br.com.guialves.rflr.utils.json.ManagerNodeSerializer;
 import com.google.gson.*;
 import lombok.Cleanup;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.management.ManagementFactory;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.*;
 
 import static br.com.guialves.rflr.djlutils.DJLUtils.AXIS_EMPTY;
 import static br.com.guialves.rflr.djlutils.DJLUtils.FIRST_POS;
 import static java.util.stream.Collectors.*;
 
+@Slf4j
 public class DJLMemoryManagement {
 
     public static final int NOT_FOUND_COUNT = -1;
+    public static final String TEMP_OWNER = "TEMP-OWNER";
     private static final com.sun.management.OperatingSystemMXBean OS =
             (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     /** If you pass null, the default device is used, can be cpu or gpu. */
     private static final Device GET_DEFAULT_DEVICE = null;
+    private static final Device CPU = Device.cpu();
 
     private DJLMemoryManagement() {
         throw new IllegalStateException("No DJLMemoryManagement!");
@@ -60,12 +62,6 @@ public class DJLMemoryManagement {
             if (arrays[i] != null) arrays[i].close();
             arrays[i] = null;
         }
-    }
-
-    public static NDArray transfer(NDManager manager, NDArray oldVal, NDArray newVal) {
-        oldVal.close();
-        newVal.attach(manager);
-        return newVal;
     }
 
     public static NDArray scoped(final UnaryOperator<NDArray> block,
@@ -348,6 +344,19 @@ public class DJLMemoryManagement {
     }
 
     /**
+     * Uncaps this manager, the reverse of cap that is used to prevent unintentional attachment of resources.
+     * This can be used to help in memory leaks, where, you cap some part, and uncap at the other.
+     * This uses reflections, so, use only when debugging.
+     */
+    @SneakyThrows
+    public static void uncap(NDManager manager) {
+        var field = BaseNDManager.class.getDeclaredField("capped");
+        field.setAccessible(true);
+        var capped = (AtomicBoolean) field.get(manager);
+        capped.set(false);
+    }
+
+    /**
      * Immutable snapshot of one node in an {@link NDManager} hierarchy.
      *
      * <p>Built by {@link DJLMemoryManagement#getDebugDump(NDManager)} via
@@ -452,12 +461,12 @@ public class DJLMemoryManagement {
         return parent;
     }
 
-    public static NDManager setName(NDManager mgr, String name) {
+    public static NDManager namedAs(NDManager mgr, String name) {
         mgr.setName(name + "-" + mgr.getName());
         return mgr;
     }
 
-    public static NDArray setName(NDArray array, String name) {
+    public static NDArray namedAs(NDArray array, String name) {
         array.setName(name + "-" + array.getName());
         return array;
     }
@@ -471,7 +480,7 @@ public class DJLMemoryManagement {
     }
 
     public static NDManager subMgrInCPU(NDManager manager, Class<?> clazz) {
-        return subMgr(manager, clazz.getSimpleName(), Device.cpu());
+        return subMgr(manager, clazz.getSimpleName(), CPU);
     }
 
     /**
@@ -519,8 +528,39 @@ public class DJLMemoryManagement {
         return model;
     }
 
+    /**
+     * Observation: When you transfer for a CPU, using toDevice a NDManager is created,
+     * so it can leak in the shadow, TempMemoryManager is used to control this case.
+     */
     public static NDArray duplicateToCpu(NDArray array) {
         if (array.getDevice().equals(Device.cpu())) return array.duplicate();
-        return array.toDevice(Device.cpu(), true);
+        var cpuArray = array.toDevice(Device.cpu(), true);
+        namedAs(cpuArray.getManager(), TEMP_OWNER);
+        return cpuArray;
+    }
+
+    public static NDArray transfer(NDManager manager, NDArray oldVal, NDArray newVal) {
+        oldVal.close();
+        newVal.attach(manager);
+        return newVal;
+    }
+
+    /**
+     * Be careful using this method, the newVal will be detached,
+     * so, it won't have any parent and can leak, except if you
+     * close it directly or attached to a sub manager that will be
+     * closed later.
+     * @return newVal detached
+     */
+    public static NDArray transferDetached(NDArray oldVal, NDArray newVal) {
+        oldVal.close();
+        newVal.detach();
+        return newVal;
+    }
+
+    public static void transferFromTempOwner(NDArray array, NDManager newOwner) {
+        var oldOwner = array.getManager();
+        array.attach(newOwner);
+        if (oldOwner.getName().startsWith(TEMP_OWNER)) oldOwner.close();
     }
 }

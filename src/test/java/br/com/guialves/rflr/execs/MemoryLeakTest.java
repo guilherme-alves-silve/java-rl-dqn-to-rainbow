@@ -4,11 +4,14 @@ import ai.djl.ndarray.NDManager;
 import br.com.guialves.rflr.djlutils.DJLMemoryManagement.ManagerNode;
 import br.com.guialves.rflr.execs.base.*;
 import br.com.guialves.rflr.execs.games.atari.AgentCNNDQNMain;
+import br.com.guialves.rflr.execs.games.atari.AgentCNNRainbowDQNMain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.getDebugDump;
@@ -19,35 +22,46 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Regression test for memory leaks across all agent training pipelines.
  *
- * <p>Each test invokes {@code AgentXxxMain.run()} which trains an agent to
- * completion and returns a {@link ManagerNode} snapshot of the resulting
- * manager hierarchy. The test then asserts the <i>exact</i> number of direct
- * resources on the root and on each named sub-manager, so that any future
- * regression that adds a new sub-manager or leaks an NDArray will fail with
- * a clear, actionable message.</p>
+ * <h2>How a leak is detected</h2>
+ * <p>A <b>single</b> snapshot of the manager tree cannot prove that there is no leak: a leak is
+ * a <b>growth</b> over the training, and a leak that is released at the end of the episode is
+ * invisible in the last snapshot. The agent collects a snapshot of the tree at <b>every step</b>
+ * (see {@code AbstractAgent.managerNodes}), so this test works on the <b>time series</b> of
+ * snapshots and asserts that:</p>
  *
- * <h2>Reference values (captured from past training runs)</h2>
- * <pre>
- *   parent                  : 2    (online + target network sub-managers)
- *   DeepQNetworkMLP         : 6    (3 Linear layers × 2 = weight + bias)
- *   DuelingQNetworkMLP      : 8    (2 backbone + 1 value + 1 advantage × 2)
- *   NoisyQNetworkMLP        : 10   (1 Linear + 2 NoisyLayer × 4 params)
- *   NoisyDuelingQNetworkMLP : 18   (1 Linear + 4 NoisyLayer × 4 + extras)
- *   ExperienceReplayBuffer  : 256  (128 experiences × 2 NDArrays)
- * </pre>
+ * <ol>
+ *   <li><b>the part of the tree that is not the replay buffer does not grow</b>. The buffer is
+ *       expected to fill up; everything else (the networks, the models, the managers of the
+ *       training step, the copies of the observations) must stay flat. This is the assertion that
+ *       catches the leaks: a leaked copy, a leaked manager or a leaked batch makes this number
+ *       grow step after step;</li>
+ *   <li>the same for the number of sub-managers of the tree;</li>
+ *   <li>the buffer is bounded by its capacity (2 NDArrays per experience);</li>
+ *   <li>the structure of the tree is the expected one (2 networks with the expected number of
+ *       parameters, and the expected number of managers owned by the buffer).</li>
+ * </ol>
  *
- * <h2>Why exact counts and not a threshold</h2>
- * <p>The previous version of this test used a {@code MAX_LEAK_PER_AGENT}
- * threshold, which tolerates a small drift. The current version asserts the
- * exact resource count so that an accidental change in network topology
- * (e.g. adding a layer) or in the buffer's storage layout (e.g. adding a
- * segment tree) is detected immediately. If a new agent legitimately needs
- * a different layout, update the expected values in this file.</p>
+ * <h2>Why the buffer is not counted as a leak</h2>
+ * <p>The replay buffer is <b>expected</b> to grow: it stores the experiences until it reaches its
+ * capacity. The managers of the buffer are therefore identified by name and excluded from the
+ * growth check. This also solves the {@code NEnvReplayBuffer} case: it owns one buffer per
+ * environment, and those buffers are <b>siblings</b> of the container in the manager tree, not
+ * children of it, so they have to be collected by name too.</p>
+ *
+ * <h2>Slack</h2>
+ * <p>The growth checks allow a small slack, because the temporaries of the training step are
+ * alive at the moment of the snapshot (the mini batch, the activations, the copies of the
+ * observations). The slack is measured, not guessed: see {@link #MAX_GROWTH}.</p>
+ *
+ * <h2>Warm up</h2>
+ * <p>The first snapshots are taken while the environment is still warming up (the vectorized
+ * environment creates the initial observation of the 64 environments after the first step). That
+ * one time allocation is not part of the comparison: see {@link #WARM_UP_FRACTION}.</p>
  */
 @DisplayName("Memory leak regression tests")
 class MemoryLeakTest {
 
-    private static final String FRAMES_LIMIT = "500";
+    private static final String FRAMES_LIMIT = "2500";
     private static final String BUFFER_CAPACITY = "128";
     private static final String DONT_SAVE_MODEL = "false";
     private static final String DONT_RECORD = "false";
@@ -58,13 +72,42 @@ class MemoryLeakTest {
     private static final int GC_TRIES = 3;
     private static final int MIN_SLEEP = 100;
 
-    /** Root manager: experience replay buffer + online + target network sub-managers. */
-    private static final int EXPECTED_ROOT_SUBMANAGERS = 3;
+    /**
+     * The maximum growth, in NDArrays or in managers, of the part of the tree that does not
+     * belong to the replay buffer.
+     *
+     * <p>Measured on the fixed code: the temporaries of the training step are alive at the
+     * moment of the snapshot, so the number moves a little between two snapshots. A real leak
+     * grows by at least one resource per step, which is orders of magnitude bigger.</p>
+     */
+    private static final int MAX_GROWTH = 16;
+
+    /**
+     * The fraction of the snapshots at the beginning of the training that is ignored by the
+     * growth checks.
+     *
+     * <p>The first snapshots are taken while the environment is still warming up: the vectorized
+     * environment, for example, creates the initial observation of the 64 environments after the
+     * first step, so the tree jumps by 64 NDArrays between the first and the second snapshot and
+     * stays flat afterwards. That jump is a one time allocation, not a leak, and it would be
+     * reported as one if the first snapshots were part of the comparison.</p>
+     *
+     * <p>A real leak keeps growing during the whole training, so it is still detected: the
+     * resources that are leaked accumulate step after step, and the growth of the second half of
+     * the training is much bigger than the allowed slack.</p>
+     */
+    private static final double WARM_UP_FRACTION = 0.10;
+
+    /**
+     * The minimum number of snapshots needed to compare the beginning of the training with its
+     * end. A single snapshot proves nothing.
+     */
+    private static final int MIN_SNAPSHOTS = 3;
 
     /** DeepQNetworkMLP has 3 Linear layers (weight + bias each). */
     private static final int DEEP_NET_PARAMS = 6;
 
-    /** TODO: DeepQNetworkCNN has 3 Linear layers (weight + bias each). */
+    /** DeepQNetworkCNN has 3 Linear layers (weight + bias each). */
     private static final int DEEP_CNN_NET_PARAMS = 10;
 
     /** DuelingQNetworkMLP has 4 Linear layers (2 backbone + 1 value + 1 advantage). */
@@ -82,15 +125,40 @@ class MemoryLeakTest {
     /** RainbowQNetworkMLP has 3 Linear layers (weight + bias each). */
     private static final int RAINBOW_DQN_NET_PARAMS = 19;
 
+    /** RainbowQNetworkCNN has 4 CNN Layers + 3 Linear layers (weight + bias each). */
+    private static final int RAINBOW_DQN_CNN_NET_PARAMS = 23;
+
     /**
-     * Each {@code Experience} contributes exactly 2 NDArrays to its buffer:
-     * one {@code state} and one {@code nextState}. We use this as a
-     * structural invariant (the buffer's NDArray count is always a
-     * multiple of 2) instead of asserting an absolute number, which
-     * depends on how many experiences were collected during the
-     * (short) test run.
+     * Each stored experience contributes exactly 2 NDArrays to its buffer: one {@code state}
+     * and one {@code nextState}.
      */
     private static final int NDARRAYS_PER_EXPERIENCE = 2;
+
+    /**
+     * The expectation of one agent: the names of the managers owned by the replay buffer, the
+     * prefix of the networks, how many parameters each network has and how many managers the
+     * buffer owns.
+     *
+     * @param agentName             the name of the agent, used in the messages
+     * @param networkPrefix         the prefix of the name of the managers of the networks
+     * @param expectedNetworkParams the number of NDArrays (parameters) of each network
+     * @param bufferPrefixes        the prefixes of the names of the managers owned by the buffer
+     * @param expectedBufferManagers the number of managers owned by the buffer
+     * @param nStep                 the n-step of the buffer, used to bound the buffer size
+     * @param numberOfEnvs          the number of environments of the agent
+     */
+    private record AgentSpec(String agentName,
+                             String networkPrefix,
+                             int expectedNetworkParams,
+                             List<String> bufferPrefixes,
+                             int expectedBufferManagers,
+                             int nStep,
+                             int numberOfEnvs) {
+
+        boolean isBufferManager(String name) {
+            return bufferPrefixes.stream().anyMatch(name::startsWith);
+        }
+    }
 
     private NDManager manager;
 
@@ -105,7 +173,7 @@ class MemoryLeakTest {
         System.setProperty("agent.showAllMetrics", DONT_SHOW_METRICS);
         System.setProperty("agent.renderRun", DONT_RENDER);
         System.setProperty("agent.saveConfig", DONT_SAVE_CONFIG);
-        // The assertions below read the NDManager tree snapshot, so the dump must be
+        // The assertions below read the NDManager tree snapshots, so the dump must be
         // enabled explicitly instead of relying on the default of each runner.
         System.setProperty("agent.debugMemoryLeak", "true");
     }
@@ -121,127 +189,93 @@ class MemoryLeakTest {
     }
 
     @Test
-    @DisplayName("AgentDQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentDQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentDQN() {
-        var managerNode = AgentDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentDQN",
-                "DeepQNetworkMLP-",
-                DEEP_NET_PARAMS,
-                "ExperienceReplayBuffer-");
+        assertNoLeak(AgentDQNMain.run(), singleBuffer("AgentDQN", "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS, "ExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentCNNDQNMain should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentCNNDQNMain should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentCNNDQN() {
-        var managerNode = AgentCNNDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentDQN",
-                "DeepQNetworkCNN-",
-                DEEP_CNN_NET_PARAMS,
-                "ExperienceReplayBuffer-");
+        assertNoLeak(AgentCNNDQNMain.run(), singleBuffer("AgentCNNDQN", "DeepQNetworkCNN-",
+                DEEP_CNN_NET_PARAMS, "ExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentDDQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentDDQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentDDQN() {
-        var managerNode = AgentDDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentDDQN",
-                "DeepQNetworkMLP-",
-                DEEP_NET_PARAMS,
-                "ExperienceReplayBuffer-");
+        assertNoLeak(AgentDDQNMain.run(), singleBuffer("AgentDDQN", "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS, "ExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentNStepDQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentNStepDQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentNStepDQN() {
-        var managerNode = AgentNStepDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentNStepDQN",
-                "DeepQNetworkMLP-",
-                DEEP_NET_PARAMS,
-                "NStepExperienceReplayBuffer-");
+        assertNoLeak(AgentNStepDQNMain.run(), singleBuffer("AgentNStepDQN", "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS, "NStepExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentDuelingDQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentDuelingDQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentDuelingDQN() {
-        var managerNode = AgentDuelingDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentDuelingDQN",
-                "DuelingQNetworkMLP-",
-                DUELING_NET_PARAMS,
-                "ExperienceReplayBuffer-");
+        assertNoLeak(AgentDuelingDQNMain.run(), singleBuffer("AgentDuelingDQN", "DuelingQNetworkMLP-",
+                DUELING_NET_PARAMS, "ExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentDQNPER should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentDQNPER should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentDQNPER() {
-        var managerNode = AgentDQNPERMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentDQNPER",
-                "DeepQNetworkMLP-",
-                DEEP_NET_PARAMS,
-                "PrioritizedReplayBuffer-");
+        assertNoLeak(AgentDQNPERMain.run(), singleBuffer("AgentDQNPER", "DeepQNetworkMLP-",
+                DEEP_NET_PARAMS, "PrioritizedReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentNoisyNetDQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentNoisyNetDQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentNoisyNetDQN() {
-        var managerNode = AgentNoisyNetDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentNoisyNetDQN",
-                "NoisyQNetworkMLP-",
-                NOISY_NET_PARAMS,
-                "ExperienceReplayBuffer-");
+        assertNoLeak(AgentNoisyNetDQNMain.run(), singleBuffer("AgentNoisyNetDQN", "NoisyQNetworkMLP-",
+                NOISY_NET_PARAMS, "ExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentNoisyDuelingNetDDQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentNoisyDuelingNetDDQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentNoisyDuelingNetDDQN() {
-        var managerNode = AgentNoisyDuelingNetDDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentNoisyDuelingNetDDQN",
-                "NoisyDuelingQNetworkMLP-",
-                NOISY_DUELING_NET_PARAMS,
-                "ExperienceReplayBuffer-");
+        assertNoLeak(AgentNoisyDuelingNetDDQNMain.run(), singleBuffer("AgentNoisyDuelingNetDDQN",
+                "NoisyDuelingQNetworkMLP-", NOISY_DUELING_NET_PARAMS, "ExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentC51DQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentC51DQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentC51DQN() {
-        int additionalAtomBroadcastSubManager = 1;
-        var managerNode = AgentC51DQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentC51DQN",
-                "CategoricalQNetworkMLP-",
-                C51_DQN_NET_PARAMS,
-                "ExperienceReplayBuffer-",
-                additionalAtomBroadcastSubManager);
+        assertNoLeak(AgentC51DQNMain.run(), singleBuffer("AgentC51DQN", "CategoricalQNetworkMLP-",
+                C51_DQN_NET_PARAMS, "ExperienceReplayBuffer-", 1));
     }
 
     @Test
-    @DisplayName("AgentRainbowDQN should leave exactly the expected NDArrays after training")
+    @DisplayName("AgentRainbowDQN should not leak memory during the training")
     void shouldNotLeakMemoryAfterAgentRainbowDQN() {
-        int additionalAtomBroadcastSubManager = 1;
-        var managerNode = AgentRainbowDQNMain.run().getLast();
-        assertAgentStructure(
-                managerNode,
-                "AgentRainbowDQN",
-                "RainbowQNetworkMLP-",
-                RAINBOW_DQN_NET_PARAMS,
-                "NStepPrioritizedReplayBuffer-",
-                additionalAtomBroadcastSubManager);
+        assertNoLeak(AgentRainbowDQNMain.run(), singleBuffer("AgentRainbowDQN", "RainbowQNetworkMLP-",
+                RAINBOW_DQN_NET_PARAMS, "NStepPrioritizedReplayBuffer-", 1));
+    }
+
+    @Test
+    @DisplayName("AgentCNNRainbowDQN should not leak memory during the training")
+    void shouldNotLeakMemoryAfterAgentCNNRainbowDQN() {
+        System.setProperty("agent.framesLimit", "100000");
+        System.setProperty("agent.bufferCapacity", "1024");
+
+        // The NEnvReplayBuffer owns one buffer per environment, and the buffers of the
+        // environments are SIBLINGS of the container in the manager tree (they are created
+        // with the parent of the container). They are therefore collected by name too, and
+        // their number is derived from the configuration instead of being a magic number.
+        int numberOfEnvs = Integer.getInteger("agent.numberOfEnvs", 64);
+        var spec = new AgentSpec("AgentCNNRainbowDQN", "RainbowQNetworkCNN-",
+                RAINBOW_DQN_CNN_NET_PARAMS,
+                List.of("NEnvReplayBuffer-", "NStepPrioritizedReplayBuffer-"),
+                1 + numberOfEnvs,
+                3,
+                numberOfEnvs);
+        assertNoLeak(AgentCNNRainbowDQNMain.run(), spec);
     }
 
     @Test
@@ -261,88 +295,157 @@ class MemoryLeakTest {
     }
 
     /**
-     * Asserts the full shape of the manager tree for a given agent:
-     *
-     * <ol>
-     *   <li>the root has exactly {@link #EXPECTED_ROOT_SUBMANAGERS} direct
-     *       sub-managers (one online network + one target network);</li>
-     *   <li>both networks (matched by {@code networkPrefix}) hold exactly
-     *       {@code expectedParamsPerNetwork} NDArrays (the {@code Parameter}
-     *       arrays of the block), ignoring any sub-managers (e.g. the
-     *       {@code Model}'s own manager, which DJL creates via
-     *       {@code newModel});</li>
-     *   <li>the buffer (matched by {@code bufferPrefix}) exists exactly once
-     *       and holds a multiple of {@link #NDARRAYS_PER_EXPERIENCE} NDArrays
-     *       (one {@code state} + one {@code nextState} per stored experience).
-     *       The absolute count is <i>not</i> asserted because it depends on
-     *       how many experiences were collected during the (short) test run;
-     *       see {@link #assertAgentStructure} for the structural check.</li>
-     * </ol>
-     *
-     * <p>The buffer is searched recursively (via {@code findMatching}) so
-     * the assertion is robust to whether the buffer's sub-manager is a
-     * direct child of the root or nested under a network. The networks are
-     * expected to be direct children of the root.</p>
-     *
-     * <p><b>Why count only NDArrays and not {@code totalResources}:</b>
-     * a network's sub-manager also contains the {@code Model}'s internal
-     * NDManager (e.g. {@code byType={PtNDManager=1, PtNDArray=6}} on a
-     * 3-layer MLP), so {@code totalResources} mixes sub-managers with
-     * NDArrays. {@link #countNDArrays(ManagerNode)} filters by simple
-     * class name suffix to give a clean parameter count.</p>
+     * The expectation of an agent with a single buffer.
      */
-    private void assertAgentStructure(ManagerNode root,
-                                      String agentName,
-                                      String networkPrefix,
-                                      int expectedParamsPerNetwork,
-                                      String bufferPrefix,
-                                      int customAdditionalSubManagers) {
+    private AgentSpec singleBuffer(String agentName,
+                                   String networkPrefix,
+                                   int expectedNetworkParams,
+                                   String bufferPrefix,
+                                   int expectedBufferManagers) {
+        return new AgentSpec(agentName, networkPrefix, expectedNetworkParams,
+                List.of(bufferPrefix), expectedBufferManagers, 1, 1);
+    }
 
-        int expectedSubManagers = EXPECTED_ROOT_SUBMANAGERS + customAdditionalSubManagers;
-        assertEquals(expectedSubManagers, root.totalResources(),
-                agentName + ": root should have exactly "
-                        + expectedSubManagers
-                        + " direct sub-managers (online + target networks), got "
-                        + root.totalResources() + " with byType=" + root.byType());
+    /**
+     * The classification of one snapshot of the manager tree.
+     *
+     * @param bufferNDArrays the NDArrays owned by the managers of the replay buffer
+     * @param otherNDArrays  the NDArrays owned by everything else (the networks, the models,
+     *                        the temporaries of the training step, ...)
+     * @param bufferManagers the number of managers owned by the replay buffer
+     * @param otherManagers  the number of managers owned by everything else
+     */
+    private record TreeStats(long bufferNDArrays,
+                             long otherNDArrays,
+                             long bufferManagers,
+                             long otherManagers) {
+    }
 
-        var networks = root.findMatching(n -> n.name().startsWith(networkPrefix) ||
-                n.name().startsWith("clone-" + networkPrefix));
+    /**
+     * Asserts that the training of an agent does not leak memory.
+     *
+     * @param snapshots the snapshots of the manager tree taken during the training
+     * @param spec      the expectation of the agent
+     */
+    private void assertNoLeak(List<ManagerNode> snapshots, AgentSpec spec) {
+        assertTrue(snapshots.size() >= MIN_SNAPSHOTS,
+                spec.agentName() + ": the leak check compares the beginning of the training with "
+                        + "its end, so it needs at least " + MIN_SNAPSHOTS + " snapshots, got "
+                        + snapshots.size() + ". Use more frames (agent.framesLimit) so that the "
+                        + "training is spread over several snapshots.");
+
+        var stats = snapshots.stream().map(snapshot -> classify(snapshot, spec)).toList();
+
+        assertStructure(snapshots.getLast(), spec);
+
+        // The warm up of the environment is not part of the comparison: it is a one time
+        // allocation, not a growth.
+        int warmUp = Math.min(stats.size() - 1, (int) Math.ceil(stats.size() * WARM_UP_FRACTION));
+        var measured = stats.subList(warmUp, stats.size());
+
+        // LEAK 1: everything that is not the buffer must stay flat.
+        long minOtherArrays = measured.stream().mapToLong(TreeStats::otherNDArrays).min().orElseThrow();
+        long maxOtherArrays = measured.stream().mapToLong(TreeStats::otherNDArrays).max().orElseThrow();
+        assertTrue(maxOtherArrays - minOtherArrays <= MAX_GROWTH,
+                spec.agentName() + ": the NDArrays that do not belong to the replay buffer grew from "
+                        + minOtherArrays + " to " + maxOtherArrays + " (allowed growth: "
+                        + MAX_GROWTH + "). This is a memory leak: something created during the "
+                        + "training is not being closed. Snapshots: " + stats);
+
+        // LEAK 2: the same for the managers: a leaked manager per step is a leak too.
+        long minOtherManagers = measured.stream().mapToLong(TreeStats::otherManagers).min().orElseThrow();
+        long maxOtherManagers = measured.stream().mapToLong(TreeStats::otherManagers).max().orElseThrow();
+        assertTrue(maxOtherManagers - minOtherManagers <= MAX_GROWTH,
+                spec.agentName() + ": the managers that do not belong to the replay buffer grew from "
+                        + minOtherManagers + " to " + maxOtherManagers + " (allowed growth: "
+                        + MAX_GROWTH + "). This is a memory leak: a sub manager is created and not "
+                        + "closed. Snapshots: " + stats);
+
+        // BOUND: the buffer is bounded by its capacity.
+        int capacity = Integer.getInteger("agent.bufferCapacity", Integer.parseInt(BUFFER_CAPACITY));
+        long maxBufferArrays = stats.stream().mapToLong(TreeStats::bufferNDArrays).max().orElseThrow();
+        long maxExpected = (long) capacity * NDARRAYS_PER_EXPERIENCE
+                + (long) spec.numberOfEnvs() * spec.nStep() * NDARRAYS_PER_EXPERIENCE
+                + MAX_GROWTH;
+        assertTrue(maxBufferArrays <= maxExpected,
+                spec.agentName() + ": the replay buffer holds " + maxBufferArrays
+                        + " NDArrays, which is more than the " + maxExpected
+                        + " allowed by its capacity (" + capacity + " experiences, "
+                        + NDARRAYS_PER_EXPERIENCE + " NDArrays each, plus the n-step window). "
+                        + "Snapshots: " + stats);
+
+        // STRUCTURE: the managers of the buffer are the expected ones.
+        long bufferManagers = stats.getLast().bufferManagers();
+        assertEquals(spec.expectedBufferManagers(), bufferManagers,
+                spec.agentName() + ": expected exactly " + spec.expectedBufferManagers()
+                        + " managers owned by the replay buffer (prefixes " + spec.bufferPrefixes()
+                        + "), got " + bufferManagers + " with byType=" + stats.getLast());
+    }
+
+    /**
+     * Asserts the structure of the manager tree at the end of the training.
+     *
+     * @param root the snapshot of the root of the manager tree
+     * @param spec the expectation of the agent
+     */
+    private void assertStructure(ManagerNode root, AgentSpec spec) {
+        var networks = root.findMatching(n -> n.name().startsWith(spec.networkPrefix()) ||
+                n.name().startsWith("clone-" + spec.networkPrefix()));
         assertEquals(2, networks.size(),
-                agentName + ": expected exactly 2 sub-managers starting with '"
-                        + networkPrefix + "', found " + networks.size());
+                spec.agentName() + ": expected exactly 2 sub-managers starting with '"
+                        + spec.networkPrefix() + "', found " + networks.size());
         for (ManagerNode net : networks) {
             long paramCount = countNDArrays(net);
-            assertEquals(expectedParamsPerNetwork, paramCount,
-                    agentName + ": network '" + net.name()
-                            + "' should have exactly " + expectedParamsPerNetwork
+            assertEquals(spec.expectedNetworkParams(), paramCount,
+                    spec.agentName() + ": network '" + net.name()
+                            + "' should have exactly " + spec.expectedNetworkParams()
                             + " parameters, got " + paramCount
                             + " NDArrays (byType=" + net.byType() + ")");
         }
-
-        var buffers = root.findMatching(n -> n.name().startsWith(bufferPrefix));
-        assertEquals(1, buffers.size(),
-                agentName + ": expected exactly 1 sub-manager starting with '"
-                        + bufferPrefix + "', found " + buffers.size());
-        var buffer = buffers.getFirst();
-        long bufferNDArrayCount = countNDArrays(buffer);
-        assertTrue(bufferNDArrayCount >= 0 && bufferNDArrayCount % NDARRAYS_PER_EXPERIENCE == 0,
-                agentName + ": buffer '" + buffer.name()
-                        + "' should hold a multiple of " + NDARRAYS_PER_EXPERIENCE
-                        + " NDArrays (one state + one nextState per experience), got "
-                        + bufferNDArrayCount + " (byType=" + buffer.byType() + ")");
-
-        assertTrue(bufferNDArrayCount >= NDARRAYS_PER_EXPERIENCE,
-                agentName + ": buffer '" + buffer.name()
-                        + "' should hold at least one experience, got "
-                        + bufferNDArrayCount + " NDArrays (byType=" + buffer.byType() + ")");
     }
 
-    private void assertAgentStructure(ManagerNode root,
-                                      String agentName,
-                                      String networkPrefix,
-                                      int expectedParamsPerNetwork,
-                                      String bufferPrefix) {
-        assertAgentStructure(root, agentName, networkPrefix, expectedParamsPerNetwork, bufferPrefix, 0);
+    /**
+     * Classifies a snapshot of the manager tree: the resources owned by the replay buffer and
+     * the resources owned by everything else.
+     *
+     * <p>Each NDArray is attributed to the closest manager that owns it, so a buffer nested
+     * in another buffer is not counted twice.</p>
+     *
+     * @param node the root of the snapshot
+     * @param spec the expectation of the agent
+     * @return the classification of the snapshot
+     */
+    private TreeStats classify(ManagerNode node, AgentSpec spec) {
+        long bufferNDArrays = 0;
+        long otherNDArrays = 0;
+        long bufferManagers = 0;
+        long otherManagers = 0;
+        for (ManagerNode current : flatten(node)) {
+            if (spec.isBufferManager(current.name())) {
+                ++bufferManagers;
+                bufferNDArrays += countNDArrays(current);
+            } else {
+                ++otherManagers;
+                otherNDArrays += countNDArrays(current);
+            }
+        }
+        return new TreeStats(bufferNDArrays, otherNDArrays, bufferManagers, otherManagers);
+    }
+
+    /**
+     * Flattens the manager tree, in pre-order.
+     */
+    private List<ManagerNode> flatten(ManagerNode node) {
+        var all = new ArrayList<ManagerNode>();
+        collect(node, all);
+        return all;
+    }
+
+    private void collect(ManagerNode node, List<ManagerNode> all) {
+        all.add(node);
+        for (var child : node.children()) {
+            collect(child, all);
+        }
     }
 
     /**

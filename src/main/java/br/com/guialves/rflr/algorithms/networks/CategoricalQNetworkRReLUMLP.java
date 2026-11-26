@@ -8,8 +8,6 @@ import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Block;
 import ai.djl.nn.SequentialBlock;
-import ai.djl.nn.norm.BatchNorm;
-import ai.djl.nn.norm.Dropout;
 import ai.djl.training.ParameterStore;
 import br.com.guialves.rflr.algorithms.networks.distributional.CategoricalBellmanProjection;
 import lombok.Cleanup;
@@ -228,7 +226,7 @@ public class CategoricalQNetworkRReLUMLP implements IDeepQNetwork, ICategoricalN
     public IDeepQNetwork clone() {
         var cloned = new CategoricalQNetworkRReLUMLP(observations, actions,
                                                 catProj, subManager.getParentManager());
-        setName(cloned.subManager, "clone");
+        namedAs(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

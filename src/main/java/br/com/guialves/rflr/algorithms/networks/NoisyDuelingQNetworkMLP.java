@@ -152,7 +152,7 @@ public class NoisyDuelingQNetworkMLP implements INoisyNetwork {
     @Override
     public IDeepQNetwork clone() {
         var cloned = new NoisyDuelingQNetworkMLP(observations, actions, subManager.getParentManager(), duelingType);
-        setName(cloned.subManager, "clone");
+        namedAs(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

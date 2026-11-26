@@ -223,7 +223,7 @@ public class CategoricalQNoisyNetworkMLP implements INoisyNetwork, ICategoricalN
     public IDeepQNetwork clone() {
         var cloned = new CategoricalQNoisyNetworkMLP(observations, actions,
                                                 catProj, subManager.getParentManager());
-        setName(cloned.subManager, "clone");
+        namedAs(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

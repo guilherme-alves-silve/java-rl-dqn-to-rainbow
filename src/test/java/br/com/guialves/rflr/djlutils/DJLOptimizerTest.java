@@ -40,8 +40,8 @@ class DJLOptimizerTest {
                 .build();
 
         var loss = Loss.l2Loss();
-        var x = setName(manager.ones(new Shape(1, 4)), "x");
-        var y = setName(manager.zeros(new Shape(1, 2)), "y");
+        var x = namedAs(manager.ones(new Shape(1, 4)), "x");
+        var y = namedAs(manager.zeros(new Shape(1, 2)), "y");
 
         runBackwardLossAndStep(manager, block, parameterStore, optimizer, loss, x, y);
         runBackwardLossAndStep(manager, block, parameterStore, optimizer, loss, x, y);
@@ -80,8 +80,8 @@ class DJLOptimizerTest {
                 .build();
 
         var loss = Loss.l2Loss();
-        var x = setName(manager.ones(new Shape(1, 4)), "x");
-        var y = setName(manager.zeros(new Shape(1, 2)), "y");
+        var x = namedAs(manager.ones(new Shape(1, 4)), "x");
+        var y = namedAs(manager.zeros(new Shape(1, 2)), "y");
 
         runBackwardLossAndStepClipGrad(manager, block, parameterStore, optimizer, loss, x, y);
         runBackwardLossAndStepClipGrad(manager, block, parameterStore, optimizer, loss, x, y);
@@ -115,13 +115,13 @@ class DJLOptimizerTest {
             var gradX = arrays[0];
             IO.println("gradX: " + gradX);
             var out = block.forward(parameterStore, new NDList(x), true).singletonOrThrow();
-            return setName(out, "out-1");
+            return namedAs(out, "out-1");
         }, x);
 
         backwardLoss(manager, loss, y, arrays -> {
             var gradX = arrays[0];
             var out = block.forward(parameterStore, new NDList(gradX), true).singletonOrThrow();
-            return setName(out, "out-2");
+            return namedAs(out, "out-2");
         }, x);
 
         var trained = DJLOptimizer.trainStep(block, optimizer);
@@ -139,13 +139,13 @@ class DJLOptimizerTest {
             var gradX = arrays[0];
             IO.println("gradX: " + gradX);
             var out = block.forward(parameterStore, new NDList(x), true).singletonOrThrow();
-            return setName(out, "out-clip-1");
+            return namedAs(out, "out-clip-1");
         }, x);
 
         backwardLoss(manager, loss, y, arrays -> {
             var gradX = arrays[0];
             var out = block.forward(parameterStore, new NDList(gradX), true).singletonOrThrow();
-            return setName(out, "out-clip-2");
+            return namedAs(out, "out-clip-2");
         }, x);
 
         var trained = DJLOptimizer.trainStepClipGradients(block, optimizer, TEST_CLIP_GRAD_THRESHOLD);

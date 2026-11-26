@@ -113,7 +113,7 @@ sub.close();   // skipped on exception
 Unnamed managers show up as `NDManager(uid-142003136424600)` in the debug dump,
 which is useless when you are looking for a leak. The same is true for
 unnamed NDArrays. Always pass a descriptive name to `subMgr` and
-`setName`.
+`namedAs`.
 
 ### 5. Run `MemoryLeakTest` before merging
 
@@ -360,7 +360,7 @@ For historical context, the leaks fixed while writing this guide were:
 | `safeForwardSingle.java:130` | Output of every forward pinned in the model manager | `output.attach(manager)` | Remove attach, let caller `@Cleanup` |
 | `NoisyLayer.forwardInternal` | `w`, `b` and mul/add intermediates accumulating in the model manager | Binary ops in the parameter's manager | `tempAttach` parameters to a scoped sub |
 | `FactorizedNoise.sampleNoiseOuter` | `fepsIn` and reshapes never closed | Created in `manager`, not in a sub | Allocate inside a scoped sub, `sub.ret` the keepers |
-| `ExperienceReplayBuffer.sample` | Unnamed sub-manager | `newSubManager()` without `setName` | `subMgr(subManager, "buffer-sample")` |
+| `ExperienceReplayBuffer.sample` | Unnamed sub-manager | `newSubManager()` without `namedAs` | `subMgr(subManager, "buffer-sample")` |
 | `PrioritizedReplayBuffer.sample` | Unnamed sub-manager | Same | `subMgr(subManager, "prioritized-sample")` |
 | `AbstractAgent.run` | Unnamed sub-manager | Same | `subMgr(parent, "run-episode")` |
 | `safeForwardSingle` | Unnamed sub-manager | Same | `subMgr(manager, "safe-forward-single")` |

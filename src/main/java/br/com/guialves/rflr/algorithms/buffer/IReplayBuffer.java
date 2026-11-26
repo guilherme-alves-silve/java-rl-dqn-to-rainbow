@@ -4,6 +4,7 @@ import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
+import lombok.Cleanup;
 
 import java.util.function.Function;
 
@@ -46,18 +47,19 @@ public interface IReplayBuffer extends AutoCloseable {
      * @param mapper maps each experience to its NDArray representation
      * @return concatenated NDArray along axis 0
      */
-    default NDArray newAttachedList(final NDManager subManager,
+    default NDArray newAttachedList(final NDManager sub,
                                     final Experience[] batch,
                                     final Function<Experience, NDArray> mapper) {
         var arrays = new NDList(batch.length);
         for (var exp : batch) {
             var mapped = mapper.apply(exp);
-            mapped.attach(subManager);
+            mapped.attach(sub);
             arrays.add(mapped.expandDims(AXIS_0));
         }
-        var concat = NDArrays.concat(arrays, AXIS_0);
-        concat.attach(subManager);
-        return concat.toDevice(subManager.getDevice(), false);
+        @Cleanup var concat = NDArrays.concat(arrays, AXIS_0);
+        var concatDevice = concat.toDevice(sub.getDevice(), false);
+        concatDevice.attach(sub);
+        return concatDevice;
     }
 
     boolean isOpen();

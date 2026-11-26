@@ -255,7 +255,7 @@ public class RainbowQNetworkMLP implements IRainbowQNetwork {
     public IDeepQNetwork clone() {
         var cloned = new RainbowQNetworkMLP(observations, actions,
                 catProj, subManager.getParentManager(), duelingType);
-        setName(cloned.subManager, "clone");
+        namedAs(cloned.subManager, "clone");
         copy(model.getBlock(), cloned.model.getBlock());
         return cloned;
     }

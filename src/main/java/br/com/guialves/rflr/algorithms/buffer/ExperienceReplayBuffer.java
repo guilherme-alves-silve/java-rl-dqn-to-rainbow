@@ -45,16 +45,35 @@ public class ExperienceReplayBuffer implements IReplayBuffer {
     @Override
     public void store(Experience exp) {
 
-        exp.state().attach(subManager);
-        exp.nextState().attach(subManager);
+        keepAlive(exp);
 
         if (size < capacity) ++size;
         var oldExp = experiences[pos];
         experiences[pos] = exp;
-        setName(exp.state(), "buffer-state");
-        setName(exp.nextState(), "buffer-next-state");
+        namedAs(exp.state(), "buffer-state");
+        namedAs(exp.nextState(), "buffer-next-state");
         if (oldExp != null) oldExp.close();
         pos = (pos + 1) % experiences.length;
+    }
+
+    /**
+     * Moves the arrays of the experience to the manager of the buffer.
+     *
+     * <p>The arrays of an experience are created as copies of the observations, and
+     * {@code NDArray.toDevice} puts the copy in a sub manager of the <b>origin</b> manager
+     * of the source array. In the vectorized training loop the origin is the per-step
+     * manager ({@code sub-vectorized-step}), which is closed at the end of the step: an
+     * experience that is not re-parented dies with it, and the n-step buffer, which keeps
+     * the raw experiences for {@code nStep} steps, would later read a released array.</p>
+     *
+     * <p>Re-parenting to the manager of the buffer makes the buffer the owner of the
+     * arrays: they live as long as the experience is in the buffer.</p>
+     *
+     * @param exp the experience to keep alive
+     */
+    protected void keepAlive(Experience exp) {
+        transferFromTempOwner(exp.state(), subManager);
+        transferFromTempOwner(exp.nextState(), subManager);
     }
 
     @Override

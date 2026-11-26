@@ -14,7 +14,7 @@ public class PlaygroundMemoryManagement {
     static void main() {
         var released = new ArrayList<NDArray>();
         {
-            @Cleanup var parent = setName(NDManager.newBaseManager(), "parent");
+            @Cleanup var parent = namedAs(NDManager.newBaseManager(), "parent");
             {
                 var p1 = parent.create(1);
                 var p2 = parent.create(2);

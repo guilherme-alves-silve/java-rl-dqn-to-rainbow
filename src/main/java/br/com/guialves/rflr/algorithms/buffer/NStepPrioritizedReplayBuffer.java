@@ -50,7 +50,7 @@ public class NStepPrioritizedReplayBuffer extends PrioritizedReplayBuffer implem
      */
     @Override
     public void store(Experience exp) {
-
+        keepAlive(exp);
         var nStepDeque = nStepDeques.computeIfAbsent(exp.envNumber(),
                 _ -> new ArrayDeque<>(nStep));
         nStepDeque.addLast(exp);

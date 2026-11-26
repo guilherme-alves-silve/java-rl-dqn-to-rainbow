@@ -10,11 +10,15 @@ import lombok.NonNull;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
-import static java.util.Collections.*;
+import static java.util.Collections.max;
+import static java.util.Collections.min;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -95,8 +99,7 @@ public class NEnvReplayBuffer implements IPrioritizedBuffer, INStepBuffer {
                     + " (expected 0.." + (numberOfEnvs - 1) + ")");
         }
         replayBuffer.store(exp);
-        if (size < capacity) size += 1;
-        size = getSize();
+        if (size < capacity) size = getSize();
     }
 
     /**
@@ -300,11 +303,15 @@ public class NEnvReplayBuffer implements IPrioritizedBuffer, INStepBuffer {
      */
     private static NDArray concat(NDManager sub, NDList arrays) {
         var concat = NDArrays.concat(arrays);
+        NDManager oldOwner = null;
         if (!concat.getDevice().equals(sub.getDevice())) {
-            // TODO: Check leak
+            var temp = concat;
             concat = concat.toDevice(sub.getDevice(), true);
+            oldOwner = concat.getManager();
+            temp.close();
         }
         concat.attach(sub);
+        if (oldOwner != null) oldOwner.close();
         return concat;
     }
 

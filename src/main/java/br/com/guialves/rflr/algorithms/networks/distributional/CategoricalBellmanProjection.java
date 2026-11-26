@@ -3,10 +3,12 @@ package br.com.guialves.rflr.algorithms.networks.distributional;
 import ai.djl.ndarray.NDArray;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
+import br.com.guialves.rflr.djlutils.DJLMemoryManagement;
 import lombok.Cleanup;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
+import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.namedAs;
 import static br.com.guialves.rflr.djlutils.DJLMemoryManagement.subMgr;
 import static br.com.guialves.rflr.djlutils.DJLUtils.*;
 
@@ -49,7 +51,7 @@ public class CategoricalBellmanProjection {
     }
 
     public NDArray support(NDManager mgr) {
-        return mgr.create(supportVectorZ);
+        return DJLMemoryManagement.namedAs(mgr.create(supportVectorZ), "cat-b-sup");
     }
 
     private float[] generateSupportVectorZ(int atoms, float vMin, float zDelta) {
@@ -117,7 +119,7 @@ public class CategoricalBellmanProjection {
             }
         }
 
-        var massDistTarget = sub.create(massDist, new Shape(batchSize, SELECTED_ACTION_PER_BATCH, atoms));
+        var massDistTarget = DJLMemoryManagement.namedAs(sub.create(massDist, new Shape(batchSize, SELECTED_ACTION_PER_BATCH, atoms)), "b-mass-dist");
         return sub.ret(massDistTarget);
     }
 }
