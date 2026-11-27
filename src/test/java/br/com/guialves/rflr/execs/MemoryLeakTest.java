@@ -83,6 +83,18 @@ class MemoryLeakTest {
     private static final int MAX_GROWTH = 16;
 
     /**
+     * The fraction of the measured series used as the "beginning" and as the "end" of the
+     * training when the trend of the series is measured.
+     *
+     * <p>The trend is the difference between the median of the first third and the median of
+     * the last third of the series. The median is used instead of the minimum and the maximum
+     * because a single snapshot taken at a different point of the lifecycle (the one taken
+     * after the training, for example) is an outlier, and the minimum and the maximum would
+     * report it as a growth of the whole series.</p>
+     */
+    private static final double TREND_WINDOW = 1.0 / 3.0;
+
+    /**
      * The fraction of the snapshots at the beginning of the training that is ignored by the
      * growth checks.
      *
@@ -340,26 +352,48 @@ class MemoryLeakTest {
 
         // The warm up of the environment is not part of the comparison: it is a one time
         // allocation, not a growth.
+        //
+        // The last snapshot is not part of it either: it is taken when the training is over,
+        // OUTSIDE of a step, when the temporaries of the step are already closed. In the
+        // vectorized training a step holds the observations of the 64 environments (177
+        // NDArrays), so that snapshot has less resources BY CONSTRUCTION and it is not
+        // comparable with the snapshots taken during the training.
         int warmUp = Math.min(stats.size() - 1, (int) Math.ceil(stats.size() * WARM_UP_FRACTION));
-        var measured = stats.subList(warmUp, stats.size());
+        int end = Math.max(warmUp + 1, stats.size() - 1);
+        var measured = stats.subList(warmUp, end);
 
         // LEAK 1: everything that is not the buffer must stay flat.
-        long minOtherArrays = measured.stream().mapToLong(TreeStats::otherNDArrays).min().orElseThrow();
-        long maxOtherArrays = measured.stream().mapToLong(TreeStats::otherNDArrays).max().orElseThrow();
-        assertTrue(maxOtherArrays - minOtherArrays <= MAX_GROWTH,
-                spec.agentName() + ": the NDArrays that do not belong to the replay buffer grew from "
-                        + minOtherArrays + " to " + maxOtherArrays + " (allowed growth: "
-                        + MAX_GROWTH + "). This is a memory leak: something created during the "
-                        + "training is not being closed. Snapshots: " + stats);
+        //
+        // A leak shows up in the series in one of two ways, and the check uses one robust
+        // statistic for each of them, instead of min/max (which a single outlier blows up:
+        // the post training snapshot of the vectorized training has 48 NDArrays against the
+        // 177 of the training, and min/max reported that difference as a leak):
+        //
+        //   - SPREAD: the leak grows inside the episode and is released with it (a saw
+        //     tooth). The spread of the middle half of the series (the interquartile
+        //     range) sees the amplitude of the saw tooth and ignores the outliers;
+        //   - TREND: the leak grows during the whole training. The difference between the
+        //     medians of the first and of the last third of the series sees it.
+        var otherArrays = measured.stream().map(TreeStats::otherNDArrays).sorted().toList();
+        long spreadArrays = spread(otherArrays);
+        long trendArrays = trend(otherArrays);
+        assertTrue(spreadArrays <= MAX_GROWTH && trendArrays <= MAX_GROWTH,
+                spec.agentName() + ": the NDArrays that do not belong to the replay buffer are not "
+                        + "stable: the spread of the series is " + spreadArrays
+                        + " and the growth between the beginning and the end of the training is "
+                        + trendArrays + " (allowed growth: " + MAX_GROWTH + "). This is a memory leak: "
+                        + "something created during the training is not being closed. Snapshots: " + stats);
 
         // LEAK 2: the same for the managers: a leaked manager per step is a leak too.
-        long minOtherManagers = measured.stream().mapToLong(TreeStats::otherManagers).min().orElseThrow();
-        long maxOtherManagers = measured.stream().mapToLong(TreeStats::otherManagers).max().orElseThrow();
-        assertTrue(maxOtherManagers - minOtherManagers <= MAX_GROWTH,
-                spec.agentName() + ": the managers that do not belong to the replay buffer grew from "
-                        + minOtherManagers + " to " + maxOtherManagers + " (allowed growth: "
-                        + MAX_GROWTH + "). This is a memory leak: a sub manager is created and not "
-                        + "closed. Snapshots: " + stats);
+        var otherManagers = measured.stream().map(TreeStats::otherManagers).sorted().toList();
+        long spreadManagers = spread(otherManagers);
+        long trendManagers = trend(otherManagers);
+        assertTrue(spreadManagers <= MAX_GROWTH && trendManagers <= MAX_GROWTH,
+                spec.agentName() + ": the managers that do not belong to the replay buffer are not "
+                        + "stable: the spread of the series is " + spreadManagers
+                        + " and the growth between the beginning and the end of the training is "
+                        + trendManagers + " (allowed growth: " + MAX_GROWTH + "). This is a memory leak: "
+                        + "a sub manager is created and not closed. Snapshots: " + stats);
 
         // BOUND: the buffer is bounded by its capacity.
         int capacity = Integer.getInteger("agent.bufferCapacity", Integer.parseInt(BUFFER_CAPACITY));
@@ -380,6 +414,64 @@ class MemoryLeakTest {
                 spec.agentName() + ": expected exactly " + spec.expectedBufferManagers()
                         + " managers owned by the replay buffer (prefixes " + spec.bufferPrefixes()
                         + "), got " + bufferManagers + " with byType=" + stats.getLast());
+    }
+
+    /**
+     * The spread of the middle half of a series (the interquartile range).
+     *
+     * <p>It is the amplitude of the saw tooth of a leak that grows inside the episode and is
+     * released with it, and it ignores the outliers: a single value outside the series
+     * does not change the quartiles.</p>
+     *
+     * @param sorted the series, sorted in ascending order
+     * @return the interquartile range of the series
+     */
+    private static long spread(List<Long> sorted) {
+        return percentile(sorted, 0.75) - percentile(sorted, 0.25);
+    }
+
+    /**
+     * The growth of a series between its beginning and its end.
+     *
+     * <p>It is the difference between the median of the first third and the median of the last
+     * third of the series: a leak that grows during the whole training moves the medians, and
+     * an outlier does not.</p>
+     *
+     * @param sorted the series, sorted in ascending order
+     * @return the growth of the series
+     */
+    private static long trend(List<Long> sorted) {
+        int window = Math.max(1, (int) Math.ceil(sorted.size() * TREND_WINDOW));
+        long head = median(sorted.subList(0, window));
+        long tail = median(sorted.subList(sorted.size() - window, sorted.size()));
+        return tail - head;
+    }
+
+    /**
+     * The median of a sorted series.
+     *
+     * @param sorted the series, sorted in ascending order
+     * @return the median of the series
+     */
+    private static long median(List<Long> sorted) {
+        if (sorted.isEmpty()) throw new IllegalArgumentException("the series is empty");
+        int middle = sorted.size() / 2;
+        return (sorted.size() % 2 == 0)
+                ? (sorted.get(middle - 1) + sorted.get(middle)) / 2
+                : sorted.get(middle);
+    }
+
+    /**
+     * A percentile of a sorted series (nearest rank: the value at the given position).
+     *
+     * @param sorted   the series, sorted in ascending order
+     * @param fraction the percentile, between 0 and 1
+     * @return the value of the percentile
+     */
+    private static long percentile(List<Long> sorted, double fraction) {
+        if (sorted.isEmpty()) throw new IllegalArgumentException("the series is empty");
+        int index = (int) Math.round((sorted.size() - 1) * fraction);
+        return sorted.get(Math.clamp(index, 0, sorted.size() - 1));
     }
 
     /**

@@ -108,8 +108,9 @@ public class DJLLoss {
         @Cleanup var sub = subMgr(manager, "scoped-back");
         @Cleanup var gradCol = gradient();
         sub.tempAttachAll(arrays);
-        var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays);
-        return manager.ret(lossesVal.stopGradient());
+        var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPredBlock, arrays).stopGradient();
+        lossesVal.attach(manager);
+        return lossesVal;
     }
 
     public static NDArray rawBackwardLoss(final NDManager manager,
@@ -119,8 +120,9 @@ public class DJLLoss {
         @Cleanup var sub = subMgr(manager, "scoped-back");
         @Cleanup var gradCol = gradient();
         var yPred = yPredBlock.get();
-        var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPred);
-        return manager.ret(lossesVal.stopGradient());
+        var lossesVal = evaluate(lossFunc, sub, gradCol, yTarget, yPred).stopGradient();
+        lossesVal.attach(manager);
+        return lossesVal;
     }
 
     /**
